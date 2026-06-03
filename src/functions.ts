@@ -1,5 +1,11 @@
 import { Color3, Color4, HemisphericLight, Mesh, Scene, StandardMaterial, UniversalCamera, Vector3, VertexData } from "@babylonjs/core";
-import { AdvancedDynamicTexture, Control, Rectangle } from "@babylonjs/gui";
+import {
+  AdvancedDynamicTexture,
+  Control,
+  Rectangle,
+  StackPanel,
+  TextBlock,
+} from "@babylonjs/gui";
 import { EYE_HEIGHT, FACES, GRAVITY, JUMP_VELOCITY, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_RADIUS, pressedKeys, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import {
   type AddFaceParams,
@@ -1074,4 +1080,139 @@ export function ensureChunksAroundPlayer(params: {
     chunk.mesh.dispose();
     worldChunks.delete(key);
   }
+}
+
+function color4ToCssRgba(color: Color4, alpha = color.a): string {
+  return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${alpha})`;
+}
+
+export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {
+  const ui = AdvancedDynamicTexture.CreateFullscreenUI("inventory-ui", true, scene);
+
+  const inventoryBlocks: BlockId[] = [
+    BlockId.GrassBlock,
+    BlockId.Dirt,
+    BlockId.Stone,
+    BlockId.Sand,
+    BlockId.Water,
+    BlockId.OakLog,
+    BlockId.OakPlanks,
+    BlockId.Glass,
+    BlockId.Torch,
+  ];
+
+  const slots: Rectangle[] = [];
+  const selectedSlotIndex = { value: 0 };
+
+  const slotCount = inventoryBlocks.length;
+  const screenWidth = window.innerWidth || 1024;
+  const isMobile = screenWidth <= 768;
+
+  const slotSize = Math.max(
+    isMobile ? 34 : 42,
+    Math.min(isMobile ? 44 : 52, Math.floor((screenWidth - 24) / slotCount)),
+  );
+
+  const itemSize = Math.floor(slotSize * 0.58);
+
+  const hotbar = new StackPanel("inventory-hotbar");
+  hotbar.isVertical = false;
+  hotbar.width = `${slotSize * slotCount}px`;
+  hotbar.height = `${slotSize}px`;
+  hotbar.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  hotbar.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+  hotbar.top = isMobile ? "-16px" : "-24px";
+  hotbar.isPointerBlocker = true;
+
+  ui.addControl(hotbar);
+
+  const updateSelectedSlot = (nextSelectedIndex: number): void => {
+    if (nextSelectedIndex < 0 || nextSelectedIndex >= slots.length) {
+      return;
+    }
+
+    selectedSlotIndex.value = nextSelectedIndex;
+
+    for (let index = 0; index < slots.length; index++) {
+      const slot = slots[index];
+      const isSelected = index === selectedSlotIndex.value;
+
+      slot.thickness = isSelected ? 4 : 2;
+      slot.color = isSelected ? "white" : "rgba(160, 160, 160, 0.95)";
+      slot.background = isSelected
+        ? "rgba(90, 90, 90, 0.82)"
+        : "rgba(30, 30, 30, 0.68)";
+    }
+  };
+
+  for (let index = 0; index < slotCount; index++) {
+    const block = inventoryBlocks[index];
+
+    const slot = new Rectangle(`inventory-slot-${index}`);
+    slot.width = `${slotSize}px`;
+    slot.height = `${slotSize}px`;
+    slot.thickness = 2;
+    slot.color = "rgba(160, 160, 160, 0.95)";
+    slot.background = "rgba(30, 30, 30, 0.68)";
+    slot.isPointerBlocker = true;
+
+    slot.onPointerClickObservable.add(() => {
+      updateSelectedSlot(index);
+    });
+
+    const item = new Rectangle(`inventory-item-${index}`);
+    item.width = `${itemSize}px`;
+    item.height = `${itemSize}px`;
+    item.thickness = 1;
+    item.color = "rgba(255, 255, 255, 0.35)";
+    item.background = color4ToCssRgba(
+      getBlockColor(block),
+      block === BlockId.Water ? 0.75 : 1.0,
+    );
+    item.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+    item.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+    item.isPointerBlocker = false;
+
+    const shortcut = new TextBlock(`inventory-shortcut-${index}`);
+    shortcut.text = `${index + 1}`;
+    shortcut.color = "rgba(255, 255, 255, 0.9)";
+    shortcut.fontSize = Math.max(10, Math.floor(slotSize * 0.22));
+    shortcut.width = `${slotSize}px`;
+    shortcut.height = `${slotSize}px`;
+    shortcut.paddingLeft = "4px";
+    shortcut.paddingBottom = "2px";
+    shortcut.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    shortcut.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+    shortcut.isPointerBlocker = false;
+
+    slot.addControl(item);
+    slot.addControl(shortcut);
+
+    slots.push(slot);
+    hotbar.addControl(slot);
+  }
+
+  updateSelectedSlot(0);
+
+  window.addEventListener("keydown", (event) => {
+    const digitMatch = event.code.match(/^Digit([1-9])$/);
+    const numpadMatch = event.code.match(/^Numpad([1-9])$/);
+
+    const selectedNumber = digitMatch?.[1] ?? numpadMatch?.[1];
+
+    if (!selectedNumber) {
+      return;
+    }
+
+    const nextSelectedIndex = Number(selectedNumber) - 1;
+
+    if (nextSelectedIndex >= slotCount) {
+      return;
+    }
+
+    updateSelectedSlot(nextSelectedIndex);
+    event.preventDefault();
+  });
+
+  return ui;
 }

@@ -22,6 +22,7 @@ import {
   initializeCrosshair,
   findDrySpawnPosition,
   ensureChunksAroundPlayer,
+  initializeInventoryBar,
 } from "./functions";
 
 import initializeEvents from "./events";
@@ -125,7 +126,7 @@ const player = generatePlayer(spawn);
 const camera = initializeCamera(scene, player);
 
 initializeCrosshair(scene);
-
+initializeInventoryBar(scene);
 initializeEvents(engine, player, canvas);
 
 await scene.createDefaultXRExperienceAsync({
