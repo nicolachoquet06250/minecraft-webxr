@@ -2,6 +2,7 @@ import type { Engine, Scene, StandardMaterial } from "@babylonjs/core";
 import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
 import type { PlayerPhysics, WorldChunks, DroppedItem } from "./types";
 import { breakBlock } from "./functions";
+import { isMobileMode } from "./mobile-controls";
 
 function handleResize(engine: Engine) {
     return () => engine.resize();
@@ -87,6 +88,11 @@ export default function (
 
   canvas.addEventListener(
     "click",
-    handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems),
+    (e) => {
+      if (isMobileMode()) {
+        return;
+      }
+      handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems)(e);
+    }
   );
 }

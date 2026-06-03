@@ -1375,14 +1375,21 @@ export function addToInventory(player: PlayerPhysics, blockId: BlockId): void {
 
 export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("inventory-ui", true, scene);
+  
+  const screenWidth = window.innerWidth || 1024;
+  const isMobile = screenWidth <= 768;
+
+  if (isMobile) {
+    ui.renderAtIdealSize = true;
+    ui.idealWidth = 1280;
+    ui.idealHeight = 720;
+  }
 
   const slots: Rectangle[] = [];
   const itemIcons: Rectangle[] = [];
   const countTexts: TextBlock[] = [];
 
   const slotCount = 9;
-  const screenWidth = window.innerWidth || 1024;
-  const isMobile = screenWidth <= 768;
 
   const slotSize = Math.max(
     isMobile ? 34 : 42,

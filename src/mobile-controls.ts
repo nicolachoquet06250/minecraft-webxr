@@ -14,26 +14,26 @@ import type { PlayerPhysics } from "./types";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
-const MOVE_JOYSTICK_WIDTH = 58;
-const MOVE_JOYSTICK_HEIGHT = 114;
-const MOVE_JOYSTICK_RADIUS_Y = 50;
+const MOVE_JOYSTICK_WIDTH = 120;
+const MOVE_JOYSTICK_HEIGHT = 220;
+const MOVE_JOYSTICK_RADIUS_Y = 100;
 // @ts-ignore
-const MOVE_JOYSTICK_IDLE_THUMB_Y = -34;
-const MOVE_JOYSTICK_LEFT = 28;
-const MOVE_JOYSTICK_BOTTOM = 88;
+const MOVE_JOYSTICK_IDLE_THUMB_Y = -60;
+const MOVE_JOYSTICK_LEFT = 40;
+const MOVE_JOYSTICK_BOTTOM = 100;
 
-const LOOK_JOYSTICK_SIZE = 112;
-const LOOK_JOYSTICK_RADIUS = 46;
-const LOOK_JOYSTICK_RIGHT = 22;
-const LOOK_JOYSTICK_BOTTOM = 106;
+const LOOK_JOYSTICK_SIZE = 220;
+const LOOK_JOYSTICK_RADIUS = 90;
+const LOOK_JOYSTICK_RIGHT = 40;
+const LOOK_JOYSTICK_BOTTOM = 100;
 
-const JUMP_BUTTON_SIZE = 58;
-const JUMP_BUTTON_RIGHT = 49;
-const JUMP_BUTTON_BOTTOM = 8;
+const JUMP_BUTTON_SIZE = 120;
+const JUMP_BUTTON_RIGHT = 80;
+const JUMP_BUTTON_BOTTOM = 40;
 
 // @ts-ignore
-const MOVE_THUMB_SIZE = 50;
-const LOOK_THUMB_SIZE = 42;
+const MOVE_THUMB_SIZE = 80;
+const LOOK_THUMB_SIZE = 80;
 const MOVE_DEAD_ZONE = 0.18;
 const LOOK_DEAD_ZONE = 0.08;
 const LOOK_SPEED = 2.6;
@@ -300,8 +300,8 @@ export default function initializeMobileControls(
     scene,
   );
   ui.renderAtIdealSize = true;
-  ui.idealWidth = 1920;
-  ui.idealHeight = 1080;
+  ui.idealWidth = 1280;
+  ui.idealHeight = 720;
 
   const moveJoystick = createMoveJoystick();
   moveJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
