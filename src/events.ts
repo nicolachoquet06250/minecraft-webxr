@@ -98,12 +98,12 @@ export default function (
   );
 
   // Add touchstart listener to prevent default browser behavior that might trigger synthetic clicks
-  canvas.addEventListener("touchstart", () => {
+  canvas.addEventListener("touchstart", (e) => {
     if (isMobileMode()) {
         console.log("Canvas touchstart received - blocking destruction on mobile");
-        // if (e.cancelable) {
-        //     e.preventDefault();
-        // }
+        if (e.cancelable) {
+            e.preventDefault();
+        }
     }
-  }, { passive: true });
+  }, { passive: false });
 }
