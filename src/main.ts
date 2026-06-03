@@ -127,6 +127,14 @@ const spawn = findDrySpawnPosition(
 
 const player = generatePlayer(spawn);
 
+// Expose properties for mobile controls
+(player as any)._worldChunks = worldChunks;
+(player as any)._sizeX = sizeX;
+(player as any)._sizeY = sizeY;
+(player as any)._sizeZ = sizeZ;
+(player as any)._material = lightMaterial;
+(player as any)._droppedItems = droppedItems;
+
 const camera = initializeCamera(scene, player);
 
 initializeCrosshair(scene);

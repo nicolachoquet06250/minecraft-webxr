@@ -10,6 +10,7 @@ import {
 } from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
+import { breakBlock } from "./functions";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
@@ -163,6 +164,34 @@ function createJumpButton(): Ellipse {
   return button;
 }
 
+function createBreakButton(): Ellipse {
+  const button = new Ellipse("mobile-break-button");
+  button.width = `${JUMP_BUTTON_SIZE}px`;
+  button.height = `${JUMP_BUTTON_SIZE}px`;
+  button.thickness = 2;
+  button.color = "rgba(255, 255, 255, 0.5)";
+  button.background = "rgba(200, 0, 0, 0.3)";
+  button.alpha = 0.94;
+  button.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+  button.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+  button.left = `-${JUMP_BUTTON_RIGHT + JUMP_BUTTON_SIZE + 20}px`;
+  button.top = `-${JUMP_BUTTON_BOTTOM}px`;
+  button.isPointerBlocker = true;
+
+  const label = new TextBlock("mobile-break-label");
+  label.text = "⛏";
+  label.color = "white";
+  label.fontSize = 32;
+  label.fontWeight = "700";
+  label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  label.isPointerBlocker = false;
+
+  button.addControl(label);
+
+  return button;
+}
+
 function resetMoveState(thumb: Control, state: JoystickState): void {
   state.pointerId = null;
   state.x = 0;
@@ -231,6 +260,9 @@ export default function initializeMobileControls(
   const jumpButton = createJumpButton();
   ui.addControl(jumpButton);
 
+  const breakButton = createBreakButton();
+  ui.addControl(breakButton);
+
   const moveState: JoystickState = {
     pointerId: null,
     origin: { x: 0, y: 0 },
@@ -246,6 +278,36 @@ export default function initializeMobileControls(
   };
 
   let jumpPointerId: number | null = null;
+
+  // Break Button Events
+  let breakPointerId: number | null = null;
+  breakButton.onPointerDownObservable.add((coordinates: any) => {
+    if (breakPointerId === null) {
+      breakPointerId = coordinates.pointerId;
+      breakButton.background = "rgba(255, 0, 0, 0.4)";
+      
+      breakBlock({
+        scene,
+        player,
+        worldChunks: (player as any)._worldChunks, // On va devoir l'exposer
+        sizeX: (player as any)._sizeX,
+        sizeY: (player as any)._sizeY,
+        sizeZ: (player as any)._sizeZ,
+        material: (player as any)._material,
+        droppedItems: (player as any)._droppedItems,
+      });
+    }
+  });
+
+  const resetBreak = (pointerId: number) => {
+    if (breakPointerId === pointerId) {
+      breakPointerId = null;
+      breakButton.background = "rgba(200, 0, 0, 0.3)";
+    }
+  };
+
+  breakButton.onPointerUpObservable.add((coordinates: any) => resetBreak(coordinates.pointerId));
+  breakButton.onPointerOutObservable.add((coordinates: any) => resetBreak(coordinates.pointerId));
 
   // Jump Button Events
   jumpButton.onPointerDownObservable.add((coordinates: any) => {
