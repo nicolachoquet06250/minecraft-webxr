@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:wassm": "cargo install wasm-pack;wasm-pack build --target web --out-dir ../app/src/wasm"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
