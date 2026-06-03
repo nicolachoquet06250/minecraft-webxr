@@ -11,7 +11,7 @@ export const MOUSE_SENSIBILITY = 0.0025;
 
 export const CHUNK_X = 0;
 export const CHUNK_Z = 0;
-export const SPEED = 12345;
+export const SEED = 12345;
 
 export const SPAWN_X = 8;
 export const SPAWN_Z = 8;
@@ -85,3 +85,5 @@ export const FACES: FaceDefinition[] = [
     ],
   },
 ];
+
+export const INITIAL_CHUNK_RADIUS = 3;

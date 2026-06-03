@@ -1,27 +1,49 @@
 import "./style.css";
-import init, * as wasmModule from "../public/wasm/voxel_wasm"
+import init, * as wasmModule from "../public/wasm/voxel_wasm";
 
-import type { VoxelWasmModule } from './types';
+import type { VoxelWasmModule, WorldChunks } from "./types";
 
 import {
-  CHUNK_X, CHUNK_Z, 
-  SPEED, SPAWN_X, 
-  SPAWN_Z
-} from './constants';
+  INITIAL_CHUNK_RADIUS,
+  SEED,
+  SPAWN_X,
+  SPAWN_Z,
+} from "./constants";
+
 import { Color4, Engine, Scene } from "@babylonjs/core";
-import { 
-  findTerrainSpawnY, createChunkMesh, 
-  updatePlayerPhysics, 
+
+import {
+  findTerrainSpawnY,
+  createChunkMesh,
+  updatePlayerPhysics,
   initializeCamera,
   inisializeLight,
-  generatePlayer
+  generatePlayer,
+  getChunkKey,
+  initializeCrosshair,
+  findDrySpawnPosition,
 } from "./functions";
+
 import initializeEvents from "./events";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init();
 
   return wasmModule as unknown as VoxelWasmModule;
+}
+
+function debugBlockDistribution(blocks: Uint8Array): void {
+  const counts = new Map<number, number>();
+
+  for (const block of blocks) {
+    counts.set(block, (counts.get(block) ?? 0) + 1);
+  }
+
+  console.table(
+    [...counts.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([blockId, count]) => ({ blockId, count })),
+  );
 }
 
 const canvas = document.querySelector("#minecraft");
@@ -37,30 +59,74 @@ scene.clearColor = new Color4(0.55, 0.75, 1.0, 1.0);
 
 const lightMaterial = inisializeLight(scene);
 
-const { 
-  generate_chunk, chunk_size_x, 
-  chunk_size_y, chunk_size_z
+const {
+  generate_chunk,
+  chunk_size_x,
+  chunk_size_y,
+  chunk_size_z,
 } = await loadVoxelWasm();
-
-const blocks = generate_chunk(CHUNK_X, CHUNK_Z, SPEED);
 
 const sizeX = chunk_size_x();
 const sizeY = chunk_size_y();
 const sizeZ = chunk_size_z();
 
-const player = generatePlayer(findTerrainSpawnY(blocks, sizeX, sizeY, sizeZ, SPAWN_X, SPAWN_Z));
+const spawnChunkX = Math.floor(SPAWN_X / sizeX);
+const spawnChunkZ = Math.floor(SPAWN_Z / sizeZ);
 
-createChunkMesh({
-  scene,
-  name: "chunk-0-0",
-  blocks,
+const worldChunks: WorldChunks = new Map();
+
+for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
+  for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
+    const chunkX = spawnChunkX + offsetX;
+    const chunkZ = spawnChunkZ + offsetZ;
+
+    const blocks = generate_chunk(chunkX, chunkZ, SEED);
+
+    debugBlockDistribution(blocks);
+
+    worldChunks.set(getChunkKey(chunkX, chunkZ), {
+      chunkX,
+      chunkZ,
+      blocks,
+    });
+
+    createChunkMesh({
+      scene,
+      name: `chunk-${chunkX}-${chunkZ}`,
+      blocks,
+      sizeX,
+      sizeY,
+      sizeZ,
+      chunkX,
+      chunkZ,
+      material: lightMaterial,
+    });
+  }
+}
+
+const spawnChunk = worldChunks.get(getChunkKey(spawnChunkX, spawnChunkZ));
+
+if (!spawnChunk) {
+  throw new Error("Chunk de spawn introuvable");
+}
+
+const spawn = findDrySpawnPosition(
+  worldChunks,
   sizeX,
   sizeY,
   sizeZ,
-  chunkX: CHUNK_X,
-  chunkZ: CHUNK_Z,
-  material: lightMaterial,
-});
+  SPAWN_X,
+  SPAWN_Z,
+  64,
+);
+
+const player = generatePlayer(spawn);
+
+const camera = initializeCamera(scene, player);
+
+initializeCrosshair(scene);
+
+initializeEvents(engine, player, canvas);
 
 await scene.createDefaultXRExperienceAsync({
   floorMeshes: [],
@@ -71,8 +137,8 @@ engine.runRenderLoop(() => {
 
   updatePlayerPhysics({
     player,
-    camera: initializeCamera(scene, player),
-    blocks,
+    camera,
+    worldChunks,
     sizeX,
     sizeY,
     sizeZ,
@@ -81,5 +147,3 @@ engine.runRenderLoop(() => {
 
   scene.render();
 });
-
-initializeEvents(engine, player, canvas);
