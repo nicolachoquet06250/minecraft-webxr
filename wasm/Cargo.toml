@@ -1,0 +1,13 @@
+[package]
+name = "wasm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+noise = "0.9.0"
+wasm-bindgen = "0.2.122"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+# Caused by: crate-type must be cdylib to compile to WebAssembly. Add the following to your Cargo.toml file:
+
