@@ -26,6 +26,7 @@ import {
 } from "./functions";
 
 import initializeEvents from "./events";
+import initializeMobileControls from "./mobile-controls";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init();
@@ -128,6 +129,7 @@ const camera = initializeCamera(scene, player);
 initializeCrosshair(scene);
 initializeInventoryBar(scene);
 initializeEvents(engine, player, canvas);
+initializeMobileControls(player);
 
 await scene.createDefaultXRExperienceAsync({
   floorMeshes: [],
