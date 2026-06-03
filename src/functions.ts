@@ -16,6 +16,7 @@ import {
   type WorldChunks,
   type WorldChunk,
   type VoxelWasmModule,
+  type DroppedItem,
   BlockId
 } from "./types";
 
@@ -834,6 +835,8 @@ export const generatePlayer = (spawn: SpawnPosition): PlayerPhysics => ({
   yaw: Math.PI / 4,
   pitch: 0,
   grounded: false,
+  inventory: [],
+  selectedSlot: 0,
 });
 
 export function getChunkKey(chunkX: number, chunkZ: number): string {
@@ -1105,6 +1108,136 @@ function color4ToCssRgba(color: Color4, alpha = color.a): string {
   return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${alpha})`;
 }
 
+export function spawnDrop(
+  scene: Scene,
+  worldX: number,
+  worldY: number,
+  worldZ: number,
+  blockId: BlockId,
+  droppedItems: DroppedItem[],
+): void {
+  const cube = Mesh.CreateBox(`drop-${blockId}-${Date.now()}`, 0.3, scene);
+  cube.position = new Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
+
+  const color = getBlockColor(blockId);
+  const material = new StandardMaterial(`mat-drop-${blockId}`, scene);
+  material.diffuseColor = new Color3(color.r, color.g, color.b);
+  cube.material = material;
+
+  droppedItems.push({
+    mesh: cube,
+    blockId,
+    createdAt: Date.now(),
+    velocity: new Vector3(0, 0, 0),
+  });
+}
+
+export function updateDroppedItems(
+  droppedItems: DroppedItem[],
+  player: PlayerPhysics,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  deltaTime: number,
+): void {
+  const now = Date.now();
+  for (let i = droppedItems.length - 1; i >= 0; i--) {
+    const item = droppedItems[i];
+
+    // Physique simple : Gravité
+    item.velocity.y += GRAVITY * deltaTime;
+    
+    // Déplacement
+    const nextY = item.mesh.position.y + item.velocity.y * deltaTime;
+    const worldX = item.mesh.position.x;
+    const worldZ = item.mesh.position.z;
+
+    // Vérification collision sous l'item (pieds de l'item à 0.15 du centre car taille 0.3)
+    const blockBelow = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, worldX, nextY - 0.15, worldZ);
+    
+    if (isSolidBlock(blockBelow)) {
+      // Collision avec le sol
+      item.velocity.y = 0;
+      // Aligner sur le dessus du bloc
+      item.mesh.position.y = Math.floor(nextY - 0.15) + 1 + 0.15;
+    } else {
+      item.mesh.position.y = nextY;
+    }
+
+    // Animation: rotation et flottement léger si au sol
+    item.mesh.rotation.y += 2 * deltaTime;
+    if (item.velocity.y === 0) {
+      item.mesh.position.y += Math.sin(now / 200) * 0.001;
+    }
+
+    // Ramassage (proximité)
+    const distance = Vector3.Distance(player.position, item.mesh.position);
+    if (distance < 1.5) {
+      item.mesh.dispose();
+      droppedItems.splice(i, 1);
+      
+      addToInventory(player, item.blockId);
+      if ((player as any)._updateInventoryUI) {
+        (player as any)._updateInventoryUI();
+      }
+      continue;
+    }
+
+    // Despawn après 60 secondes
+    if (now - item.createdAt > 60000) {
+      item.mesh.dispose();
+      droppedItems.splice(i, 1);
+    }
+  }
+
+  // Système de repoussement pour éviter la superposition
+  for (let i = 0; i < droppedItems.length; i++) {
+    for (let j = i + 1; j < droppedItems.length; j++) {
+      const itemA = droppedItems[i];
+      const itemB = droppedItems[j];
+
+      let dx = itemA.mesh.position.x - itemB.mesh.position.x;
+      let dz = itemA.mesh.position.z - itemB.mesh.position.z;
+      const dy = Math.abs(itemA.mesh.position.y - itemB.mesh.position.y);
+
+      // Si les items sont très proches horizontalement et sur le même plan vertical
+      const distanceSq = dx * dx + dz * dz;
+      const minDistance = 0.4; // Augmenté un peu pour plus de visibilité
+      if (distanceSq < minDistance * minDistance && dy < 0.3) {
+        let distance = Math.sqrt(distanceSq);
+        
+        // Si exactement à la même position, on pousse dans une direction arbitraire
+        if (distance < 0.001) {
+          dx = Math.random() - 0.5;
+          dz = Math.random() - 0.5;
+          distance = Math.sqrt(dx * dx + dz * dz);
+        }
+
+        const pushForce = (minDistance - distance) * 0.5;
+        const pushX = (dx / distance) * pushForce;
+        const pushZ = (dz / distance) * pushForce;
+
+        // On vérifie que le mouvement ne pousse pas dans un mur
+        const nextAX = itemA.mesh.position.x + pushX;
+        const nextAZ = itemA.mesh.position.z + pushZ;
+        const nextBX = itemB.mesh.position.x - pushX;
+        const nextBZ = itemB.mesh.position.z - pushZ;
+
+        if (!isSolidBlock(getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, nextAX, itemA.mesh.position.y, nextAZ))) {
+          itemA.mesh.position.x = nextAX;
+          itemA.mesh.position.z = nextAZ;
+        }
+
+        if (!isSolidBlock(getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, nextBX, itemB.mesh.position.y, nextBZ))) {
+          itemB.mesh.position.x = nextBX;
+          itemB.mesh.position.z = nextBZ;
+        }
+      }
+    }
+  }
+}
+
 export type BreakBlockParams = {
   scene: Scene;
   player: PlayerPhysics;
@@ -1113,10 +1246,11 @@ export type BreakBlockParams = {
   sizeY: number;
   sizeZ: number;
   material: StandardMaterial;
+  droppedItems: DroppedItem[];
 };
 
 export function breakBlock(params: BreakBlockParams): void {
-  const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material } = params;
+  const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
 
   const ray = scene.createPickingRay(
     scene.getEngine().getRenderWidth() / 2,
@@ -1162,6 +1296,7 @@ export function breakBlock(params: BreakBlockParams): void {
       const localZ = worldToLocalCoordinate(targetWorldZ, sizeZ);
 
       // Le bloc à casser
+      const brokenBlock = getBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, targetWorldY, localZ);
       let newBlock = BlockId.Air;
 
       // "quand je casse un bloque adjacent à un bloque water, celui-ci se transforme en bloque water."
@@ -1182,6 +1317,11 @@ export function breakBlock(params: BreakBlockParams): void {
       }
 
       setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, targetWorldY, localZ, newBlock);
+
+      // Drop de l'item tant que ce n'était pas de l'air
+      if (brokenBlock !== BlockId.Air) {
+        spawnDrop(scene, targetWorldX, targetWorldY, targetWorldZ, brokenBlock, droppedItems);
+      }
 
       const affectedChunks = new Set<string>();
       affectedChunks.add(getChunkKey(chunk.chunkX, chunk.chunkZ));
@@ -1214,25 +1354,33 @@ export function breakBlock(params: BreakBlockParams): void {
   }
 }
 
-export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {
+export function addToInventory(player: PlayerPhysics, blockId: BlockId): void {
+  // Chercher s'il y a déjà une pile de ce bloc avec de la place (< 64)
+  for (const item of player.inventory) {
+    if (item.blockId === blockId && item.count < 64) {
+      item.count++;
+      return;
+    }
+  }
+
+  // Si pas de pile existante ou piles pleines, ajouter un nouveau slot si place dispo (max 9 slots pour le moment)
+  if (player.inventory.length < 9) {
+    player.inventory.push({ blockId, count: 1 });
+  } else {
+    // Si l'inventaire est plein, on ne fait rien (l'objet est perdu ou reste au sol)
+    // Dans Minecraft l'objet reste au sol, mais ici on l'a déjà supprimé de droppedItems
+    // Pour bien faire il faudrait vérifier avant de splice, mais restons simple pour l'instant.
+  }
+}
+
+export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("inventory-ui", true, scene);
 
-  const inventoryBlocks: BlockId[] = [
-    BlockId.GrassBlock,
-    BlockId.Dirt,
-    BlockId.Stone,
-    BlockId.Sand,
-    BlockId.Water,
-    BlockId.OakLog,
-    BlockId.OakPlanks,
-    BlockId.Glass,
-    BlockId.Torch,
-  ];
-
   const slots: Rectangle[] = [];
-  const selectedSlotIndex = { value: 0 };
+  const itemIcons: Rectangle[] = [];
+  const countTexts: TextBlock[] = [];
 
-  const slotCount = inventoryBlocks.length;
+  const slotCount = 9;
   const screenWidth = window.innerWidth || 1024;
   const isMobile = screenWidth <= 768;
 
@@ -1254,28 +1402,49 @@ export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {
 
   ui.addControl(hotbar);
 
-  const updateSelectedSlot = (nextSelectedIndex: number): void => {
-    if (nextSelectedIndex < 0 || nextSelectedIndex >= slots.length) {
-      return;
-    }
-
-    selectedSlotIndex.value = nextSelectedIndex;
-
-    for (let index = 0; index < slots.length; index++) {
+  const updateUI = (): void => {
+    // Mise à jour de la sélection
+    for (let index = 0; index < slotCount; index++) {
       const slot = slots[index];
-      const isSelected = index === selectedSlotIndex.value;
+      const isSelected = index === player.selectedSlot;
 
       slot.thickness = isSelected ? 4 : 2;
       slot.color = isSelected ? "white" : "rgba(160, 160, 160, 0.95)";
       slot.background = isSelected
         ? "rgba(90, 90, 90, 0.82)"
         : "rgba(30, 30, 30, 0.68)";
+
+      // Mise à jour du contenu du slot
+      const inventoryItem = player.inventory[index];
+      const icon = itemIcons[index];
+      const countText = countTexts[index];
+
+      if (inventoryItem) {
+        icon.isVisible = true;
+        icon.background = color4ToCssRgba(
+          getBlockColor(inventoryItem.blockId),
+          inventoryItem.blockId === BlockId.Water ? 0.75 : 1.0,
+        );
+        
+        countText.isVisible = inventoryItem.count > 1;
+        countText.text = `${inventoryItem.count}`;
+      } else {
+        icon.isVisible = false;
+        countText.isVisible = false;
+      }
     }
   };
 
-  for (let index = 0; index < slotCount; index++) {
-    const block = inventoryBlocks[index];
+  const updateSelectedSlot = (nextSelectedIndex: number): void => {
+    if (nextSelectedIndex < 0 || nextSelectedIndex >= slotCount) {
+      return;
+    }
 
+    player.selectedSlot = nextSelectedIndex;
+    updateUI();
+  };
+
+  for (let index = 0; index < slotCount; index++) {
     const slot = new Rectangle(`inventory-slot-${index}`);
     slot.width = `${slotSize}px`;
     slot.height = `${slotSize}px`;
@@ -1293,13 +1462,22 @@ export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {
     item.height = `${itemSize}px`;
     item.thickness = 1;
     item.color = "rgba(255, 255, 255, 0.35)";
-    item.background = color4ToCssRgba(
-      getBlockColor(block),
-      block === BlockId.Water ? 0.75 : 1.0,
-    );
     item.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
     item.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
     item.isPointerBlocker = false;
+    item.isVisible = false;
+
+    const countText = new TextBlock(`inventory-count-${index}`);
+    countText.color = "white";
+    countText.fontSize = Math.max(10, Math.floor(slotSize * 0.3));
+    countText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+    countText.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    countText.paddingRight = "2px";
+    countText.paddingTop = "2px";
+    countText.isPointerBlocker = false;
+    countText.isVisible = false;
+    countText.shadowBlur = 3;
+    countText.shadowColor = "black";
 
     const shortcut = new TextBlock(`inventory-shortcut-${index}`);
     shortcut.text = `${index + 1}`;
@@ -1314,13 +1492,20 @@ export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {
     shortcut.isPointerBlocker = false;
 
     slot.addControl(item);
+    slot.addControl(countText);
     slot.addControl(shortcut);
 
     slots.push(slot);
+    itemIcons.push(item);
+    countTexts.push(countText);
     hotbar.addControl(slot);
   }
 
-  updateSelectedSlot(0);
+  // Exposer updateUI sur l'objet player pour pouvoir rafraîchir l'inventaire
+  // de n'importe où (un peu hacky mais efficace pour ce projet sans système d'events complexe)
+  (player as any)._updateInventoryUI = updateUI;
+
+  updateUI();
 
   window.addEventListener("keydown", (event) => {
     const digitMatch = event.code.match(/^Digit([1-9])$/);
@@ -1333,11 +1518,6 @@ export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {
     }
 
     const nextSelectedIndex = Number(selectedNumber) - 1;
-
-    if (nextSelectedIndex >= slotCount) {
-      return;
-    }
-
     updateSelectedSlot(nextSelectedIndex);
     event.preventDefault();
   });

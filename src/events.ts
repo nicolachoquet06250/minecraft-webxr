@@ -1,6 +1,6 @@
 import type { Engine, Scene, StandardMaterial } from "@babylonjs/core";
 import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
-import type { PlayerPhysics, WorldChunks } from "./types";
+import type { PlayerPhysics, WorldChunks, DroppedItem } from "./types";
 import { breakBlock } from "./functions";
 
 function handleResize(engine: Engine) {
@@ -45,6 +45,7 @@ function handleClick(
   sizeY: number,
   sizeZ: number,
   material: StandardMaterial,
+  droppedItems: DroppedItem[],
 ): (e: MouseEvent) => any {
   return async function () {
     if (document.pointerLockElement !== canvas) {
@@ -58,6 +59,7 @@ function handleClick(
         sizeY,
         sizeZ,
         material,
+        droppedItems,
       });
     }
   };
@@ -73,6 +75,7 @@ export default function (
   sizeY: number,
   sizeZ: number,
   material: StandardMaterial,
+  droppedItems: DroppedItem[],
 ) {
   new ResizeObserver(handleResize(engine)).observe(window.document.body);
 
@@ -84,6 +87,6 @@ export default function (
 
   canvas.addEventListener(
     "click",
-    handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material),
+    handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems),
   );
 }

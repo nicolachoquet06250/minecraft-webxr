@@ -1,11 +1,18 @@
 import type { Mesh, Scene, StandardMaterial, UniversalCamera, Vector3 } from "@babylonjs/core";
 
+export type InventoryItem = {
+  blockId: BlockId;
+  count: number;
+};
+
 export type PlayerPhysics = {
   position: Vector3;
   velocity: Vector3;
   yaw: number;
   pitch: number;
   grounded: boolean;
+  inventory: InventoryItem[];
+  selectedSlot: number;
 };
 
 export type VoxelWasmModule = {
@@ -203,6 +210,13 @@ export type WorldChunk = {
 };
 
 export type WorldChunks = Map<string, WorldChunk>;
+
+export type DroppedItem = {
+  mesh: Mesh;
+  blockId: BlockId;
+  createdAt: number;
+  velocity: Vector3;
+};
 
 export type SpawnPosition = {
   x: number;

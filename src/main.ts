@@ -2,7 +2,7 @@ import "./style.css";
 import init, * as wasmModule from "~/assets/wasm/voxel_wasm";
 import voxelWasmUrl from "~/assets/wasm/voxel_wasm_bg.wasm?url";
 
-import type { VoxelWasmModule, WorldChunks } from "./types";
+import type { VoxelWasmModule, WorldChunks, DroppedItem } from "./types";
 
 import {
   INITIAL_CHUNK_RADIUS,
@@ -24,6 +24,7 @@ import {
   findDrySpawnPosition,
   ensureChunksAroundPlayer,
   initializeInventoryBar,
+  updateDroppedItems,
 } from "./functions";
 
 import initializeEvents from "./events";
@@ -76,6 +77,7 @@ const spawnChunkX = Math.floor(SPAWN_X / sizeX);
 const spawnChunkZ = Math.floor(SPAWN_Z / sizeZ);
 
 const worldChunks: WorldChunks = new Map();
+const droppedItems: DroppedItem[] = [];
 
 for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
   for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
@@ -128,7 +130,7 @@ const player = generatePlayer(spawn);
 const camera = initializeCamera(scene, player);
 
 initializeCrosshair(scene);
-initializeInventoryBar(scene);
+initializeInventoryBar(scene, player);
 initializeEvents(
   engine,
   player,
@@ -139,6 +141,7 @@ initializeEvents(
   sizeY,
   sizeZ,
   lightMaterial,
+  droppedItems,
 );
 initializeMobileControls(scene, player);
 
@@ -169,6 +172,8 @@ engine.runRenderLoop(() => {
     sizeY,
     sizeZ,
   });
+
+  updateDroppedItems(droppedItems, player, worldChunks, sizeX, sizeY, sizeZ, deltaTime);
 
   scene.render();
 });
