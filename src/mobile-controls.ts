@@ -60,8 +60,9 @@ type EllipseZone = {
 
 function isMobileMode(): boolean {
   return (
-    navigator.maxTouchPoints > 0 &&
-    window.matchMedia(MOBILE_MEDIA_QUERY).matches
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia(MOBILE_MEDIA_QUERY).matches ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   );
 }
 
@@ -280,6 +281,9 @@ export default function initializeMobileControls(
     true,
     scene,
   );
+  ui.renderAtIdealSize = true;
+  ui.idealWidth = 1920;
+  ui.idealHeight = 1080;
 
   const moveJoystick = createMoveJoystick();
   moveJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
