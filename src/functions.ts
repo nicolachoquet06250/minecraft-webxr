@@ -7,6 +7,7 @@ import {
   TextBlock,
 } from "@babylonjs/gui";
 import { EYE_HEIGHT, FACES, GRAVITY, JUMP_VELOCITY, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_RADIUS, pressedKeys, RENDER_CHUNK_RADIUS, SEED } from "./constants";
+import { isMobileMode } from "./mobile-controls";
 import {
   type AddFaceParams,
   type CreateChunkMeshParams,
@@ -1376,8 +1377,7 @@ export function addToInventory(player: PlayerPhysics, blockId: BlockId): void {
 export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("inventory-ui", true, scene);
   
-  const screenWidth = window.innerWidth || 1024;
-  const isMobile = screenWidth <= 768;
+  const isMobile = isMobileMode();
 
   if (isMobile) {
     ui.renderAtIdealSize = true;
@@ -1390,6 +1390,7 @@ export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): Adv
   const countTexts: TextBlock[] = [];
 
   const slotCount = 9;
+  const screenWidth = window.innerWidth || 1024;
 
   const slotSize = Math.max(
     isMobile ? 34 : 42,

@@ -51,11 +51,13 @@ type JoystickState = {
 };
 
 export function isMobileMode(): boolean {
-  const isMobile = (
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia(MOBILE_MEDIA_QUERY).matches ||
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  );
+  const hasTouch = navigator.maxTouchPoints > 0;
+  const isCoarse = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // Pour être en mode mobile, on veut un UserAgent mobile ET (du tactile ou la media query)
+  // Cela évite que les PC portables avec écran tactile soient détectés comme mobiles.
+  const isMobile = isMobileUA && (hasTouch || isCoarse);
 
   // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
   const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
@@ -64,16 +66,10 @@ export function isMobileMode(): boolean {
 }
 
 export function isVRMode(): boolean {
-  const isMobile = (
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia(MOBILE_MEDIA_QUERY).matches ||
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  );
-
-  // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
 
-  return isMobile && isVRHeadset;
+  return isMobileUA && isVRHeadset;
 }
 
 function clamp(value: number, min: number, max: number): number {
