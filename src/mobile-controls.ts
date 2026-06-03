@@ -14,26 +14,26 @@ import type { PlayerPhysics } from "./types";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
-const MOVE_JOYSTICK_WIDTH = 120;
-const MOVE_JOYSTICK_HEIGHT = 220;
-const MOVE_JOYSTICK_RADIUS_Y = 100;
+const MOVE_JOYSTICK_WIDTH = 100;
+const MOVE_JOYSTICK_HEIGHT = 180;
+const MOVE_JOYSTICK_RADIUS_Y = 80;
 // @ts-ignore
-const MOVE_JOYSTICK_IDLE_THUMB_Y = -60;
-const MOVE_JOYSTICK_LEFT = 40;
-const MOVE_JOYSTICK_BOTTOM = 100;
+const MOVE_JOYSTICK_IDLE_THUMB_Y = -50;
+const MOVE_JOYSTICK_LEFT = 30;
+const MOVE_JOYSTICK_BOTTOM = 140;
 
-const LOOK_JOYSTICK_SIZE = 220;
-const LOOK_JOYSTICK_RADIUS = 90;
-const LOOK_JOYSTICK_RIGHT = 40;
-const LOOK_JOYSTICK_BOTTOM = 100;
+const LOOK_JOYSTICK_SIZE = 180;
+const LOOK_JOYSTICK_RADIUS = 75;
+const LOOK_JOYSTICK_RIGHT = 30;
+const LOOK_JOYSTICK_BOTTOM = 140;
 
-const JUMP_BUTTON_SIZE = 120;
-const JUMP_BUTTON_RIGHT = 80;
+const JUMP_BUTTON_SIZE = 90;
+const JUMP_BUTTON_RIGHT = 60;
 const JUMP_BUTTON_BOTTOM = 40;
 
 // @ts-ignore
-const MOVE_THUMB_SIZE = 80;
-const LOOK_THUMB_SIZE = 80;
+const MOVE_THUMB_SIZE = 60;
+const LOOK_THUMB_SIZE = 60;
 const MOVE_DEAD_ZONE = 0.18;
 const LOOK_DEAD_ZONE = 0.08;
 const LOOK_SPEED = 2.6;
@@ -314,7 +314,7 @@ export default function initializeMobileControls(
   lookJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
   lookJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
   lookJoystick.root.left = `-${LOOK_JOYSTICK_RIGHT}px`;
-  lookJoystick.root.top = `-${LOOK_JOYSTICK_BOTTOM - 15}px`;
+  lookJoystick.root.top = `-${LOOK_JOYSTICK_BOTTOM}px`;
   ui.addControl(lookJoystick.root);
 
   const jumpButton = createJumpButton();
@@ -362,6 +362,7 @@ export default function initializeMobileControls(
       if (jumpPointerId === null && containsPoint(getJumpButtonZone(scene), position)) {
         jumpPointerId = event.pointerId;
         pressedKeys.add("Space");
+        jumpButton.background = "rgba(255, 255, 255, 0.4)";
         event.preventDefault();
       }
 
@@ -422,6 +423,7 @@ export default function initializeMobileControls(
       if (jumpPointerId === event.pointerId) {
         jumpPointerId = null;
         pressedKeys.delete("Space");
+        jumpButton.background = "rgba(0, 0, 0, 0.3)";
         event.preventDefault();
       }
     }
