@@ -6,7 +6,7 @@ import {
   AdvancedDynamicTexture,
   Control,
   Ellipse,
-  Rectangle,
+  Image,
   TextBlock,
 } from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
@@ -14,14 +14,12 @@ import type { PlayerPhysics } from "./types";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
-const MOVE_JOYSTICK_WIDTH = 76;
-const MOVE_JOYSTICK_HEIGHT = 142;
-const MOVE_JOYSTICK_BODY_WIDTH = 58;
-const MOVE_JOYSTICK_BODY_HEIGHT = 112;
-const MOVE_JOYSTICK_RADIUS_Y = MOVE_JOYSTICK_HEIGHT / 2;
-const MOVE_JOYSTICK_IDLE_THUMB_Y = -42;
-const MOVE_JOYSTICK_LEFT = 24;
-const MOVE_JOYSTICK_BOTTOM = 82;
+const MOVE_JOYSTICK_WIDTH = 58;
+const MOVE_JOYSTICK_HEIGHT = 114;
+const MOVE_JOYSTICK_RADIUS_Y = 50;
+const MOVE_JOYSTICK_IDLE_THUMB_Y = -34;
+const MOVE_JOYSTICK_LEFT = 28;
+const MOVE_JOYSTICK_BOTTOM = 88;
 
 const LOOK_JOYSTICK_SIZE = 112;
 const LOOK_JOYSTICK_RADIUS = 46;
@@ -32,7 +30,7 @@ const JUMP_BUTTON_SIZE = 58;
 const JUMP_BUTTON_RIGHT = 49;
 const JUMP_BUTTON_BOTTOM = 8;
 
-const THUMB_SIZE = 48;
+const MOVE_THUMB_SIZE = 50;
 const LOOK_THUMB_SIZE = 42;
 const MOVE_DEAD_ZONE = 0.18;
 const LOOK_DEAD_ZONE = 0.08;
@@ -179,40 +177,36 @@ function createLookJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
   return { root, thumb };
 }
 
-function createMoveJoystick(): { root: Rectangle; thumb: Ellipse } {
-  const root = new Rectangle("mobile-move-joystick-root");
+function createMoveJoystickSvg(): string {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="58" height="114" viewBox="0 0 58 114">
+      <path
+        d="M12 39 C18 49 39 49 46 35 L56 82 C59 99 47 114 29 114 C11 114 -1 99 2 82 Z"
+        fill="rgba(0, 0, 0, 0.30)"
+      />
+      <circle
+        cx="29"
+        cy="27"
+        r="25"
+        fill="rgba(255, 255, 255, 0.88)"
+        stroke="rgba(255, 255, 255, 0.55)"
+        stroke-width="2"
+      />
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function createMoveJoystick(): { root: Image; thumb: Image } {
+  const root = new Image("mobile-move-joystick", createMoveJoystickSvg());
   root.width = `${MOVE_JOYSTICK_WIDTH}px`;
   root.height = `${MOVE_JOYSTICK_HEIGHT}px`;
-  root.thickness = 0;
-  root.background = "transparent";
+  root.stretch = Image.STRETCH_FILL;
   root.alpha = 0.94;
   root.isPointerBlocker = false;
 
-  const body = new Ellipse("mobile-move-joystick-body");
-  body.width = `${MOVE_JOYSTICK_BODY_WIDTH}px`;
-  body.height = `${MOVE_JOYSTICK_BODY_HEIGHT}px`;
-  body.top = "20px";
-  body.thickness = 0;
-  body.background = "rgba(0, 0, 0, 0.30)";
-  body.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-  body.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-  body.isPointerBlocker = false;
-
-  const thumb = new Ellipse("mobile-move-joystick-thumb");
-  thumb.width = `${THUMB_SIZE}px`;
-  thumb.height = `${THUMB_SIZE}px`;
-  thumb.top = `${MOVE_JOYSTICK_IDLE_THUMB_Y}px`;
-  thumb.thickness = 2;
-  thumb.color = "rgba(255, 255, 255, 0.55)";
-  thumb.background = "rgba(255, 255, 255, 0.88)";
-  thumb.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-  thumb.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-  thumb.isPointerBlocker = false;
-
-  root.addControl(body);
-  root.addControl(thumb);
-
-  return { root, thumb };
+  return { root, thumb: root };
 }
 
 function createJumpButton(): Ellipse {
@@ -250,7 +244,7 @@ function resetMoveState(thumb: Control, state: JoystickState): void {
   pressedKeys.delete("KeyW");
   pressedKeys.delete("KeyS");
   thumb.left = "0px";
-  thumb.top = `${MOVE_JOYSTICK_IDLE_THUMB_Y}px`;
+  thumb.top = "0px";
 }
 
 function updateMoveKeys(y: number): void {
