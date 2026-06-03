@@ -129,7 +129,7 @@ const camera = initializeCamera(scene, player);
 initializeCrosshair(scene);
 initializeInventoryBar(scene);
 initializeEvents(engine, player, canvas);
-initializeMobileControls(player);
+initializeMobileControls(scene, player);
 
 await scene.createDefaultXRExperienceAsync({
   floorMeshes: [],
