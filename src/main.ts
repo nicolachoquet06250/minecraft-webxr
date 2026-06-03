@@ -28,7 +28,7 @@ import {
 } from "./functions";
 
 import initializeEvents from "./events";
-import initializeMobileControls, { isMobileMode, isVRMode } from "./mobile-controls";
+import initializeMobileControls, { isVRMode } from "./mobile-controls";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init(voxelWasmUrl);
