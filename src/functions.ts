@@ -552,7 +552,7 @@ export function getBlockColor(block: BlockId): Color4 {
     case BlockId.DarkOakLog:
     case BlockId.MangroveLog:
     case BlockId.CherryLog:
-      return new Color4(0.38, 0.22, 0.1, 1.0);
+      return new Color4(0.25, 0.15, 0.05, 1.0);
 
     case BlockId.OakLeaves:
     case BlockId.BirchLeaves:

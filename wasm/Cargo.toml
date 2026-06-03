@@ -1,5 +1,7 @@
 [package]
 name = "voxel_wasm"
+description = "Lib webassembly pour gérer les parties lourdes en calcule du jeu"
+repository = "https://github.com/nicolachoquet06250/minecraft-webxr.git"
 version = "0.1.0"
 edition = "2024"
 
