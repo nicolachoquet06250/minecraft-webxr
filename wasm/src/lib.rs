@@ -228,6 +228,7 @@ pub fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
                             world_y,
                             world_z,
                             height,
+                            sea_level,
                             biome,
                             &ore_noise,
                         )
@@ -240,11 +241,12 @@ pub fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
 
             let decoration_y = height + 1;
 
-            if decoration_y > 0 && decoration_y < CHUNK_SIZE_Y as i32 {
+            if height >= sea_level && decoration_y > 0 && decoration_y < CHUNK_SIZE_Y as i32 {
                 let decoration = surface_decoration_block(
                     world_x,
                     world_z,
                     height,
+                    sea_level,
                     biome,
                     &decoration_noise,
                 );
@@ -285,9 +287,14 @@ fn surface_decoration_block(
     world_x: i32,
     world_z: i32,
     surface_y: i32,
+    sea_level: i32,
     biome: BiomeId,
     decoration_noise: &Perlin,
 ) -> BlockId {
+    if surface_y < sea_level {
+        return BlockId::Air;
+    }
+
     let x = world_x as f64;
     let z = world_z as f64;
 
@@ -382,11 +389,12 @@ fn generate_underground_block(
     world_y: i32,
     world_z: i32,
     terrain_height: i32,
+    sea_level: i32,
     biome: BiomeId,
     ore_noise: &Perlin,
 ) -> BlockId {
     if world_y == terrain_height {
-        return generate_surface_block(biome);
+        return generate_surface_block_at_height(biome, terrain_height, sea_level);
     }
 
     if world_y == terrain_height - 1 && biome == BiomeId::Snowy {
@@ -394,10 +402,42 @@ fn generate_underground_block(
     }
 
     if world_y >= terrain_height - 4 {
-        return generate_subsurface_block(biome);
+        return generate_subsurface_block_at_height(biome, terrain_height, sea_level);
     }
 
     generate_deep_block(world_x, world_y, world_z, ore_noise)
+}
+
+fn generate_surface_block_at_height(
+    biome: BiomeId,
+    terrain_height: i32,
+    sea_level: i32,
+) -> BlockId {
+    if terrain_height < sea_level {
+        return match biome {
+            BiomeId::Plains => BlockId::Stone,
+            BiomeId::Desert => BlockId::Sand,
+            BiomeId::Snowy => BlockId::Clay,
+        };
+    }
+
+    generate_surface_block(biome)
+}
+
+fn generate_subsurface_block_at_height(
+    biome: BiomeId,
+    terrain_height: i32,
+    sea_level: i32,
+) -> BlockId {
+    if terrain_height < sea_level {
+        return match biome {
+            BiomeId::Plains => BlockId::Stone,
+            BiomeId::Desert => BlockId::Sand,
+            BiomeId::Snowy => BlockId::Clay,
+        };
+    }
+
+    generate_subsurface_block(biome)
 }
 
 fn generate_surface_block(biome: BiomeId) -> BlockId {
