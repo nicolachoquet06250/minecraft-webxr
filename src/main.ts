@@ -28,7 +28,7 @@ import {
 } from "./functions";
 
 import initializeEvents from "./events";
-import initializeMobileControls from "./mobile-controls";
+import initializeMobileControls, { isVRMode } from "./mobile-controls";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init(voxelWasmUrl);
@@ -145,9 +145,11 @@ initializeEvents(
 );
 initializeMobileControls(scene, player);
 
-await scene.createDefaultXRExperienceAsync({
-  floorMeshes: [],
-});
+if (isVRMode()) {
+    await scene.createDefaultXRExperienceAsync({
+        floorMeshes: [],
+    });
+}
 
 engine.runRenderLoop(() => {
   const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);

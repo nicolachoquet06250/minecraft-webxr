@@ -58,12 +58,30 @@ type EllipseZone = {
   radiusY: number;
 };
 
-function isMobileMode(): boolean {
-  return (
+export function isMobileMode(): boolean {
+  const isMobile = (
     navigator.maxTouchPoints > 0 ||
     window.matchMedia(MOBILE_MEDIA_QUERY).matches ||
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   );
+
+  // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
+  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+
+  return isMobile && !isVRHeadset;
+}
+
+export function isVRMode(): boolean {
+  const isMobile = (
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia(MOBILE_MEDIA_QUERY).matches ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  );
+
+  // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
+  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+
+  return isMobile && isVRHeadset;
 }
 
 function clamp(value: number, min: number, max: number): number {
