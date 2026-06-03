@@ -6,7 +6,6 @@ import {
   AdvancedDynamicTexture,
   Control,
   Ellipse,
-  Image,
   Rectangle,
   TextBlock,
 } from "@babylonjs/gui";
@@ -18,6 +17,7 @@ const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 const MOVE_JOYSTICK_WIDTH = 58;
 const MOVE_JOYSTICK_HEIGHT = 114;
 const MOVE_JOYSTICK_RADIUS_Y = 50;
+// @ts-ignore
 const MOVE_JOYSTICK_IDLE_THUMB_Y = -34;
 const MOVE_JOYSTICK_LEFT = 28;
 const MOVE_JOYSTICK_BOTTOM = 88;
@@ -31,6 +31,7 @@ const JUMP_BUTTON_SIZE = 58;
 const JUMP_BUTTON_RIGHT = 49;
 const JUMP_BUTTON_BOTTOM = 8;
 
+// @ts-ignore
 const MOVE_THUMB_SIZE = 50;
 const LOOK_THUMB_SIZE = 42;
 const MOVE_DEAD_ZONE = 0.18;

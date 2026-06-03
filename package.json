@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
+    "dev": "npm run build:wasm && vite",
+    "build": "npm run build:wasm && tsc && vite build",
     "preview": "vite preview",
-    "build:wasm": "cargo install wasm-pack;cd wasm && cargo test && wasm-pack build --target web --out-dir ../public/wasm"
+    "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

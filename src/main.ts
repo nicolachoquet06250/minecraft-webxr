@@ -1,5 +1,6 @@
 import "./style.css";
-import init, * as wasmModule from "../public/wasm/voxel_wasm";
+import init, * as wasmModule from "~/assets/wasm/voxel_wasm";
+import voxelWasmUrl from "~/assets/wasm/voxel_wasm_bg.wasm?url";
 
 import type { VoxelWasmModule, WorldChunks } from "./types";
 
@@ -29,7 +30,7 @@ import initializeEvents from "./events";
 import initializeMobileControls from "./mobile-controls";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
-  await init();
+  await init(voxelWasmUrl);
 
   return wasmModule as unknown as VoxelWasmModule;
 }
