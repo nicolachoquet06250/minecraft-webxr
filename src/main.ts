@@ -13,7 +13,6 @@ import {
 import { Color4, Engine, Scene } from "@babylonjs/core";
 
 import {
-  findTerrainSpawnY,
   createChunkMesh,
   updatePlayerPhysics,
   initializeCamera,
@@ -22,6 +21,7 @@ import {
   getChunkKey,
   initializeCrosshair,
   findDrySpawnPosition,
+  ensureChunksAroundPlayer,
 } from "./functions";
 
 import initializeEvents from "./events";
@@ -59,12 +59,11 @@ scene.clearColor = new Color4(0.55, 0.75, 1.0, 1.0);
 
 const lightMaterial = inisializeLight(scene);
 
+const wasm = await loadVoxelWasm();
 const {
-  generate_chunk,
-  chunk_size_x,
-  chunk_size_y,
-  chunk_size_z,
-} = await loadVoxelWasm();
+  generate_chunk, chunk_size_x,
+  chunk_size_y, chunk_size_z
+} = wasm;
 
 const sizeX = chunk_size_x();
 const sizeY = chunk_size_y();
@@ -84,13 +83,7 @@ for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offse
 
     debugBlockDistribution(blocks);
 
-    worldChunks.set(getChunkKey(chunkX, chunkZ), {
-      chunkX,
-      chunkZ,
-      blocks,
-    });
-
-    createChunkMesh({
+    const mesh = createChunkMesh({
       scene,
       name: `chunk-${chunkX}-${chunkZ}`,
       blocks,
@@ -100,6 +93,13 @@ for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offse
       chunkX,
       chunkZ,
       material: lightMaterial,
+    });
+
+    worldChunks.set(getChunkKey(chunkX, chunkZ), {
+      chunkX,
+      chunkZ,
+      blocks,
+      mesh,
     });
   }
 }
@@ -143,6 +143,17 @@ engine.runRenderLoop(() => {
     sizeY,
     sizeZ,
     deltaTime,
+  });
+
+  ensureChunksAroundPlayer({
+    scene,
+    worldChunks,
+    wasm,
+    material: lightMaterial,
+    player,
+    sizeX,
+    sizeY,
+    sizeZ,
   });
 
   scene.render();

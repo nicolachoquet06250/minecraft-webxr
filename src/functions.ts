@@ -1,6 +1,6 @@
-import { Color3, Color4, HemisphericLight, Mesh, Scene, StandardMaterial, UniversalCamera, Vector3, Vector3DistanceSquared, VertexData } from "@babylonjs/core";
+import { Color3, Color4, HemisphericLight, Mesh, Scene, StandardMaterial, UniversalCamera, Vector3, VertexData } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle } from "@babylonjs/gui";
-import { EYE_HEIGHT, FACES, GRAVITY, JUMP_VELOCITY, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_RADIUS, pressedKeys } from "./constants";
+import { EYE_HEIGHT, FACES, GRAVITY, JUMP_VELOCITY, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_RADIUS, pressedKeys, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import {
   type AddFaceParams,
   type CreateChunkMeshParams,
@@ -9,7 +9,8 @@ import {
   type UpdatePlayerPhysicsParams,
   type WorldChunks,
   type WorldChunk,
-  BlockId,
+  type VoxelWasmModule,
+  BlockId
 } from "./types";
 
 export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
@@ -901,4 +902,84 @@ function findDrySpawnYAt(
   }
 
   return null;
+}
+
+export function getCurrentChunkCoordinate(
+  worldPosition: number,
+  chunkSize: number,
+): number {
+  return Math.floor(worldPosition / chunkSize);
+}
+
+export function ensureChunksAroundPlayer(params: {
+  scene: Scene;
+  worldChunks: WorldChunks;
+  wasm: Pick<VoxelWasmModule, "generate_chunk">;
+  material: StandardMaterial;
+  player: PlayerPhysics;
+  sizeX: number;
+  sizeY: number;
+  sizeZ: number;
+  radius?: number;
+}): void {
+  const {
+    scene,
+    worldChunks,
+    wasm,
+    material,
+    player,
+    sizeX,
+    sizeY,
+    sizeZ,
+    radius = RENDER_CHUNK_RADIUS,
+  } = params;
+
+  const centerChunkX = getCurrentChunkCoordinate(player.position.x, sizeX);
+  const centerChunkZ = getCurrentChunkCoordinate(player.position.z, sizeZ);
+
+  const requiredChunkKeys = new Set<string>();
+
+  for (let offsetZ = -radius; offsetZ <= radius; offsetZ++) {
+    for (let offsetX = -radius; offsetX <= radius; offsetX++) {
+      const chunkX = centerChunkX + offsetX;
+      const chunkZ = centerChunkZ + offsetZ;
+      const key = getChunkKey(chunkX, chunkZ);
+
+      requiredChunkKeys.add(key);
+
+      if (worldChunks.has(key)) {
+        continue;
+      }
+
+      const blocks = wasm.generate_chunk(chunkX, chunkZ, SEED);
+
+      const mesh = createChunkMesh({
+        scene,
+        name: `chunk-${chunkX}-${chunkZ}`,
+        blocks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        chunkX,
+        chunkZ,
+        material,
+      });
+
+      worldChunks.set(key, {
+        chunkX,
+        chunkZ,
+        blocks,
+        mesh,
+      });
+    }
+  }
+
+  for (const [key, chunk] of worldChunks.entries()) {
+    if (requiredChunkKeys.has(key)) {
+      continue;
+    }
+
+    chunk.mesh.dispose();
+    worldChunks.delete(key);
+  }
 }

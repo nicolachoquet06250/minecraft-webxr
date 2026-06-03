@@ -1,4 +1,4 @@
-import type { Scene, StandardMaterial, UniversalCamera, Vector3 } from "@babylonjs/core";
+import type { Mesh, Scene, StandardMaterial, UniversalCamera, Vector3 } from "@babylonjs/core";
 
 export type PlayerPhysics = {
   position: Vector3;
@@ -199,6 +199,7 @@ export type WorldChunk = {
   chunkX: number;
   chunkZ: number;
   blocks: Uint8Array;
+  mesh: Mesh;
 };
 
 export type WorldChunks = Map<string, WorldChunk>;

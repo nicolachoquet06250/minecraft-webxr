@@ -87,3 +87,4 @@ export const FACES: FaceDefinition[] = [
 ];
 
 export const INITIAL_CHUNK_RADIUS = 3;
+export const RENDER_CHUNK_RADIUS = INITIAL_CHUNK_RADIUS;
