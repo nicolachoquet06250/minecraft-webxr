@@ -129,7 +129,17 @@ const camera = initializeCamera(scene, player);
 
 initializeCrosshair(scene);
 initializeInventoryBar(scene);
-initializeEvents(engine, player, canvas);
+initializeEvents(
+  engine,
+  player,
+  canvas,
+  scene,
+  worldChunks,
+  sizeX,
+  sizeY,
+  sizeZ,
+  lightMaterial,
+);
 initializeMobileControls(scene, player);
 
 await scene.createDefaultXRExperienceAsync({

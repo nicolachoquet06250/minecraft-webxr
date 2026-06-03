@@ -258,6 +258,25 @@ export function getBlock(
   return blocks[index] as BlockId;
 }
 
+export function setBlock(
+  blocks: Uint8Array,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  x: number,
+  y: number,
+  z: number,
+  block: BlockId,
+): void {
+  if (x < 0 || x >= sizeX) return;
+  if (y < 0 || y >= sizeY) return;
+  if (z < 0 || z >= sizeZ) return;
+
+  const index = x + sizeX * (z + sizeZ * y);
+
+  blocks[index] = block;
+}
+
 export function isSolidBlock(block: BlockId): boolean {
   return (
     block !== BlockId.Air &&
@@ -1084,6 +1103,115 @@ export function ensureChunksAroundPlayer(params: {
 
 function color4ToCssRgba(color: Color4, alpha = color.a): string {
   return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${alpha})`;
+}
+
+export type BreakBlockParams = {
+  scene: Scene;
+  player: PlayerPhysics;
+  worldChunks: WorldChunks;
+  sizeX: number;
+  sizeY: number;
+  sizeZ: number;
+  material: StandardMaterial;
+};
+
+export function breakBlock(params: BreakBlockParams): void {
+  const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material } = params;
+
+  const ray = scene.createPickingRay(
+    scene.getEngine().getRenderWidth() / 2,
+    scene.getEngine().getRenderHeight() / 2,
+    null,
+    scene.activeCamera,
+  );
+
+  // On cherche le premier bloc solide ou de l'eau en parcourant le rayon
+  // Mais la consigne dit : "considérer les bloques water comme un bloque d'air" pour le cassage.
+  // Donc on doit trouver le premier bloc qui n'est ni Air ni Water.
+
+  let targetWorldX = 0;
+  let targetWorldY = 0;
+  let targetWorldZ = 0;
+  let found = false;
+
+  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+  const direction = ray.direction.normalize();
+
+  // On avance par petits pas pour trouver le premier bloc non-air/non-eau
+  for (let d = 0.1; d <= 3; d += 0.1) {
+    const p = start.add(direction.scale(d));
+    const wx = Math.floor(p.x);
+    const wy = Math.floor(p.y);
+    const wz = Math.floor(p.z);
+
+    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, wx, wy, wz);
+    if (block !== BlockId.Air && block !== BlockId.Water) {
+      targetWorldX = wx;
+      targetWorldY = wy;
+      targetWorldZ = wz;
+      found = true;
+      break;
+    }
+  }
+
+  if (found) {
+    const chunk = getChunkFromWorldPosition(worldChunks, sizeX, sizeZ, targetWorldX, targetWorldZ);
+
+    if (chunk) {
+      const localX = worldToLocalCoordinate(targetWorldX, sizeX);
+      const localZ = worldToLocalCoordinate(targetWorldZ, sizeZ);
+
+      // Le bloc à casser
+      let newBlock = BlockId.Air;
+
+      // "quand je casse un bloque adjacent à un bloque water, celui-ci se transforme en bloque water."
+      const neighbors = [
+        [targetWorldX + 1, targetWorldY, targetWorldZ],
+        [targetWorldX - 1, targetWorldY, targetWorldZ],
+        [targetWorldX, targetWorldY + 1, targetWorldZ],
+        [targetWorldX, targetWorldY - 1, targetWorldZ],
+        [targetWorldX, targetWorldY, targetWorldZ + 1],
+        [targetWorldX, targetWorldY, targetWorldZ - 1],
+      ];
+
+      for (const [nx, ny, nz] of neighbors) {
+        if (getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, nx, ny, nz) === BlockId.Water) {
+          newBlock = BlockId.Water;
+          break;
+        }
+      }
+
+      setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, targetWorldY, localZ, newBlock);
+
+      const affectedChunks = new Set<string>();
+      affectedChunks.add(getChunkKey(chunk.chunkX, chunk.chunkZ));
+
+      // Si le bloc était sur une bordure, le chunk voisin est aussi affecté
+      if (localX === 0) affectedChunks.add(getChunkKey(chunk.chunkX - 1, chunk.chunkZ));
+      if (localX === sizeX - 1) affectedChunks.add(getChunkKey(chunk.chunkX + 1, chunk.chunkZ));
+      if (localZ === 0) affectedChunks.add(getChunkKey(chunk.chunkX, chunk.chunkZ - 1));
+      if (localZ === sizeZ - 1) affectedChunks.add(getChunkKey(chunk.chunkX, chunk.chunkZ + 1));
+
+      for (const key of affectedChunks) {
+        const c = worldChunks.get(key);
+        if (c) {
+          const oldMesh = c.mesh;
+          c.mesh = createChunkMesh({
+            scene,
+            name: `chunk-${c.chunkX}-${c.chunkZ}`,
+            blocks: c.blocks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            chunkX: c.chunkX,
+            chunkZ: c.chunkZ,
+            material,
+          });
+          oldMesh.dispose();
+        }
+      }
+    }
+  }
 }
 
 export function initializeInventoryBar(scene: Scene): AdvancedDynamicTexture {

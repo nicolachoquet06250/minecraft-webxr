@@ -1,6 +1,7 @@
-import type { Engine } from "@babylonjs/core";
+import type { Engine, Scene, StandardMaterial } from "@babylonjs/core";
 import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
-import type { PlayerPhysics } from "./types";
+import type { PlayerPhysics, WorldChunks } from "./types";
+import { breakBlock } from "./functions";
 
 function handleResize(engine: Engine) {
     return () => engine.resize();
@@ -35,20 +36,54 @@ function handleMouseMove(canvas: HTMLCanvasElement, player: PlayerPhysics): (e: 
     }
 }
 
-function handleClick(canvas: HTMLCanvasElement): (e: MouseEvent) => any {
-    return async function () {
-        await canvas.requestPointerLock();
+function handleClick(
+  canvas: HTMLCanvasElement,
+  scene: Scene,
+  player: PlayerPhysics,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  material: StandardMaterial,
+): (e: MouseEvent) => any {
+  return async function () {
+    if (document.pointerLockElement !== canvas) {
+      await canvas.requestPointerLock();
+    } else {
+      breakBlock({
+        scene,
+        player,
+        worldChunks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        material,
+      });
     }
+  };
 }
 
-export default function (engine: Engine, player: PlayerPhysics, canvas: HTMLCanvasElement) {
-    new ResizeObserver(handleResize(engine)).observe(window.document.body);
-    
-    window.addEventListener("keydown", handleKeyDown);
-    
-    window.addEventListener("keyup", handleKeyUp);
-    
-    window.addEventListener("mousemove", handleMouseMove(canvas, player));
-    
-    canvas.addEventListener("click", handleClick(canvas));
+export default function (
+  engine: Engine,
+  player: PlayerPhysics,
+  canvas: HTMLCanvasElement,
+  scene: Scene,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  material: StandardMaterial,
+) {
+  new ResizeObserver(handleResize(engine)).observe(window.document.body);
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  window.addEventListener("keyup", handleKeyUp);
+
+  window.addEventListener("mousemove", handleMouseMove(canvas, player));
+
+  canvas.addEventListener(
+    "click",
+    handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material),
+  );
 }
