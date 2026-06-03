@@ -1,5 +1,4 @@
 import {
-  PointerEventTypes,
   type Scene,
 } from "@babylonjs/core";
 import {
@@ -14,8 +13,6 @@ import type { PlayerPhysics } from "./types";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
-const MOVE_JOYSTICK_WIDTH = 100;
-const MOVE_JOYSTICK_HEIGHT = 180;
 const MOVE_JOYSTICK_RADIUS_Y = 80;
 // @ts-ignore
 const MOVE_JOYSTICK_IDLE_THUMB_Y = -50;
@@ -52,12 +49,6 @@ type JoystickState = {
   y: number;
 };
 
-type EllipseZone = {
-  center: Point;
-  radiusX: number;
-  radiusY: number;
-};
-
 export function isMobileMode(): boolean {
   const isMobile = (
     navigator.maxTouchPoints > 0 ||
@@ -88,86 +79,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function getViewportSize(scene: Scene): { width: number; height: number } {
-  const engine = scene.getEngine();
-  const canvas = engine.getRenderingCanvas();
-
-  if (canvas) {
-    const rect = canvas.getBoundingClientRect();
-
-    return {
-      width: rect.width,
-      height: rect.height,
-    };
-  }
-
-  return {
-    width: engine.getRenderWidth(),
-    height: engine.getRenderHeight(),
-  };
-}
-
-function getPointerPosition(scene: Scene, event: PointerEvent): Point | null {
-  const canvas = scene.getEngine().getRenderingCanvas();
-
-  if (!canvas) {
-    return null;
-  }
-
-  const rect = canvas.getBoundingClientRect();
-
-  return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-  };
-}
-
-function containsPoint(zone: EllipseZone, point: Point): boolean {
-  const normalizedX = (point.x - zone.center.x) / zone.radiusX;
-  const normalizedY = (point.y - zone.center.y) / zone.radiusY;
-
-  return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
-}
-
-function getMoveJoystickZone(scene: Scene): EllipseZone {
-  const viewport = getViewportSize(scene);
-
-  return {
-    center: {
-      x: MOVE_JOYSTICK_LEFT + MOVE_JOYSTICK_WIDTH / 2,
-      y: viewport.height - MOVE_JOYSTICK_BOTTOM - MOVE_JOYSTICK_HEIGHT / 2,
-    },
-    radiusX: MOVE_JOYSTICK_WIDTH / 2,
-    radiusY: MOVE_JOYSTICK_HEIGHT / 2,
-  };
-}
-
-function getLookJoystickZone(scene: Scene): EllipseZone {
-  const viewport = getViewportSize(scene);
-
-  return {
-    center: {
-      x: viewport.width - LOOK_JOYSTICK_RIGHT - LOOK_JOYSTICK_SIZE / 2,
-      y: viewport.height - LOOK_JOYSTICK_BOTTOM - LOOK_JOYSTICK_SIZE / 2,
-    },
-    radiusX: LOOK_JOYSTICK_SIZE / 2,
-    radiusY: LOOK_JOYSTICK_SIZE / 2,
-  };
-}
-
-function getJumpButtonZone(scene: Scene): EllipseZone {
-  const viewport = getViewportSize(scene);
-
-  return {
-    center: {
-      x: viewport.width - JUMP_BUTTON_RIGHT - JUMP_BUTTON_SIZE / 2,
-      y: viewport.height - JUMP_BUTTON_BOTTOM - JUMP_BUTTON_SIZE / 2,
-    },
-    radiusX: JUMP_BUTTON_SIZE / 2,
-    radiusY: JUMP_BUTTON_SIZE / 2,
-  };
-}
-
 function moveThumb(thumb: Control, x: number, y: number, radiusX: number, radiusY: number): void {
   thumb.left = `${x * radiusX}px`;
   thumb.top = `${y * radiusY}px`;
@@ -181,7 +92,7 @@ function createLookJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
   root.color = "rgba(255, 255, 255, 0.45)";
   root.background = "rgba(0, 0, 0, 0.22)";
   root.alpha = 0.92;
-  root.isPointerBlocker = false;
+  root.isPointerBlocker = true;
 
   const thumb = new Ellipse(`${name}-thumb`);
   thumb.width = `${LOOK_THUMB_SIZE}px`;
@@ -198,7 +109,7 @@ function createLookJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
   return { root, thumb };
 }
 
-function createMoveJoystick(): { root: Rectangle; thumb: Ellipse } {
+function createMoveJoystick(name: string): { root: Rectangle; thumb: Ellipse } {
   const root = new Rectangle(`${name}-root`);
   root.cornerRadius = 20;
   root.width = `${LOOK_JOYSTICK_SIZE / 2}px`;
@@ -207,7 +118,7 @@ function createMoveJoystick(): { root: Rectangle; thumb: Ellipse } {
   root.color = "rgba(255, 255, 255, 0.45)";
   root.background = "rgba(0, 0, 0, 0.22)";
   root.alpha = 0.92;
-  root.isPointerBlocker = false;
+  root.isPointerBlocker = true;
 
   const thumb = new Ellipse(`${name}-thumb`);
   thumb.width = `${LOOK_THUMB_SIZE}px`;
@@ -236,7 +147,7 @@ function createJumpButton(): Ellipse {
   button.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
   button.left = `-${JUMP_BUTTON_RIGHT}px`;
   button.top = `-${JUMP_BUTTON_BOTTOM}px`;
-  button.isPointerBlocker = false;
+  button.isPointerBlocker = true;
 
   const label = new TextBlock("mobile-jump-label");
   label.text = "↥";
@@ -303,7 +214,7 @@ export default function initializeMobileControls(
   ui.idealWidth = 1280;
   ui.idealHeight = 720;
 
-  const moveJoystick = createMoveJoystick();
+  const moveJoystick = createMoveJoystick("mobile-move-joystick");
   moveJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
   moveJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
   moveJoystick.root.left = `${MOVE_JOYSTICK_LEFT}px`;
@@ -336,98 +247,97 @@ export default function initializeMobileControls(
 
   let jumpPointerId: number | null = null;
 
-  scene.onPointerObservable.add((pointerInfo) => {
-    const event = pointerInfo.event as PointerEvent;
-    const position = getPointerPosition(scene, event);
-
-    if (!position) {
-      return;
-    }
-
-    if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
-      if (moveState.pointerId === null && containsPoint(getMoveJoystickZone(scene), position)) {
-        moveState.pointerId = event.pointerId;
-        moveState.origin = position;
-        event.preventDefault();
-        return;
-      }
-
-      if (lookState.pointerId === null && containsPoint(getLookJoystickZone(scene), position)) {
-        lookState.pointerId = event.pointerId;
-        lookState.origin = position;
-        event.preventDefault();
-        return;
-      }
-
-      if (jumpPointerId === null && containsPoint(getJumpButtonZone(scene), position)) {
-        jumpPointerId = event.pointerId;
-        pressedKeys.add("Space");
-        jumpButton.background = "rgba(255, 255, 255, 0.4)";
-        event.preventDefault();
-      }
-
-      return;
-    }
-
-    if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
-      if (moveState.pointerId === event.pointerId) {
-        const y = clamp(
-          (position.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS_Y,
-          -1,
-          1,
-        );
-
-        moveState.x = 0;
-        moveState.y = y;
-        updateMoveKeys(moveState.y);
-        moveThumb(moveJoystick.thumb, 0, moveState.y, 0, MOVE_JOYSTICK_RADIUS_Y);
-        event.preventDefault();
-        return;
-      }
-
-      if (lookState.pointerId === event.pointerId) {
-        const rawX = (position.x - lookState.origin.x) / LOOK_JOYSTICK_RADIUS;
-        const rawY = (position.y - lookState.origin.y) / LOOK_JOYSTICK_RADIUS;
-        const length = Math.hypot(rawX, rawY);
-        const normalizedLength = Math.min(length, 1);
-
-        if (length > 0) {
-          lookState.x = (rawX / length) * normalizedLength;
-          lookState.y = (rawY / length) * normalizedLength;
-        } else {
-          lookState.x = 0;
-          lookState.y = 0;
-        }
-
-        moveThumb(lookJoystick.thumb, lookState.x, lookState.y, LOOK_JOYSTICK_RADIUS, LOOK_JOYSTICK_RADIUS);
-        event.preventDefault();
-      }
-
-      return;
-    }
-
-    if (
-      pointerInfo.type === PointerEventTypes.POINTERUP ||
-      pointerInfo.type === PointerEventTypes.POINTERDOUBLETAP
-    ) {
-      if (moveState.pointerId === event.pointerId) {
-        resetMoveState(moveJoystick.thumb, moveState);
-        event.preventDefault();
-      }
-
-      if (lookState.pointerId === event.pointerId) {
-        resetLookState(lookJoystick.thumb, lookState);
-        event.preventDefault();
-      }
-
-      if (jumpPointerId === event.pointerId) {
-        jumpPointerId = null;
-        pressedKeys.delete("Space");
-        jumpButton.background = "rgba(0, 0, 0, 0.3)";
-        event.preventDefault();
-      }
+  // Jump Button Events
+  jumpButton.onPointerDownObservable.add((coordinates: any) => {
+    if (jumpPointerId === null) {
+      jumpPointerId = coordinates.pointerId;
+      pressedKeys.add("Space");
+      jumpButton.background = "rgba(255, 255, 255, 0.4)";
     }
   });
+
+  const resetJump = (pointerId: number) => {
+    if (jumpPointerId === pointerId) {
+      jumpPointerId = null;
+      pressedKeys.delete("Space");
+      jumpButton.background = "rgba(0, 0, 0, 0.3)";
+    }
+  };
+
+  jumpButton.onPointerUpObservable.add((coordinates: any) => {
+    resetJump(coordinates.pointerId);
+  });
+
+  jumpButton.onPointerOutObservable.add((coordinates: any) => {
+    resetJump(coordinates.pointerId);
+  });
+
+  // Move Joystick Events
+  moveJoystick.root.onPointerDownObservable.add((coordinates: any) => {
+    if (moveState.pointerId === null) {
+      moveState.pointerId = coordinates.pointerId;
+      moveState.origin = { x: coordinates.x, y: coordinates.y };
+    }
+  });
+
+  moveJoystick.root.onPointerMoveObservable.add((coordinates: any) => {
+    if (moveState.pointerId === coordinates.pointerId) {
+      const y = clamp(
+        (coordinates.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS_Y,
+        -1,
+        1,
+      );
+      moveState.x = 0;
+      moveState.y = y;
+      updateMoveKeys(moveState.y);
+      moveThumb(moveJoystick.thumb, 0, moveState.y, 0, MOVE_JOYSTICK_RADIUS_Y);
+    }
+  });
+
+  const endMove = (pointerId: number) => {
+    if (moveState.pointerId === pointerId) {
+      resetMoveState(moveJoystick.thumb, moveState);
+    }
+  };
+
+  moveJoystick.root.onPointerUpObservable.add((coordinates: any) => endMove(coordinates.pointerId));
+  moveJoystick.root.onPointerOutObservable.add((coordinates: any) => endMove(coordinates.pointerId));
+
+  // Look Joystick Events
+  lookJoystick.root.onPointerDownObservable.add((coordinates: any) => {
+    if (lookState.pointerId === null) {
+      lookState.pointerId = coordinates.pointerId;
+      lookState.origin = { x: coordinates.x, y: coordinates.y };
+    }
+  });
+
+  lookJoystick.root.onPointerMoveObservable.add((coordinates: any) => {
+    if (lookState.pointerId === coordinates.pointerId) {
+      const rawX = (coordinates.x - lookState.origin.x) / LOOK_JOYSTICK_RADIUS;
+      const rawY = (coordinates.y - lookState.origin.y) / LOOK_JOYSTICK_RADIUS;
+      const length = Math.hypot(rawX, rawY);
+      const normalizedLength = Math.min(length, 1);
+
+      if (length > 0) {
+        lookState.x = (rawX / length) * normalizedLength;
+        lookState.y = (rawY / length) * normalizedLength;
+      } else {
+        lookState.x = 0;
+        lookState.y = 0;
+      }
+
+      moveThumb(lookJoystick.thumb, lookState.x, lookState.y, LOOK_JOYSTICK_RADIUS, LOOK_JOYSTICK_RADIUS);
+    }
+  });
+
+  const endLook = (pointerId: number) => {
+    if (lookState.pointerId === pointerId) {
+      resetLookState(lookJoystick.thumb, lookState);
+    }
+  };
+
+  lookJoystick.root.onPointerUpObservable.add((coordinates: any) => endLook(coordinates.pointerId));
+  lookJoystick.root.onPointerOutObservable.add((coordinates: any) => endLook(coordinates.pointerId));
 
   scene.onBeforeRenderObservable.add(() => {
     const deltaTime = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);

@@ -90,9 +90,17 @@ export default function (
     "click",
     (e) => {
       if (isMobileMode()) {
+        console.log("Canvas click blocked on mobile");
         return;
       }
       handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems)(e);
     }
   );
+
+  // Add touchstart listener to debug or prevent defaults if needed
+  canvas.addEventListener("touchstart", () => {
+    if (isMobileMode()) {
+        console.log("Canvas touchstart received");
+    }
+  }, { passive: true });
 }
