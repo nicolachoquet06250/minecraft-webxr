@@ -6,7 +6,6 @@ import {
   AdvancedDynamicTexture,
   Control,
   Ellipse,
-  Rectangle,
   TextBlock,
 } from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
@@ -14,21 +13,22 @@ import type { PlayerPhysics } from "./types";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
-const MOVE_JOYSTICK_SIZE = 140;
-const MOVE_JOYSTICK_RADIUS = MOVE_JOYSTICK_SIZE / 2;
+const MOVE_JOYSTICK_WIDTH = 88;
+const MOVE_JOYSTICK_HEIGHT = 148;
+const MOVE_JOYSTICK_RADIUS_Y = MOVE_JOYSTICK_HEIGHT / 2;
 const MOVE_JOYSTICK_LEFT = 22;
-const MOVE_JOYSTICK_BOTTOM = 86;
+const MOVE_JOYSTICK_BOTTOM = 82;
 
-const LOOK_JOYSTICK_SIZE = 140;
-const LOOK_JOYSTICK_RADIUS = 58;
+const LOOK_JOYSTICK_SIZE = 112;
+const LOOK_JOYSTICK_RADIUS = 46;
 const LOOK_JOYSTICK_RIGHT = 22;
-const LOOK_JOYSTICK_BOTTOM = 116;
+const LOOK_JOYSTICK_BOTTOM = 106;
 
-const JUMP_BUTTON_SIZE = 76;
-const JUMP_BUTTON_RIGHT = 54;
+const JUMP_BUTTON_SIZE = 58;
+const JUMP_BUTTON_RIGHT = 49;
 const JUMP_BUTTON_BOTTOM = 34;
 
-const THUMB_SIZE = 54;
+const THUMB_SIZE = 42;
 const MOVE_DEAD_ZONE = 0.18;
 const LOOK_DEAD_ZONE = 0.08;
 const LOOK_SPEED = 2.6;
@@ -47,9 +47,10 @@ type JoystickState = {
   y: number;
 };
 
-type CircleZone = {
+type EllipseZone = {
   center: Point;
-  radius: number;
+  radiusX: number;
+  radiusY: number;
 };
 
 function isMobileMode(): boolean {
@@ -97,23 +98,27 @@ function getPointerPosition(scene: Scene, event: PointerEvent): Point | null {
   };
 }
 
-function containsPoint(zone: CircleZone, point: Point): boolean {
-  return Math.hypot(point.x - zone.center.x, point.y - zone.center.y) <= zone.radius;
+function containsPoint(zone: EllipseZone, point: Point): boolean {
+  const normalizedX = (point.x - zone.center.x) / zone.radiusX;
+  const normalizedY = (point.y - zone.center.y) / zone.radiusY;
+
+  return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
 }
 
-function getMoveJoystickZone(scene: Scene): CircleZone {
+function getMoveJoystickZone(scene: Scene): EllipseZone {
   const viewport = getViewportSize(scene);
 
   return {
     center: {
-      x: MOVE_JOYSTICK_LEFT + MOVE_JOYSTICK_RADIUS,
-      y: viewport.height - MOVE_JOYSTICK_BOTTOM - MOVE_JOYSTICK_RADIUS,
+      x: MOVE_JOYSTICK_LEFT + MOVE_JOYSTICK_WIDTH / 2,
+      y: viewport.height - MOVE_JOYSTICK_BOTTOM - MOVE_JOYSTICK_HEIGHT / 2,
     },
-    radius: MOVE_JOYSTICK_RADIUS,
+    radiusX: MOVE_JOYSTICK_WIDTH / 2,
+    radiusY: MOVE_JOYSTICK_HEIGHT / 2,
   };
 }
 
-function getLookJoystickZone(scene: Scene): CircleZone {
+function getLookJoystickZone(scene: Scene): EllipseZone {
   const viewport = getViewportSize(scene);
 
   return {
@@ -121,11 +126,12 @@ function getLookJoystickZone(scene: Scene): CircleZone {
       x: viewport.width - LOOK_JOYSTICK_RIGHT - LOOK_JOYSTICK_SIZE / 2,
       y: viewport.height - LOOK_JOYSTICK_BOTTOM - LOOK_JOYSTICK_SIZE / 2,
     },
-    radius: LOOK_JOYSTICK_SIZE / 2,
+    radiusX: LOOK_JOYSTICK_SIZE / 2,
+    radiusY: LOOK_JOYSTICK_SIZE / 2,
   };
 }
 
-function getJumpButtonZone(scene: Scene): CircleZone {
+function getJumpButtonZone(scene: Scene): EllipseZone {
   const viewport = getViewportSize(scene);
 
   return {
@@ -133,19 +139,24 @@ function getJumpButtonZone(scene: Scene): CircleZone {
       x: viewport.width - JUMP_BUTTON_RIGHT - JUMP_BUTTON_SIZE / 2,
       y: viewport.height - JUMP_BUTTON_BOTTOM - JUMP_BUTTON_SIZE / 2,
     },
-    radius: JUMP_BUTTON_SIZE / 2,
+    radiusX: JUMP_BUTTON_SIZE / 2,
+    radiusY: JUMP_BUTTON_SIZE / 2,
   };
 }
 
-function moveThumb(thumb: Control, x: number, y: number, radius: number): void {
-  thumb.left = `${x * radius}px`;
-  thumb.top = `${y * radius}px`;
+function moveThumb(thumb: Control, x: number, y: number, radiusX: number, radiusY: number): void {
+  thumb.left = `${x * radiusX}px`;
+  thumb.top = `${y * radiusY}px`;
 }
 
-function createJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
+function createJoystick(
+  name: string,
+  width: number,
+  height: number,
+): { root: Ellipse; thumb: Ellipse } {
   const root = new Ellipse(`${name}-root`);
-  root.width = `${MOVE_JOYSTICK_SIZE}px`;
-  root.height = `${MOVE_JOYSTICK_SIZE}px`;
+  root.width = `${width}px`;
+  root.height = `${height}px`;
   root.thickness = 2;
   root.color = "rgba(255, 255, 255, 0.45)";
   root.background = "rgba(0, 0, 0, 0.22)";
@@ -167,19 +178,6 @@ function createJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
   return { root, thumb };
 }
 
-function createMoveAxis(): Rectangle {
-  const axis = new Rectangle("mobile-move-axis");
-  axis.width = "2px";
-  axis.height = "104px";
-  axis.thickness = 0;
-  axis.background = "rgba(255, 255, 255, 0.28)";
-  axis.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-  axis.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-  axis.isPointerBlocker = false;
-
-  return axis;
-}
-
 function createJumpButton(): Ellipse {
   const button = new Ellipse("mobile-jump-button");
   button.width = `${JUMP_BUTTON_SIZE}px`;
@@ -197,7 +195,7 @@ function createJumpButton(): Ellipse {
   const label = new TextBlock("mobile-jump-label");
   label.text = "↥";
   label.color = "white";
-  label.fontSize = 42;
+  label.fontSize = 32;
   label.fontWeight = "700";
   label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
   label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
@@ -214,7 +212,7 @@ function resetMoveState(thumb: Control, state: JoystickState): void {
   state.y = 0;
   pressedKeys.delete("KeyW");
   pressedKeys.delete("KeyS");
-  moveThumb(thumb, 0, 0, MOVE_JOYSTICK_RADIUS);
+  moveThumb(thumb, 0, 0, 0, MOVE_JOYSTICK_RADIUS_Y);
 }
 
 function updateMoveKeys(y: number): void {
@@ -238,7 +236,7 @@ function resetLookState(thumb: Control, state: JoystickState): void {
   state.pointerId = null;
   state.x = 0;
   state.y = 0;
-  moveThumb(thumb, 0, 0, LOOK_JOYSTICK_RADIUS);
+  moveThumb(thumb, 0, 0, LOOK_JOYSTICK_RADIUS, LOOK_JOYSTICK_RADIUS);
 }
 
 export default function initializeMobileControls(
@@ -255,15 +253,22 @@ export default function initializeMobileControls(
     scene,
   );
 
-  const moveJoystick = createJoystick("mobile-move-joystick");
+  const moveJoystick = createJoystick(
+    "mobile-move-joystick",
+    MOVE_JOYSTICK_WIDTH,
+    MOVE_JOYSTICK_HEIGHT,
+  );
   moveJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
   moveJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
   moveJoystick.root.left = `${MOVE_JOYSTICK_LEFT}px`;
   moveJoystick.root.top = `-${MOVE_JOYSTICK_BOTTOM}px`;
-  moveJoystick.root.addControl(createMoveAxis());
   ui.addControl(moveJoystick.root);
 
-  const lookJoystick = createJoystick("mobile-look-joystick");
+  const lookJoystick = createJoystick(
+    "mobile-look-joystick",
+    LOOK_JOYSTICK_SIZE,
+    LOOK_JOYSTICK_SIZE,
+  );
   lookJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
   lookJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
   lookJoystick.root.left = `-${LOOK_JOYSTICK_RIGHT}px`;
@@ -324,7 +329,7 @@ export default function initializeMobileControls(
     if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
       if (moveState.pointerId === event.pointerId) {
         const y = clamp(
-          (position.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS,
+          (position.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS_Y,
           -1,
           1,
         );
@@ -332,7 +337,7 @@ export default function initializeMobileControls(
         moveState.x = 0;
         moveState.y = y;
         updateMoveKeys(moveState.y);
-        moveThumb(moveJoystick.thumb, 0, moveState.y, MOVE_JOYSTICK_RADIUS);
+        moveThumb(moveJoystick.thumb, 0, moveState.y, 0, MOVE_JOYSTICK_RADIUS_Y);
         event.preventDefault();
         return;
       }
@@ -351,7 +356,7 @@ export default function initializeMobileControls(
           lookState.y = 0;
         }
 
-        moveThumb(lookJoystick.thumb, lookState.x, lookState.y, LOOK_JOYSTICK_RADIUS);
+        moveThumb(lookJoystick.thumb, lookState.x, lookState.y, LOOK_JOYSTICK_RADIUS, LOOK_JOYSTICK_RADIUS);
         event.preventDefault();
       }
 
