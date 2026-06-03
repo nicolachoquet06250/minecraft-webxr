@@ -253,7 +253,51 @@ pub fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
 
                 if decoration != BlockId::Air {
                     let index = block_index(local_x, decoration_y as usize, local_z);
-                    blocks[index] = decoration as u8;
+                    if blocks[index] == BlockId::Air as u8 {
+                        blocks[index] = decoration as u8;
+                    }
+                }
+            }
+        }
+    }
+
+    // Deuxième passe : génération des arbres
+    let world_start_x = chunk_x * CHUNK_SIZE_X as i32;
+    let world_start_z = chunk_z * CHUNK_SIZE_Z as i32;
+    let cell_size = 12i32;
+
+    // On scanne une zone large autour du chunk pour détecter les arbres dont le feuillage déborde
+    let search_min_x = world_start_x - 4;
+    let search_max_x = world_start_x + CHUNK_SIZE_X as i32 + 4;
+    let search_min_z = world_start_z - 4;
+    let search_max_z = world_start_z + CHUNK_SIZE_Z as i32 + 4;
+
+    for wx in (search_min_x - 12)..=(search_max_x + 12) {
+        if wx.rem_euclid(cell_size) == 6 {
+            for wz in (search_min_z - 12)..=(search_max_z + 12) {
+                if wz.rem_euclid(cell_size) == 6 {
+                    let tree_world_x = wx;
+                    let tree_world_z = wz;
+
+                    let tree_biome = get_biome(tree_world_x, tree_world_z, &biome_noise);
+                    let tree_height = terrain_height(tree_world_x, tree_world_z, tree_biome, &terrain_noise, &detail_noise);
+                    
+                    let sea_level = 42;
+                    if tree_biome == BiomeId::Plains && tree_height >= sea_level {
+                        let surface_block = generate_surface_block_at_height(tree_biome, tree_height, sea_level);
+                        
+                        if surface_block == BlockId::GrassBlock || surface_block == BlockId::Dirt {
+                            let tree_noise = Perlin::new(seed.wrapping_add(10));
+                            let tree_val = tree_noise.get([tree_world_x as f64 * 0.1, tree_world_z as f64 * 0.1]);
+
+                            if tree_val > 0.0 {
+                                let local_offset_x = tree_world_x - world_start_x;
+                                let local_offset_z = tree_world_z - world_start_z;
+                                
+                                generate_tree(tree_world_x, tree_height + 1, tree_world_z, &mut blocks, seed.wrapping_add(tree_world_x as u32).wrapping_add(tree_world_z as u32), local_offset_x, local_offset_z);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -526,6 +570,109 @@ fn is_cave(world_x: i32, world_y: i32, world_z: i32, cave_noise: &Perlin) -> boo
 
 fn block_index(x: usize, y: usize, z: usize) -> usize {
     x + CHUNK_SIZE_X * (z + CHUNK_SIZE_Z * y)
+}
+
+fn set_block(x: i32, y: i32, z: i32, blocks: &mut Vec<u8>, block: BlockId) {
+    if x >= 0 && x < CHUNK_SIZE_X as i32 && y >= 0 && y < CHUNK_SIZE_Y as i32 && z >= 0 && z < CHUNK_SIZE_Z as i32 {
+        let index = block_index(x as usize, y as usize, z as usize);
+        blocks[index] = block as u8;
+    }
+}
+
+fn generate_tree(world_x: i32, world_y: i32, world_z: i32, blocks: &mut Vec<u8>, seed: u32, local_offset_x: i32, local_offset_z: i32) {
+    let mut rng_seed = seed;
+    let mut next_rng = || {
+        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        (rng_seed >> 16) & 0x7fff
+    };
+
+    let tree_type_roll = next_rng();
+    let tree_type = tree_type_roll % 3; // 0: 1x1, 1: 2x1, 2: 2x2
+    let height = (next_rng() % 3 + 4) as i32; // Hauteur du tronc entre 4 et 6
+
+    let (tw, td) = match tree_type {
+        0 => (1, 1),
+        1 => (2, 1),
+        2 => (2, 2),
+        _ => (1, 1),
+    };
+
+    // Génération du tronc
+    for tx in 0..tw {
+        for tz in 0..td {
+            for ty in 0..height {
+                set_block(local_offset_x + tx as i32, world_y + ty, local_offset_z + tz as i32, blocks, BlockId::OakLog);
+            }
+        }
+    }
+
+    // Génération du feuillage
+    let leaf_start_y = height / 2;
+    let leaf_end_y = height + 1;
+
+    for fy in leaf_start_y..=leaf_end_y {
+        let layer_radius = if fy >= height { 1i32 } 
+                          else if fy >= height - 2 { 3i32 }
+                          else { 2i32 }; 
+
+        for fx in -layer_radius..=(tw as i32 + layer_radius - 1) {
+            for fz in -layer_radius..=(td as i32 + layer_radius - 1) {
+                let is_trunk = fx >= 0 && fx < tw as i32 && fz >= 0 && fz < td as i32 && fy < height;
+                
+                if !is_trunk {
+                    let dist_x = if fx < 0 { -fx } else if fx >= tw as i32 { fx - (tw as i32 - 1) } else { 0 };
+                    let dist_z = if fz < 0 { -fz } else if fz >= td as i32 { fz - (td as i32 - 1) } else { 0 };
+                    let dist_y = if fy >= height { fy - (height - 1) } else { 0 };
+                    
+                    let noise = Perlin::new(seed.wrapping_add(fy as u32 * 100));
+                    let nv = noise.get([(world_x + fx) as f64 * 0.5, (world_z + fz) as f64 * 0.5]);
+                    
+                    if (dist_x + dist_z + dist_y) <= layer_radius + 1 {
+                         if nv > -0.7 {
+                            set_block(local_offset_x + fx, world_y + fy, local_offset_z + fz, blocks, BlockId::OakLeaves);
+                         }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Garanties de feuillage : au moins 1 bloc de chaque côté
+    for ty in height..=height {
+        for tx in 0..tw {
+            for tz in 0..td {
+                set_block(local_offset_x + tx as i32, world_y + ty, local_offset_z + tz as i32, blocks, BlockId::OakLeaves);
+            }
+        }
+    }
+
+    // On force un rayon de 1 autour du tronc à partir de leaf_start_y
+    for ty in leaf_start_y..height {
+        for tx in -1..=(tw as i32) {
+            set_block(local_offset_x + tx, world_y + ty, local_offset_z - 1, blocks, BlockId::OakLeaves);
+            set_block(local_offset_x + tx, world_y + ty, local_offset_z + td as i32, blocks, BlockId::OakLeaves);
+        }
+        for tz in -1..=(td as i32) {
+            set_block(local_offset_x - 1, world_y + ty, local_offset_z + tz, blocks, BlockId::OakLeaves);
+            set_block(local_offset_x + tw as i32, world_y + ty, local_offset_z + tz, blocks, BlockId::OakLeaves);
+        }
+    }
+    
+    for ty in leaf_start_y..height {
+        set_block(local_offset_x - 1, world_y + ty, local_offset_z - 1, blocks, BlockId::OakLeaves);
+        set_block(local_offset_x + tw as i32, world_y + ty, local_offset_z - 1, blocks, BlockId::OakLeaves);
+        set_block(local_offset_x - 1, world_y + ty, local_offset_z + td as i32, blocks, BlockId::OakLeaves);
+        set_block(local_offset_x + tw as i32, world_y + ty, local_offset_z + td as i32, blocks, BlockId::OakLeaves);
+    }
+
+    for tx in -1..=(tw as i32) {
+        set_block(local_offset_x + tx, world_y + height, local_offset_z - 1, blocks, BlockId::OakLeaves);
+        set_block(local_offset_x + tx, world_y + height, local_offset_z + td as i32, blocks, BlockId::OakLeaves);
+    }
+    for tz in -1..=(td as i32) {
+        set_block(local_offset_x - 1, world_y + height, local_offset_z + tz, blocks, BlockId::OakLeaves);
+        set_block(local_offset_x + tw as i32, world_y + height, local_offset_z + tz, blocks, BlockId::OakLeaves);
+    }
 }
 
 mod tests;

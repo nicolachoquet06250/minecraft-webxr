@@ -590,4 +590,434 @@ mod tests {
         assert!(has_desert, "Expected at least one desert biome");
         assert!(has_snowy, "Expected at least one snowy biome");
     }
+
+    #[test]
+    fn test_tree_generation_rules() {
+        let mut blocks = vec![0u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+        let seed = 12345;
+        // On place l'arbre au milieu pour éviter les bords de chunk
+        let x = 8;
+        let y = 10;
+        let z = 8;
+        
+        generate_tree(x as i32, y as i32, z as i32, &mut blocks, seed, x as i32, z as i32);
+        
+        // Trouver le tronc
+        let mut min_tx = CHUNK_SIZE_X as i32;
+        let mut max_tx = 0;
+        let mut min_tz = CHUNK_SIZE_Z as i32;
+        let mut max_tz = 0;
+        let mut trunk_height = 0;
+        
+        let mut found_trunk = false;
+        for ty in y..CHUNK_SIZE_Y {
+            let mut found_in_layer = false;
+            for tx in 0..CHUNK_SIZE_X {
+                for tz in 0..CHUNK_SIZE_Z {
+                    if blocks[block_index(tx, ty, tz)] == BlockId::OakLog as u8 {
+                        found_trunk = true;
+                        found_in_layer = true;
+                        if (tx as i32) < min_tx { min_tx = tx as i32; }
+                        if (tx as i32) > max_tx { max_tx = tx as i32; }
+                        if (tz as i32) < min_tz { min_tz = tz as i32; }
+                        if (tz as i32) > max_tz { max_tz = tz as i32; }
+                    }
+                }
+            }
+            if found_in_layer {
+                trunk_height += 1;
+            } else if found_trunk {
+                break;
+            }
+        }
+        
+        assert!(found_trunk, "Aucun tronc généré");
+        let tw = max_tx - min_tx + 1;
+        let td = max_tz - min_tz + 1;
+        
+        // Règle 1 : Tronc 1x1, 2x1 ou 2x2
+        assert!((tw == 1 && td == 1) || (tw == 2 && td == 1) || (tw == 1 && td == 2) || (tw == 2 && td == 2), 
+                "Dimensions du tronc invalides : {}x{}", tw, td);
+        
+        // Règle 2 : Feuillage au dessus
+        for tx in min_tx..=max_tx {
+            for tz in min_tz..=max_tz {
+                let above = blocks[block_index(tx as usize, (y + trunk_height) as usize, tz as usize)];
+                assert_eq!(above, BlockId::OakLeaves as u8, "Manque feuillage au dessus du tronc à {},{}", tx, tz);
+            }
+        }
+        
+        // Règle 2 : Feuillage sur chaque côté
+        // On vérifie que pour chaque bloc de tronc, il y a au moins un bloc de feuillage adjacent sur les côtés (N, S, E, O)
+        // La règle dit "au moins 1 bloc de chaque côté ET au dessus" pour L'ARBRE (la structure).
+        // Interprétation : l'arbre doit avoir du feuillage sur ses 4 côtés horizontaux.
+        
+        let mut has_north = false;
+        let mut has_south = false;
+        let mut has_east = false;
+        let mut has_west = false;
+        
+        for ty in y..y+trunk_height {
+            for tx in min_tx..=max_tx {
+                for tz in min_tz..=max_tz {
+                    // Vérifier voisins
+                    if blocks[block_index((tx + 1) as usize, ty as usize, tz as usize)] == BlockId::OakLeaves as u8 { has_east = true; }
+                    if tx > 0 && blocks[block_index((tx - 1) as usize, ty as usize, tz as usize)] == BlockId::OakLeaves as u8 { has_west = true; }
+                    if blocks[block_index(tx as usize, ty as usize, (tz + 1) as usize)] == BlockId::OakLeaves as u8 { has_south = true; }
+                    if tz > 0 && blocks[block_index(tx as usize, ty as usize, (tz - 1) as usize)] == BlockId::OakLeaves as u8 { has_north = true; }
+                }
+            }
+        }
+        
+        assert!(has_north, "Manque feuillage au Nord");
+        assert!(has_south, "Manque feuillage au Sud");
+        assert!(has_east, "Manque feuillage à l'Est");
+        assert!(has_west, "Manque feuillage à l'Ouest");
+    }
+
+    #[test]
+    fn test_tree_generation_rules_many_seeds() {
+        for s in 0..100 {
+            let mut blocks = vec![0u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+            let seed = 12345 + s;
+            let x = 8;
+            let y = 10;
+            let z = 8;
+            
+            generate_tree(x as i32, y as i32, z as i32, &mut blocks, seed, x as i32, z as i32);
+            
+            let mut min_tx = CHUNK_SIZE_X as i32;
+            let mut max_tx = 0;
+            let mut min_tz = CHUNK_SIZE_Z as i32;
+            let mut max_tz = 0;
+            let mut trunk_height = 0;
+            
+            let mut found_trunk = false;
+            for ty in y..CHUNK_SIZE_Y {
+                let mut found_in_layer = false;
+                for tx in 0..CHUNK_SIZE_X {
+                    for tz in 0..CHUNK_SIZE_Z {
+                        if blocks[block_index(tx, ty, tz)] == BlockId::OakLog as u8 {
+                            found_trunk = true;
+                            found_in_layer = true;
+                            if (tx as i32) < min_tx { min_tx = tx as i32; }
+                            if (tx as i32) > max_tx { max_tx = tx as i32; }
+                            if (tz as i32) < min_tz { min_tz = tz as i32; }
+                            if (tz as i32) > max_tz { max_tz = tz as i32; }
+                        }
+                    }
+                }
+                if found_in_layer {
+                    trunk_height += 1;
+                } else if found_trunk {
+                    break;
+                }
+            }
+            
+            assert!(found_trunk, "Seed {}: Aucun tronc généré", seed);
+            let tw = max_tx - min_tx + 1;
+            let td = max_tz - min_tz + 1;
+            
+            assert!((tw == 1 && td == 1) || (tw == 2 && td == 1) || (tw == 1 && td == 2) || (tw == 2 && td == 2), 
+                    "Seed {}: Dimensions du tronc invalides : {}x{}", seed, tw, td);
+            
+            for tx in min_tx..=max_tx {
+                for tz in min_tz..=max_tz {
+                    let above = blocks[block_index(tx as usize, (y + trunk_height) as usize, tz as usize)];
+                    assert_eq!(above, BlockId::OakLeaves as u8, "Seed {}: Manque feuillage au dessus du tronc à {},{}", seed, tx, tz);
+                }
+            }
+            
+            let mut has_north = false;
+            let mut has_south = false;
+            let mut has_east = false;
+            let mut has_west = false;
+            
+            for ty in y..y+trunk_height {
+                for tx in min_tx..=max_tx {
+                    for tz in min_tz..=max_tz {
+                        if blocks[block_index((tx + 1) as usize, ty as usize, tz as usize)] == BlockId::OakLeaves as u8 { has_east = true; }
+                        if tx > 0 && blocks[block_index((tx - 1) as usize, ty as usize, tz as usize)] == BlockId::OakLeaves as u8 { has_west = true; }
+                        if blocks[block_index(tx as usize, ty as usize, (tz + 1) as usize)] == BlockId::OakLeaves as u8 { has_south = true; }
+                        if tz > 0 && blocks[block_index(tx as usize, ty as usize, (tz - 1) as usize)] == BlockId::OakLeaves as u8 { has_north = true; }
+                    }
+                }
+            }
+            
+            assert!(has_north, "Seed {}: Manque feuillage au Nord", seed);
+            assert!(has_south, "Seed {}: Manque feuillage au Sud", seed);
+            assert!(has_east, "Seed {}: Manque feuillage à l'Est", seed);
+            assert!(has_west, "Seed {}: Manque feuillage à l'Ouest", seed);
+        }
+    }
+
+    #[test]
+    fn test_tree_trunk_2x2_is_solid() {
+        // On cherche une graine qui produit un arbre 2x2
+        let mut seed_2x2 = None;
+        for s in 0..100 {
+            let mut blocks = vec![0u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+            let seed = 12345 + s;
+            generate_tree(8, 10, 8, &mut blocks, seed, 8, 8);
+            
+            let mut logs = 0;
+            for ty in 10..20 {
+                for tx in 0..CHUNK_SIZE_X {
+                    for tz in 0..CHUNK_SIZE_Z {
+                        if blocks[block_index(tx, ty, tz)] == BlockId::OakLog as u8 {
+                            logs += 1;
+                        }
+                    }
+                }
+            }
+            
+            // Un tronc 2x2 de hauteur 4-6 devrait avoir entre 16 et 24 logs
+            // Un tronc 1x1 : 4-6 logs
+            // Un tronc 2x1 : 8-12 logs
+            if logs >= 16 {
+                seed_2x2 = Some(seed);
+                break;
+            }
+        }
+        
+        let seed = seed_2x2.expect("Aucun arbre 2x2 trouvé dans les 100 premières graines");
+        let mut blocks = vec![0u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+        let x = 8;
+        let y = 10;
+        let z = 8;
+        generate_tree(x as i32, y as i32, z as i32, &mut blocks, seed, x as i32, z as i32);
+        
+        // Vérifier que c'est bien un 2x2
+        let mut min_tx = CHUNK_SIZE_X;
+        let mut max_tx = 0;
+        let mut min_tz = CHUNK_SIZE_Z;
+        let mut max_tz = 0;
+        let mut trunk_height = 0;
+        
+        for ty in y..CHUNK_SIZE_Y as i32 {
+            let mut found_in_layer = false;
+            for tx in 0..CHUNK_SIZE_X as i32 {
+                for tz in 0..CHUNK_SIZE_Z as i32 {
+                    if blocks[block_index(tx as usize, ty as usize, tz as usize)] == BlockId::OakLog as u8 {
+                        found_in_layer = true;
+                        if tx < min_tx as i32 { min_tx = tx as usize; }
+                        if tx > max_tx as i32 { max_tx = tx as usize; }
+                        if tz < min_tz as i32 { min_tz = tz as usize; }
+                        if tz > max_tz as i32 { max_tz = tz as usize; }
+                    }
+                }
+            }
+            if found_in_layer { trunk_height += 1; }
+            else if trunk_height > 0 { break; }
+        }
+        
+        let tw = max_tx - min_tx + 1;
+        let td = max_tz - min_tz + 1;
+        assert_eq!(tw, 2, "Tronc devrait faire 2 de large");
+        assert_eq!(td, 2, "Tronc devrait faire 2 de profondeur");
+        
+        // RÈGLE CRUCIALE : Vérifier que chaque bloc du 2x2 est présent à chaque étage
+        for ty in y..y + trunk_height {
+            for tx in min_tx..=max_tx {
+                for tz in min_tz..=max_tz {
+                    assert_eq!(
+                        blocks[block_index(tx as usize, ty as usize, tz as usize)], 
+                        BlockId::OakLog as u8, 
+                        "Bloc de tronc manquant à y={}, x={}, z={}", ty, tx, tz
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_tree_distance_rule() {
+        // On génère plusieurs chunks et on vérifie la distance entre tous les arbres trouvés
+        let seed = 12345;
+        let mut tree_positions = Vec::new();
+        
+        // On scanne une zone de 3x3 chunks
+        for cx in -1..=1 {
+            for cz in -1..=1 {
+                let chunk = generate_chunk(cx, cz, seed);
+                for lx in 0..CHUNK_SIZE_X {
+                    for lz in 0..CHUNK_SIZE_Z {
+                        for ly in 0..CHUNK_SIZE_Y {
+                            if chunk[block_index(lx, ly, lz)] == BlockId::OakLog as u8 {
+                                // On a trouvé un bloc de tronc. 
+                                // On enregistre la position mondiale du pied du tronc.
+                                // Un arbre peut avoir plusieurs blocs de tronc (1x1, 2x1, 2x2).
+                                // On ne veut compter qu'un point par arbre.
+                                let wx = cx * CHUNK_SIZE_X as i32 + lx as i32;
+                                let wz = cz * CHUNK_SIZE_Z as i32 + lz as i32;
+                                
+                                // On ne garde que le bloc le plus bas pour chaque colonne de tronc
+                                let mut is_new_tree = true;
+                                for &(tx, _, tz) in &tree_positions {
+                                    // Si on est très proche d'un tronc déjà enregistré (distance < 2), 
+                                    // c'est probablement le même arbre (tronc 2x2 ou 2x1)
+                                    let dx = (tx as i32 - wx as i32).abs();
+                                    let dz = (tz as i32 - wz as i32).abs();
+                                    if dx <= 1 && dz <= 1 {
+                                        is_new_tree = false;
+                                        break;
+                                    }
+                                }
+                                
+                                if is_new_tree {
+                                    tree_positions.push((wx, ly as i32, wz));
+                                }
+                                // Une fois qu'on a trouvé un log à cette position (lx, lz), 
+                                // on passe à la colonne suivante pour ne pas compter les logs en hauteur
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Maintenant on vérifie la distance entre chaque paire d'arbres
+        for i in 0..tree_positions.iter().len() {
+            for j in i + 1..tree_positions.iter().len() {
+                let (x1, _, z1) = tree_positions[i];
+                let (x2, _, z2) = tree_positions[j];
+                
+                let dx = (x1 - x2) as f64;
+                let dz = (z1 - z2) as f64;
+                let distance = (dx*dx + dz*dz).sqrt();
+                
+                // La règle dit "moins de 10 blocs d'écart". 
+                // Habituellement dans Minecraft cela signifie distance euclidienne ou de Manhattan ?
+                // "10 blocs d'écart" suggère que si on est à (0,0), le suivant est au moins à (10,0) ou (0,10).
+                // Avec ma grille de 12, le minimum devrait être 12 si ils sont dans des cellules adjacentes avec le même offset,
+                // ou moins si les offsets les rapprochent.
+                // Distance min possible entre deux cellules adjacentes (12x12) :
+                // Cellule 0: offset 11,11 -> monde 11,11
+                // Cellule 1: offset 0,0   -> monde 12,0
+                // Distance = sqrt(1^2 + 11^2) = sqrt(122) ~ 11.04.
+                // Donc distance >= 10 devrait être respecté.
+                
+                assert!(distance >= 10.0, "Arbres trop proches : ({},{}) et ({},{}) distance={}", x1, z1, x2, z2, distance);
+            }
+        }
+    }
+
+    #[test]
+    fn test_tree_at_chunk_border_has_leaves_in_neighbor() {
+        let seed = 12345;
+        // On génère deux chunks adjacents
+        let chunk_left = generate_chunk(0, 0, seed);
+        let chunk_right = generate_chunk(1, 0, seed);
+        
+        // On cherche un arbre dans le chunk de droite qui est proche de la bordure
+        let mut test_passed = false;
+        'outer: for lx in 0..CHUNK_SIZE_X {
+            for lz in 0..CHUNK_SIZE_Z {
+                for ly in 0..CHUNK_SIZE_Y {
+                    if chunk_right[block_index(lx, ly, lz)] == BlockId::OakLog as u8 {
+                        // On a un arbre à monde x = 16 + lx.
+                        // Si cet arbre est proche de la bordure (lx < 4), il devrait déborder sur chunk_left
+                        if lx < 4 {
+                            for dx in 1..=lx+1 {
+                                let local_x_left = 16 + lx as i32 - dx as i32;
+                                if local_x_left < 16 && chunk_left[block_index(local_x_left as usize, ly, lz)] == BlockId::OakLeaves as u8 {
+                                    test_passed = true;
+                                    break 'outer;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Si on n'a pas trouvé d'arbre en bordure dans chunk_right, on cherche dans chunk_left débordant sur chunk_right
+        if !test_passed {
+            'outer2: for lx in 12..CHUNK_SIZE_X {
+                for lz in 0..CHUNK_SIZE_Z {
+                    for ly in 0..CHUNK_SIZE_Y {
+                        if chunk_left[block_index(lx, ly, lz)] == BlockId::OakLog as u8 {
+                            // On a un arbre à monde x = lx.
+                            // Si cet arbre est proche de la bordure (lx >= 12), il devrait déborder sur chunk_right (x >= 16)
+                            for dx in 1..=(15-lx)+1 {
+                                let local_x_right = lx as i32 + dx as i32 - 16;
+                                if local_x_right >= 0 && chunk_right[block_index(local_x_right as usize, ly, lz)] == BlockId::OakLeaves as u8 {
+                                    test_passed = true;
+                                    break 'outer2;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(test_passed, "Aucun arbre ne semble déborder correctement sur son voisin aux bordures de chunk");
+    }
+    #[test]
+    fn test_tree_foliage_all_sides_covered() {
+        for s in 0..100 {
+            let mut blocks = vec![0u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+            let seed = 9999 + s;
+            let x = 7;
+            let y = 10;
+            let z = 7;
+            generate_tree(x, y, z, &mut blocks, seed, x, z);
+
+            let mut tw = 0;
+            let mut td = 0;
+            let mut height = 0;
+
+            for ty in y..CHUNK_SIZE_Y as i32 {
+                if blocks[block_index(x as usize, ty as usize, z as usize)] == BlockId::OakLog as u8 {
+                    height += 1;
+                } else {
+                    break;
+                }
+            }
+            
+            for tx in x..CHUNK_SIZE_X as i32 {
+                if blocks[block_index(tx as usize, y as usize, z as usize)] == BlockId::OakLog as u8 {
+                    tw += 1;
+                } else {
+                    break;
+                }
+            }
+
+            for tz in z..CHUNK_SIZE_Z as i32 {
+                if blocks[block_index(x as usize, y as usize, tz as usize)] == BlockId::OakLog as u8 {
+                    td += 1;
+                } else {
+                    break;
+                }
+            }
+
+            let leaf_start_y_rel = height / 2;
+            for ty_rel in leaf_start_y_rel..height {
+                let ty = y + ty_rel;
+                for tx in x..x+tw {
+                    assert_eq!(blocks[block_index(tx as usize, ty as usize, (z-1) as usize)], BlockId::OakLeaves as u8, "Graine {}: Face Nord non couverte à y={} (rel={}), x={}", seed, ty, ty_rel, tx);
+                    assert_eq!(blocks[block_index(tx as usize, ty as usize, (z+td) as usize)], BlockId::OakLeaves as u8, "Graine {}: Face Sud non couverte à y={} (rel={}), x={}", seed, ty, ty_rel, tx);
+                }
+                for tz in z..z+td {
+                    assert_eq!(blocks[block_index((x-1) as usize, ty as usize, tz as usize)], BlockId::OakLeaves as u8, "Graine {}: Face Ouest non couverte à y={} (rel={}), z={}", seed, ty, ty_rel, tz);
+                    assert_eq!(blocks[block_index((x+tw) as usize, ty as usize, tz as usize)], BlockId::OakLeaves as u8, "Graine {}: Face Est non couverte à y={} (rel={}), z={}", seed, ty, ty_rel, tz);
+                }
+            }
+
+            // Vérifier que la partie basse du tronc est visible (pas de feuilles adjacentes au tronc)
+            for ty_rel in 0..leaf_start_y_rel {
+                let ty = y + ty_rel;
+                for tx in x..x+tw {
+                    assert_ne!(blocks[block_index(tx as usize, ty as usize, (z-1) as usize)], BlockId::OakLeaves as u8, "Graine {}: Feuille indésirable au Nord en bas à y={}, x={}", seed, ty, tx);
+                    assert_ne!(blocks[block_index(tx as usize, ty as usize, (z+td) as usize)], BlockId::OakLeaves as u8, "Graine {}: Feuille indésirable au Sud en bas à y={}, x={}", seed, ty, tx);
+                }
+                for tz in z..z+td {
+                    assert_ne!(blocks[block_index((x-1) as usize, ty as usize, tz as usize)], BlockId::OakLeaves as u8, "Graine {}: Feuille indésirable à l'Ouest en bas à y={}, z={}", seed, ty, tz);
+                    assert_ne!(blocks[block_index((x+tw) as usize, ty as usize, tz as usize)], BlockId::OakLeaves as u8, "Graine {}: Feuille indésirable à l'Est en bas à y={}, z={}", seed, ty, tz);
+                }
+            }
+        }
+    }
 }
