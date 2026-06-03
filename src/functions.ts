@@ -31,6 +31,11 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   const normals: number[] = [];
   const colors: number[] = [];
 
+  const waterPositions: number[] = [];
+  const waterIndices: number[] = [];
+  const waterNormals: number[] = [];
+  const waterColors: number[] = [];
+
   const worldOffsetX = chunkX * sizeX;
   const worldOffsetZ = chunkZ * sizeZ;
 
@@ -46,6 +51,33 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
         const worldX = worldOffsetX + x;
         const worldY = y;
         const worldZ = worldOffsetZ + z;
+
+        if (block === BlockId.Water) {
+          const topNeighbor = getBlock(
+            blocks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            x,
+            y + 1,
+            z,
+          );
+
+          if (topNeighbor === BlockId.Air) {
+            addWaterTopFaceDoubleSided({
+              positions: waterPositions,
+              indices: waterIndices,
+              normals: waterNormals,
+              colors: waterColors,
+              x: worldX,
+              y: worldY,
+              z: worldZ,
+              block,
+            });
+          }
+
+          continue;
+        }
 
         for (const face of FACES) {
           const neighbor = getBlock(
@@ -86,6 +118,21 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   vertexData.applyToMesh(mesh);
 
   mesh.material = material;
+
+  if (waterPositions.length > 0) {
+    const waterMesh = new Mesh(`${name}-water`, scene);
+
+    const waterVertexData = new VertexData();
+    waterVertexData.positions = waterPositions;
+    waterVertexData.indices = waterIndices;
+    waterVertexData.normals = waterNormals;
+    waterVertexData.colors = waterColors;
+    waterVertexData.applyToMesh(waterMesh);
+
+    waterMesh.hasVertexAlpha = true;
+    waterMesh.material = material;
+    waterMesh.parent = mesh;
+  }
 
   return mesh;
 }
@@ -139,6 +186,51 @@ export function addFace(params: AddFaceParams): void {
     vertexIndex,
     vertexIndex + 2,
     vertexIndex + 3,
+  );
+}
+
+export function addWaterTopFaceDoubleSided(params: Omit<AddFaceParams, "face">): void {
+  const { positions, indices, normals, colors, x, y, z, block } = params;
+
+  const topFace = FACES[0];
+  const frontColor = getBlockFaceColor(block, topFace.normal);
+
+  const frontVertexIndex = positions.length / 3;
+
+  for (const vertex of topFace.vertices) {
+    positions.push(x + vertex[0], y + vertex[1], z + vertex[2]);
+    normals.push(topFace.normal[0], topFace.normal[1], topFace.normal[2]);
+    colors.push(frontColor.r, frontColor.g, frontColor.b, frontColor.a);
+  }
+
+  indices.push(
+    frontVertexIndex,
+    frontVertexIndex + 1,
+    frontVertexIndex + 2,
+    frontVertexIndex,
+    frontVertexIndex + 2,
+    frontVertexIndex + 3,
+  );
+
+  const backVertexIndex = positions.length / 3;
+
+  for (const vertex of topFace.vertices) {
+    positions.push(x + vertex[0], y + vertex[1], z + vertex[2]);
+
+    // On garde la normale vers le haut pour éviter le dessous noir.
+    normals.push(topFace.normal[0], topFace.normal[1], topFace.normal[2]);
+
+    // Verso à 50% d'opacité.
+    colors.push(frontColor.r, frontColor.g, frontColor.b, 0.5);
+  }
+
+  indices.push(
+    backVertexIndex,
+    backVertexIndex + 2,
+    backVertexIndex + 1,
+    backVertexIndex,
+    backVertexIndex + 3,
+    backVertexIndex + 2,
   );
 }
 
