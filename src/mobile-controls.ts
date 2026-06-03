@@ -301,7 +301,6 @@ export default function initializeMobileControls(
   };
 
   moveJoystick.root.onPointerUpObservable.add((coordinates: any) => endMove(coordinates.pointerId));
-  moveJoystick.root.onPointerOutObservable.add((coordinates: any) => endMove(coordinates.pointerId));
 
   // Look Joystick Events
   lookJoystick.root.onPointerDownObservable.add((coordinates: any) => {
@@ -337,7 +336,6 @@ export default function initializeMobileControls(
   };
 
   lookJoystick.root.onPointerUpObservable.add((coordinates: any) => endLook(coordinates.pointerId));
-  lookJoystick.root.onPointerOutObservable.add((coordinates: any) => endLook(coordinates.pointerId));
 
   scene.onBeforeRenderObservable.add(() => {
     const deltaTime = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
