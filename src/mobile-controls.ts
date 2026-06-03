@@ -1,21 +1,55 @@
+import {
+  PointerEventTypes,
+  type Scene,
+} from "@babylonjs/core";
+import {
+  AdvancedDynamicTexture,
+  Control,
+  Ellipse,
+  Rectangle,
+  TextBlock,
+} from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
-const MOVE_JOYSTICK_RADIUS = 70;
+
+const MOVE_JOYSTICK_SIZE = 140;
+const MOVE_JOYSTICK_RADIUS = MOVE_JOYSTICK_SIZE / 2;
+const MOVE_JOYSTICK_LEFT = 22;
+const MOVE_JOYSTICK_BOTTOM = 86;
+
+const LOOK_JOYSTICK_SIZE = 140;
 const LOOK_JOYSTICK_RADIUS = 58;
+const LOOK_JOYSTICK_RIGHT = 22;
+const LOOK_JOYSTICK_BOTTOM = 116;
+
+const JUMP_BUTTON_SIZE = 76;
+const JUMP_BUTTON_RIGHT = 54;
+const JUMP_BUTTON_BOTTOM = 34;
+
+const THUMB_SIZE = 54;
 const MOVE_DEAD_ZONE = 0.18;
 const LOOK_DEAD_ZONE = 0.08;
 const LOOK_SPEED = 2.6;
 const MIN_PITCH = -Math.PI / 2 + 0.05;
 const MAX_PITCH = Math.PI / 2 - 0.05;
 
-type JoystickState = {
-  pointerId: number | null;
-  originX: number;
-  originY: number;
+type Point = {
   x: number;
   y: number;
+};
+
+type JoystickState = {
+  pointerId: number | null;
+  origin: Point;
+  x: number;
+  y: number;
+};
+
+type CircleZone = {
+  center: Point;
+  radius: number;
 };
 
 function isMobileMode(): boolean {
@@ -29,31 +63,158 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function setJoystickThumb(
-  thumb: HTMLElement,
-  x: number,
-  y: number,
-  radius: number,
-): void {
-  thumb.style.transform = `translate(calc(-50% + ${x * radius}px), calc(-50% + ${y * radius}px))`;
+function getViewportSize(scene: Scene): { width: number; height: number } {
+  const engine = scene.getEngine();
+  const canvas = engine.getRenderingCanvas();
+
+  if (canvas) {
+    const rect = canvas.getBoundingClientRect();
+
+    return {
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  return {
+    width: engine.getRenderWidth(),
+    height: engine.getRenderHeight(),
+  };
 }
 
-function createControlElement(className: string, label: string): HTMLDivElement {
-  const element = document.createElement("div");
-  element.className = className;
-  element.setAttribute("aria-label", label);
-  element.setAttribute("role", "button");
+function getPointerPosition(scene: Scene, event: PointerEvent): Point | null {
+  const canvas = scene.getEngine().getRenderingCanvas();
 
-  return element;
+  if (!canvas) {
+    return null;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
 }
 
-function resetMoveState(thumb: HTMLElement, state: JoystickState): void {
+function containsPoint(zone: CircleZone, point: Point): boolean {
+  return Math.hypot(point.x - zone.center.x, point.y - zone.center.y) <= zone.radius;
+}
+
+function getMoveJoystickZone(scene: Scene): CircleZone {
+  const viewport = getViewportSize(scene);
+
+  return {
+    center: {
+      x: MOVE_JOYSTICK_LEFT + MOVE_JOYSTICK_RADIUS,
+      y: viewport.height - MOVE_JOYSTICK_BOTTOM - MOVE_JOYSTICK_RADIUS,
+    },
+    radius: MOVE_JOYSTICK_RADIUS,
+  };
+}
+
+function getLookJoystickZone(scene: Scene): CircleZone {
+  const viewport = getViewportSize(scene);
+
+  return {
+    center: {
+      x: viewport.width - LOOK_JOYSTICK_RIGHT - LOOK_JOYSTICK_SIZE / 2,
+      y: viewport.height - LOOK_JOYSTICK_BOTTOM - LOOK_JOYSTICK_SIZE / 2,
+    },
+    radius: LOOK_JOYSTICK_SIZE / 2,
+  };
+}
+
+function getJumpButtonZone(scene: Scene): CircleZone {
+  const viewport = getViewportSize(scene);
+
+  return {
+    center: {
+      x: viewport.width - JUMP_BUTTON_RIGHT - JUMP_BUTTON_SIZE / 2,
+      y: viewport.height - JUMP_BUTTON_BOTTOM - JUMP_BUTTON_SIZE / 2,
+    },
+    radius: JUMP_BUTTON_SIZE / 2,
+  };
+}
+
+function moveThumb(thumb: Control, x: number, y: number, radius: number): void {
+  thumb.left = `${x * radius}px`;
+  thumb.top = `${y * radius}px`;
+}
+
+function createJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
+  const root = new Ellipse(`${name}-root`);
+  root.width = `${MOVE_JOYSTICK_SIZE}px`;
+  root.height = `${MOVE_JOYSTICK_SIZE}px`;
+  root.thickness = 2;
+  root.color = "rgba(255, 255, 255, 0.45)";
+  root.background = "rgba(0, 0, 0, 0.22)";
+  root.alpha = 0.92;
+  root.isPointerBlocker = false;
+
+  const thumb = new Ellipse(`${name}-thumb`);
+  thumb.width = `${THUMB_SIZE}px`;
+  thumb.height = `${THUMB_SIZE}px`;
+  thumb.thickness = 2;
+  thumb.color = "rgba(255, 255, 255, 0.55)";
+  thumb.background = "rgba(255, 255, 255, 0.28)";
+  thumb.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  thumb.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  thumb.isPointerBlocker = false;
+
+  root.addControl(thumb);
+
+  return { root, thumb };
+}
+
+function createMoveAxis(): Rectangle {
+  const axis = new Rectangle("mobile-move-axis");
+  axis.width = "2px";
+  axis.height = "104px";
+  axis.thickness = 0;
+  axis.background = "rgba(255, 255, 255, 0.28)";
+  axis.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  axis.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  axis.isPointerBlocker = false;
+
+  return axis;
+}
+
+function createJumpButton(): Ellipse {
+  const button = new Ellipse("mobile-jump-button");
+  button.width = `${JUMP_BUTTON_SIZE}px`;
+  button.height = `${JUMP_BUTTON_SIZE}px`;
+  button.thickness = 2;
+  button.color = "rgba(255, 255, 255, 0.5)";
+  button.background = "rgba(0, 0, 0, 0.3)";
+  button.alpha = 0.94;
+  button.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+  button.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+  button.left = `-${JUMP_BUTTON_RIGHT}px`;
+  button.top = `-${JUMP_BUTTON_BOTTOM}px`;
+  button.isPointerBlocker = false;
+
+  const label = new TextBlock("mobile-jump-label");
+  label.text = "↥";
+  label.color = "white";
+  label.fontSize = 42;
+  label.fontWeight = "700";
+  label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  label.isPointerBlocker = false;
+
+  button.addControl(label);
+
+  return button;
+}
+
+function resetMoveState(thumb: Control, state: JoystickState): void {
   state.pointerId = null;
   state.x = 0;
   state.y = 0;
   pressedKeys.delete("KeyW");
   pressedKeys.delete("KeyS");
-  setJoystickThumb(thumb, 0, 0, MOVE_JOYSTICK_RADIUS);
+  moveThumb(thumb, 0, 0, MOVE_JOYSTICK_RADIUS);
 }
 
 function updateMoveKeys(y: number): void {
@@ -73,211 +234,165 @@ function updateMoveKeys(y: number): void {
   pressedKeys.delete("KeyS");
 }
 
-function bindVerticalMoveJoystick(root: HTMLElement): void {
-  const thumb = root.querySelector<HTMLElement>(".mobile-controls__thumb");
-
-  if (!thumb) {
-    throw new Error("Thumb du joystick mobile gauche introuvable");
-  }
-
-  const state: JoystickState = {
-    pointerId: null,
-    originX: 0,
-    originY: 0,
-    x: 0,
-    y: 0,
-  };
-
-  root.addEventListener("pointerdown", (event) => {
-    state.pointerId = event.pointerId;
-    state.originX = event.clientX;
-    state.originY = event.clientY;
-    root.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-
-  root.addEventListener("pointermove", (event) => {
-    if (state.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const rawY = clamp(
-      (event.clientY - state.originY) / MOVE_JOYSTICK_RADIUS,
-      -1,
-      1,
-    );
-
-    state.y = rawY;
-    updateMoveKeys(state.y);
-    setJoystickThumb(thumb, 0, state.y, MOVE_JOYSTICK_RADIUS);
-    event.preventDefault();
-  });
-
-  root.addEventListener("pointerup", (event) => {
-    if (state.pointerId !== event.pointerId) {
-      return;
-    }
-
-    resetMoveState(thumb, state);
-    event.preventDefault();
-  });
-
-  root.addEventListener("pointercancel", (event) => {
-    if (state.pointerId !== event.pointerId) {
-      return;
-    }
-
-    resetMoveState(thumb, state);
-    event.preventDefault();
-  });
-}
-
-function resetLookState(thumb: HTMLElement, state: JoystickState): void {
+function resetLookState(thumb: Control, state: JoystickState): void {
   state.pointerId = null;
   state.x = 0;
   state.y = 0;
-  setJoystickThumb(thumb, 0, 0, LOOK_JOYSTICK_RADIUS);
+  moveThumb(thumb, 0, 0, LOOK_JOYSTICK_RADIUS);
 }
 
-function bindCircularLookJoystick(root: HTMLElement, player: PlayerPhysics): void {
-  const thumb = root.querySelector<HTMLElement>(".mobile-controls__thumb");
-
-  if (!thumb) {
-    throw new Error("Thumb du joystick mobile droit introuvable");
-  }
-
-  const state: JoystickState = {
-    pointerId: null,
-    originX: 0,
-    originY: 0,
-    x: 0,
-    y: 0,
-  };
-
-  let previousTime = performance.now();
-
-  function updateCamera(currentTime: number): void {
-    const deltaTime = Math.min((currentTime - previousTime) / 1000, 0.05);
-    previousTime = currentTime;
-
-    if (
-      state.pointerId !== null &&
-      (Math.abs(state.x) > LOOK_DEAD_ZONE || Math.abs(state.y) > LOOK_DEAD_ZONE)
-    ) {
-      player.yaw += state.x * LOOK_SPEED * deltaTime;
-      player.pitch = clamp(
-        player.pitch + state.y * LOOK_SPEED * deltaTime,
-        MIN_PITCH,
-        MAX_PITCH,
-      );
-    }
-
-    requestAnimationFrame(updateCamera);
-  }
-
-  requestAnimationFrame(updateCamera);
-
-  root.addEventListener("pointerdown", (event) => {
-    state.pointerId = event.pointerId;
-    state.originX = event.clientX;
-    state.originY = event.clientY;
-    root.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-
-  root.addEventListener("pointermove", (event) => {
-    if (state.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const rawX = (event.clientX - state.originX) / LOOK_JOYSTICK_RADIUS;
-    const rawY = (event.clientY - state.originY) / LOOK_JOYSTICK_RADIUS;
-    const length = Math.hypot(rawX, rawY);
-    const normalizedLength = Math.min(length, 1);
-
-    if (length > 0) {
-      state.x = (rawX / length) * normalizedLength;
-      state.y = (rawY / length) * normalizedLength;
-    } else {
-      state.x = 0;
-      state.y = 0;
-    }
-
-    setJoystickThumb(thumb, state.x, state.y, LOOK_JOYSTICK_RADIUS);
-    event.preventDefault();
-  });
-
-  root.addEventListener("pointerup", (event) => {
-    if (state.pointerId !== event.pointerId) {
-      return;
-    }
-
-    resetLookState(thumb, state);
-    event.preventDefault();
-  });
-
-  root.addEventListener("pointercancel", (event) => {
-    if (state.pointerId !== event.pointerId) {
-      return;
-    }
-
-    resetLookState(thumb, state);
-    event.preventDefault();
-  });
-}
-
-function bindJumpButton(button: HTMLElement): void {
-  button.addEventListener("pointerdown", (event) => {
-    pressedKeys.add("Space");
-    button.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-
-  button.addEventListener("pointerup", (event) => {
-    pressedKeys.delete("Space");
-    event.preventDefault();
-  });
-
-  button.addEventListener("pointercancel", (event) => {
-    pressedKeys.delete("Space");
-    event.preventDefault();
-  });
-}
-
-export default function initializeMobileControls(player: PlayerPhysics): void {
+export default function initializeMobileControls(
+  scene: Scene,
+  player: PlayerPhysics,
+): void {
   if (!isMobileMode()) {
     return;
   }
 
-  const overlay = document.createElement("div");
-  overlay.className = "mobile-controls";
-
-  const moveJoystick = createControlElement(
-    "mobile-controls__joystick mobile-controls__joystick--move",
-    "Avancer ou reculer",
+  const ui = AdvancedDynamicTexture.CreateFullscreenUI(
+    "mobile-controls-ui",
+    true,
+    scene,
   );
-  const moveThumb = document.createElement("div");
-  moveThumb.className = "mobile-controls__thumb";
-  moveJoystick.append(moveThumb);
 
-  const lookJoystick = createControlElement(
-    "mobile-controls__joystick mobile-controls__joystick--look",
-    "Regarder autour de soi",
-  );
-  const lookThumb = document.createElement("div");
-  lookThumb.className = "mobile-controls__thumb";
-  lookJoystick.append(lookThumb);
+  const moveJoystick = createJoystick("mobile-move-joystick");
+  moveJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+  moveJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+  moveJoystick.root.left = `${MOVE_JOYSTICK_LEFT}px`;
+  moveJoystick.root.top = `-${MOVE_JOYSTICK_BOTTOM}px`;
+  moveJoystick.root.addControl(createMoveAxis());
+  ui.addControl(moveJoystick.root);
 
-  const jumpButton = createControlElement(
-    "mobile-controls__jump-button",
-    "Sauter",
-  );
-  jumpButton.textContent = "↥";
+  const lookJoystick = createJoystick("mobile-look-joystick");
+  lookJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+  lookJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+  lookJoystick.root.left = `-${LOOK_JOYSTICK_RIGHT}px`;
+  lookJoystick.root.top = `-${LOOK_JOYSTICK_BOTTOM}px`;
+  ui.addControl(lookJoystick.root);
 
-  overlay.append(moveJoystick, lookJoystick, jumpButton);
-  document.body.append(overlay);
+  const jumpButton = createJumpButton();
+  ui.addControl(jumpButton);
 
-  bindVerticalMoveJoystick(moveJoystick);
-  bindCircularLookJoystick(lookJoystick, player);
-  bindJumpButton(jumpButton);
+  const moveState: JoystickState = {
+    pointerId: null,
+    origin: { x: 0, y: 0 },
+    x: 0,
+    y: 0,
+  };
+
+  const lookState: JoystickState = {
+    pointerId: null,
+    origin: { x: 0, y: 0 },
+    x: 0,
+    y: 0,
+  };
+
+  let jumpPointerId: number | null = null;
+
+  scene.onPointerObservable.add((pointerInfo) => {
+    const event = pointerInfo.event as PointerEvent;
+    const position = getPointerPosition(scene, event);
+
+    if (!position) {
+      return;
+    }
+
+    if (pointerInfo.type === PointerEventTypes.POINTERDOWN) {
+      if (moveState.pointerId === null && containsPoint(getMoveJoystickZone(scene), position)) {
+        moveState.pointerId = event.pointerId;
+        moveState.origin = position;
+        event.preventDefault();
+        return;
+      }
+
+      if (lookState.pointerId === null && containsPoint(getLookJoystickZone(scene), position)) {
+        lookState.pointerId = event.pointerId;
+        lookState.origin = position;
+        event.preventDefault();
+        return;
+      }
+
+      if (jumpPointerId === null && containsPoint(getJumpButtonZone(scene), position)) {
+        jumpPointerId = event.pointerId;
+        pressedKeys.add("Space");
+        event.preventDefault();
+      }
+
+      return;
+    }
+
+    if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
+      if (moveState.pointerId === event.pointerId) {
+        const y = clamp(
+          (position.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS,
+          -1,
+          1,
+        );
+
+        moveState.x = 0;
+        moveState.y = y;
+        updateMoveKeys(moveState.y);
+        moveThumb(moveJoystick.thumb, 0, moveState.y, MOVE_JOYSTICK_RADIUS);
+        event.preventDefault();
+        return;
+      }
+
+      if (lookState.pointerId === event.pointerId) {
+        const rawX = (position.x - lookState.origin.x) / LOOK_JOYSTICK_RADIUS;
+        const rawY = (position.y - lookState.origin.y) / LOOK_JOYSTICK_RADIUS;
+        const length = Math.hypot(rawX, rawY);
+        const normalizedLength = Math.min(length, 1);
+
+        if (length > 0) {
+          lookState.x = (rawX / length) * normalizedLength;
+          lookState.y = (rawY / length) * normalizedLength;
+        } else {
+          lookState.x = 0;
+          lookState.y = 0;
+        }
+
+        moveThumb(lookJoystick.thumb, lookState.x, lookState.y, LOOK_JOYSTICK_RADIUS);
+        event.preventDefault();
+      }
+
+      return;
+    }
+
+    if (
+      pointerInfo.type === PointerEventTypes.POINTERUP ||
+      pointerInfo.type === PointerEventTypes.POINTERDOUBLETAP
+    ) {
+      if (moveState.pointerId === event.pointerId) {
+        resetMoveState(moveJoystick.thumb, moveState);
+        event.preventDefault();
+      }
+
+      if (lookState.pointerId === event.pointerId) {
+        resetLookState(lookJoystick.thumb, lookState);
+        event.preventDefault();
+      }
+
+      if (jumpPointerId === event.pointerId) {
+        jumpPointerId = null;
+        pressedKeys.delete("Space");
+        event.preventDefault();
+      }
+    }
+  });
+
+  scene.onBeforeRenderObservable.add(() => {
+    const deltaTime = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
+
+    if (
+      lookState.pointerId !== null &&
+      (Math.abs(lookState.x) > LOOK_DEAD_ZONE || Math.abs(lookState.y) > LOOK_DEAD_ZONE)
+    ) {
+      player.yaw += lookState.x * LOOK_SPEED * deltaTime;
+      player.pitch = clamp(
+        player.pitch + lookState.y * LOOK_SPEED * deltaTime,
+        MIN_PITCH,
+        MAX_PITCH,
+      );
+    }
+  });
 }
