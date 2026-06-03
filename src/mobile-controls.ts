@@ -7,6 +7,7 @@ import {
   Control,
   Ellipse,
   Image,
+  Rectangle,
   TextBlock,
 } from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
@@ -177,36 +178,30 @@ function createLookJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
   return { root, thumb };
 }
 
-function createMoveJoystickSvg(): string {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="58" height="114" viewBox="0 0 58 114">
-      <path
-        d="M12 39 C18 49 39 49 46 35 L56 82 C59 99 47 114 29 114 C11 114 -1 99 2 82 Z"
-        fill="rgba(0, 0, 0, 0.30)"
-      />
-      <circle
-        cx="29"
-        cy="27"
-        r="25"
-        fill="rgba(255, 255, 255, 0.88)"
-        stroke="rgba(255, 255, 255, 0.55)"
-        stroke-width="2"
-      />
-    </svg>
-  `;
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function createMoveJoystick(): { root: Image; thumb: Image } {
-  const root = new Image("mobile-move-joystick", createMoveJoystickSvg());
-  root.width = `${MOVE_JOYSTICK_WIDTH}px`;
-  root.height = `${MOVE_JOYSTICK_HEIGHT}px`;
-  root.stretch = Image.STRETCH_FILL;
-  root.alpha = 0.94;
+function createMoveJoystick(): { root: Rectangle; thumb: Ellipse } {
+  const root = new Rectangle(`${name}-root`);
+  root.cornerRadius = 20;
+  root.width = `${LOOK_JOYSTICK_SIZE / 2}px`;
+  root.height = `${LOOK_JOYSTICK_SIZE}px`;
+  root.thickness = 2;
+  root.color = "rgba(255, 255, 255, 0.45)";
+  root.background = "rgba(0, 0, 0, 0.22)";
+  root.alpha = 0.92;
   root.isPointerBlocker = false;
 
-  return { root, thumb: root };
+  const thumb = new Ellipse(`${name}-thumb`);
+  thumb.width = `${LOOK_THUMB_SIZE}px`;
+  thumb.height = `${LOOK_THUMB_SIZE}px`;
+  thumb.thickness = 2;
+  thumb.color = "rgba(255, 255, 255, 0.55)";
+  thumb.background = "rgba(255, 255, 255, 0.28)";
+  thumb.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  thumb.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  thumb.isPointerBlocker = false;
+
+  root.addControl(thumb);
+
+  return { root, thumb };
 }
 
 function createJumpButton(): Ellipse {
@@ -296,7 +291,7 @@ export default function initializeMobileControls(
   lookJoystick.root.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
   lookJoystick.root.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
   lookJoystick.root.left = `-${LOOK_JOYSTICK_RIGHT}px`;
-  lookJoystick.root.top = `-${LOOK_JOYSTICK_BOTTOM}px`;
+  lookJoystick.root.top = `-${LOOK_JOYSTICK_BOTTOM - 15}px`;
   ui.addControl(lookJoystick.root);
 
   const jumpButton = createJumpButton();
