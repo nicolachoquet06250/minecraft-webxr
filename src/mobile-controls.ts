@@ -11,6 +11,7 @@ import {
 import { pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 import { breakBlock } from "./functions";
+import { isCraftingOverlayOpen } from "./ui-state";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
@@ -320,9 +321,39 @@ export default function initializeMobileControls(
   };
 
   let jumpPointerId: number | null = null;
+  let breakPointerId: number | null = null;
+  let craftPointerId: number | null = null;
+
+  const resetBreak = (pointerId: number | null) => {
+    if (breakPointerId === pointerId || pointerId === null) {
+      breakPointerId = null;
+      breakButton.background = "rgba(200, 0, 0, 0.3)";
+    }
+  };
+
+  const resetJump = (pointerId: number | null) => {
+    if (jumpPointerId === pointerId || pointerId === null) {
+      jumpPointerId = null;
+      pressedKeys.delete("Space");
+      jumpButton.background = "rgba(0, 0, 0, 0.3)";
+    }
+  };
+
+  const resetCraft = (pointerId: number | null) => {
+    if (craftPointerId === pointerId || pointerId === null) {
+      craftPointerId = null;
+      craftButton.background = "rgba(0, 0, 0, 0.34)";
+    }
+  };
+
+  const resetAllControls = (): void => {
+    resetMoveState(moveJoystick.thumb, moveState);
+    resetLookState(lookJoystick.thumb, lookState);
+    resetJump(null);
+    resetBreak(null);
+  };
 
   // Craft Button Events
-  let craftPointerId: number | null = null;
   craftButton.onPointerDownObservable.add((coordinates: any) => {
     if (craftPointerId !== null) {
       return;
@@ -333,19 +364,16 @@ export default function initializeMobileControls(
     dispatchCraftToggle();
   });
 
-  const resetCraft = (pointerId: number) => {
-    if (craftPointerId === pointerId) {
-      craftPointerId = null;
-      craftButton.background = "rgba(0, 0, 0, 0.34)";
-    }
-  };
-
   craftButton.onPointerUpObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
   craftButton.onPointerOutObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
 
   // Break Button Events
-  let breakPointerId: number | null = null;
   breakButton.onPointerDownObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     if (breakPointerId === null) {
       breakPointerId = coordinates.pointerId;
       breakButton.background = "rgba(255, 0, 0, 0.4)";
@@ -363,32 +391,22 @@ export default function initializeMobileControls(
     }
   });
 
-  const resetBreak = (pointerId: number) => {
-    if (breakPointerId === pointerId) {
-      breakPointerId = null;
-      breakButton.background = "rgba(200, 0, 0, 0.3)";
-    }
-  };
-
   breakButton.onPointerUpObservable.add((coordinates: any) => resetBreak(coordinates.pointerId));
   breakButton.onPointerOutObservable.add((coordinates: any) => resetBreak(coordinates.pointerId));
 
   // Jump Button Events
   jumpButton.onPointerDownObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     if (jumpPointerId === null) {
       jumpPointerId = coordinates.pointerId;
       pressedKeys.add("Space");
       jumpButton.background = "rgba(255, 255, 255, 0.4)";
     }
   });
-
-  const resetJump = (pointerId: number) => {
-    if (jumpPointerId === pointerId) {
-      jumpPointerId = null;
-      pressedKeys.delete("Space");
-      jumpButton.background = "rgba(0, 0, 0, 0.3)";
-    }
-  };
 
   jumpButton.onPointerUpObservable.add((coordinates: any) => {
     resetJump(coordinates.pointerId);
@@ -400,6 +418,11 @@ export default function initializeMobileControls(
 
   // Move Joystick Events
   moveJoystick.root.onPointerDownObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     if (moveState.pointerId === null) {
       moveState.pointerId = coordinates.pointerId;
       moveState.origin = { x: coordinates.x, y: coordinates.y };
@@ -407,6 +430,11 @@ export default function initializeMobileControls(
   });
 
   moveJoystick.root.onPointerMoveObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     if (moveState.pointerId === coordinates.pointerId) {
       const y = clamp(
         (coordinates.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS_Y,
@@ -430,6 +458,11 @@ export default function initializeMobileControls(
 
   // Look Joystick Events
   lookJoystick.root.onPointerDownObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     if (lookState.pointerId === null) {
       lookState.pointerId = coordinates.pointerId;
       lookState.origin = { x: coordinates.x, y: coordinates.y };
@@ -437,6 +470,11 @@ export default function initializeMobileControls(
   });
 
   lookJoystick.root.onPointerMoveObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     if (lookState.pointerId === coordinates.pointerId) {
       const rawX = (coordinates.x - lookState.origin.x) / LOOK_JOYSTICK_RADIUS;
       const rawY = (coordinates.y - lookState.origin.y) / LOOK_JOYSTICK_RADIUS;
@@ -464,6 +502,11 @@ export default function initializeMobileControls(
   lookJoystick.root.onPointerUpObservable.add((coordinates: any) => endLook(coordinates.pointerId));
 
   scene.onBeforeRenderObservable.add(() => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
     const deltaTime = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
 
     if (
