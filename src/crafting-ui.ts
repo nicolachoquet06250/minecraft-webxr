@@ -6,7 +6,7 @@ import { BlockId, type InventoryItem, type PlayerPhysics } from "./types";
 
 type CraftingSlot = InventoryItem | null;
 type CraftingRecipe = { pattern: (BlockId | null)[]; result: InventoryItem };
-type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number };
+type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number } | { type: "result" };
 type DragState = { item: InventoryItem; source: DragSource };
 
 const SLOT_SIZE = 48;
@@ -81,7 +81,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   title.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
   panel.addControl(title);
 
-  const craftGrid = createGrid("crafting-grid", 3, 3, SLOT_SIZE);
+  const craftGrid = createGrid("crafting-grid", CRAFT_GRID_SIZE, CRAFT_GRID_SIZE, SLOT_SIZE);
   craftGrid.left = "-112px";
   craftGrid.top = "-44px";
   panel.addControl(craftGrid);
@@ -104,7 +104,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   resultSlot.left = "106px";
   resultSlot.top = "-44px";
-  resultSlot.onPointerClickObservable.add(() => { craftCurrentRecipe(); updateAll(); });
+  resultSlot.onPointerDownObservable.add(() => startDragFromResultSlot());
   resultSlot.addControl(resultIcon);
   resultSlot.addControl(resultCount);
   panel.addControl(resultSlot);
@@ -132,9 +132,11 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   window.addEventListener("pointerdown", (event) => {
     if (!ui.rootContainer.isVisible || dragState) return;
+    const resultIndex = containsPointer(resultSlot, event.clientX, event.clientY) ? 0 : -1;
     const craftIndex = findControlIndexAt(craftSlotControls, event.clientX, event.clientY);
     const inventoryIndex = findControlIndexAt(inventorySlotControls, event.clientX, event.clientY);
-    if (craftIndex !== -1) startDragFromCraftSlot(craftIndex, event.button);
+    if (resultIndex !== -1) startDragFromResultSlot();
+    else if (craftIndex !== -1) startDragFromCraftSlot(craftIndex, event.button);
     else if (inventoryIndex !== -1) startDragFromInventorySlot(inventoryIndex, event.button);
     else return;
     moveDragPreview(event.clientX, event.clientY);
@@ -210,14 +212,30 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     updateAll();
   }
 
+  function startDragFromResultSlot(): void {
+    if (dragState || !ui.rootContainer.isVisible || !currentResult) return;
+    dragState = { item: { ...currentResult }, source: { type: "result" } };
+    showDragPreview(dragState.item);
+  }
+
   function finishDrag(pointerX: number, pointerY: number): void {
     if (!dragState) return;
-    const craftIndex = findControlIndexAt(craftSlotControls, pointerX, pointerY);
     const inventoryIndex = findControlIndexAt(inventorySlotControls, pointerX, pointerY);
+    const craftIndex = findControlIndexAt(craftSlotControls, pointerX, pointerY);
     const item = dragState.item;
     let dropped = false;
-    if (craftIndex !== -1) dropped = putItemInCraftSlot(craftIndex, item, true);
-    else if (inventoryIndex !== -1) dropped = putItemInInventory(item);
+
+    if (dragState.source.type === "result") {
+      if (inventoryIndex !== -1) {
+        dropped = putItemInInventory(item);
+        consumeCraftIngredients();
+      }
+    } else if (craftIndex !== -1) {
+      dropped = putItemInCraftSlot(craftIndex, item, true);
+    } else if (inventoryIndex !== -1) {
+      dropped = putItemInInventory(item);
+    }
+
     if (!dropped) restoreDraggedItem();
     dragState = null;
     hideDragPreview();
@@ -235,8 +253,16 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   function restoreDraggedItem(): void {
     if (!dragState) return;
     const { item, source } = dragState;
+    if (source.type === "result") return;
     if (source.type === "craft" && putItemInCraftSlot(source.index, item, false)) return;
     putItemInInventory(item);
+  }
+
+  function consumeCraftIngredients(): void {
+    for (const slot of craftSlots) if (slot) slot.count--;
+    for (let index = 0; index < craftSlots.length; index++) {
+      if (craftSlots[index] && craftSlots[index]!.count <= 0) craftSlots[index] = null;
+    }
   }
 
   function putItemInCraftSlot(index: number, item: InventoryItem, replaceExisting: boolean): boolean {
@@ -262,13 +288,6 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   function returnAllCraftSlotsToInventory(): void {
     for (let index = 0; index < craftSlots.length; index++) returnCraftSlotToInventory(index);
-  }
-
-  function craftCurrentRecipe(): void {
-    if (!currentResult || dragState) return;
-    for (const slot of craftSlots) if (slot) slot.count--;
-    for (let index = 0; index < craftSlots.length; index++) if (craftSlots[index] && craftSlots[index]!.count <= 0) craftSlots[index] = null;
-    putItemInInventory(currentResult);
   }
 
   function updateAll(): void {
