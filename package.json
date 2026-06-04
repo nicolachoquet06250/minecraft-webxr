@@ -10,9 +10,11 @@
     "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm"
   },
   "devDependencies": {
+    "@vite-pwa/assets-generator": "^1.0.0",
     "@types/node": "^25.9.1",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
     "@babylonjs/core": "^9.10.1",
