@@ -29,6 +29,7 @@ import {
 } from "./textured-world";
 
 import initializeEvents from "./events";
+import { applyProceduralBlockAtlasMaterial } from "./block-atlas";
 import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar } from "./inventory-ui";
 import initializeMobileControls, { isVRMode } from "./mobile-controls";
@@ -65,6 +66,7 @@ const scene = new Scene(engine);
 scene.clearColor = new Color4(0.55, 0.75, 1.0, 1.0);
 
 const lightMaterial = inisializeLight(scene);
+applyProceduralBlockAtlasMaterial(scene, lightMaterial);
 
 const wasm = await loadVoxelWasm();
 const {
