@@ -189,7 +189,14 @@ export const terrainBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.Tuff, name: "Tuff", color: [0.32, 0.34, 0.32, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Calcite, name: "Calcite", color: [0.86, 0.84, 0.78, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Gravel, name: "Gravel", color: [0.42, 0.4, 0.38, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.Sand, name: "Sand", color: [0.82, 0.72, 0.42, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(sandTexture) },
+  { 
+    id: BlockId.Sand,
+    name: "Sand", 
+    color: [0.82, 0.72, 0.42, 1.0], 
+    solid: true, 
+    transparentForMeshing: false, 
+    textures: allFaces(sandTexture) 
+  },
   { id: BlockId.RedSand, name: "Red Sand", color: [0.75, 0.33, 0.16, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Clay, name: "Clay", color: [0.48, 0.52, 0.58, 1.0], solid: true, transparentForMeshing: false },
 ];
