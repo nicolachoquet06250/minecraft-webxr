@@ -1,6 +1,6 @@
 import type { Scene } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Grid, Image, Rectangle, TextBlock } from "@babylonjs/gui";
-import { craftingRecipes, type CraftingRecipe } from "./crafts";
+import { craftingRecipes, type CraftingPattern, type CraftingRecipe } from "./crafts";
 import { addToInventory, getBlockColor } from "./functions";
 import { setCraftingOverlayOpen } from "./ui-state";
 import { BlockId, type InventoryItem, type PlayerPhysics } from "./types";
@@ -357,8 +357,12 @@ function findRecipeResult(slots: CraftingSlot[]): InventoryItem | null {
 }
 
 function matchesRecipe(slots: CraftingSlot[], recipe: CraftingRecipe): boolean {
-  for (let index = 0; index < recipe.pattern.length; index++) {
-    const expected = recipe.pattern[index];
+  return recipe.patterns.some((pattern) => matchesPattern(slots, pattern));
+}
+
+function matchesPattern(slots: CraftingSlot[], pattern: CraftingPattern): boolean {
+  for (let index = 0; index < pattern.length; index++) {
+    const expected = pattern[index];
     const actual = slots[index];
     if (expected === null && actual !== null) return false;
     if (expected !== null && (!actual || actual.blockId !== expected || actual.count <= 0)) return false;
