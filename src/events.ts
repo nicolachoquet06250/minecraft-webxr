@@ -146,6 +146,7 @@ export default function (
     material,
     droppedItems,
   );
+  let primaryBreakButtonPressed = false;
 
   window.addEventListener("keydown", handleKeyDown);
 
@@ -156,6 +157,11 @@ export default function (
   document.addEventListener("pointerlockchange", () => {
     if (document.pointerLockElement !== canvas) {
       cancelBlockBreaking();
+      return;
+    }
+
+    if (primaryBreakButtonPressed && !isCraftingOverlayOpen() && !isMobileMode()) {
+      startBlockBreaking(breakingParams);
     }
   });
 
@@ -174,6 +180,8 @@ export default function (
       return;
     }
 
+    primaryBreakButtonPressed = true;
+
     if (document.pointerLockElement !== canvas) {
       await canvas.requestPointerLock();
       return;
@@ -182,13 +190,15 @@ export default function (
     startBlockBreaking(breakingParams);
   });
 
-  canvas.addEventListener("pointerup", (event) => {
+  window.addEventListener("pointerup", (event) => {
     if (event.button === 0) {
+      primaryBreakButtonPressed = false;
       cancelBlockBreaking();
     }
   });
 
-  canvas.addEventListener("pointerleave", () => {
+  window.addEventListener("blur", () => {
+    primaryBreakButtonPressed = false;
     cancelBlockBreaking();
   });
 
