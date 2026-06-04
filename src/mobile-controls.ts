@@ -10,7 +10,7 @@ import {
 } from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
-import { breakBlock } from "./functions";
+import { breakBlock } from "./tree-decay";
 import { isCraftingOverlayOpen } from "./ui-state";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
