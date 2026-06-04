@@ -4,6 +4,7 @@ import type { PlayerPhysics } from "./types";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 const CONTROLLER_DEAD_ZONE = 0.18;
+const VR_SMOOTH_TURN_SPEED = 2.4;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -26,7 +27,7 @@ type XRControllerLike = {
 export type WebXRGameControls = {
   isActive: () => boolean;
   getMoveDirection: () => Vector3;
-  syncBeforePhysics: () => void;
+  syncBeforePhysics: (deltaTimeSeconds: number) => void;
   syncAfterPhysics: () => void;
 };
 
@@ -61,18 +62,17 @@ export async function initializeWebXRGameControls(
     getMoveDirection: () => {
       if (!active) return Vector3.Zero();
 
-      const axes = readMovementAxes(leftController) ?? readMovementAxes(rightController);
+      const axes = readControllerAxes(leftController);
 
       if (!axes) return Vector3.Zero();
 
       return getMoveDirectionFromAxes(player.yaw, axes.x, axes.y);
     },
-    syncBeforePhysics: () => {
+    syncBeforePhysics: (deltaTimeSeconds: number) => {
       if (!active || !xrExperience) return;
 
-      const xrCamera = xrExperience.baseExperience.camera;
-      player.yaw = getYawFromCamera(xrCamera);
-      updateMovementKeysFromControllers(leftController, rightController);
+      applySmoothTurnFromRightJoystick(player, rightController, deltaTimeSeconds);
+      updateMovementKeysFromLeftController(leftController);
 
       if (isJumpPressed(rightController) || isJumpPressed(leftController)) {
         if (player.grounded) {
@@ -102,6 +102,7 @@ export async function initializeWebXRGameControls(
 
     if (active && xrExperience) {
       clearVRMovementKeys();
+      player.yaw = getYawFromCamera(xrExperience.baseExperience.camera);
       syncXRCameraToPlayer(xrExperience.baseExperience.camera, player);
       return;
     }
@@ -135,8 +136,20 @@ export async function initializeWebXRGameControls(
   return controls;
 }
 
-function updateMovementKeysFromControllers(leftController: XRControllerLike | null, rightController: XRControllerLike | null): void {
-  const axes = readMovementAxes(leftController) ?? readMovementAxes(rightController);
+function applySmoothTurnFromRightJoystick(
+  player: PlayerPhysics,
+  rightController: XRControllerLike | null,
+  deltaTimeSeconds: number,
+): void {
+  const axes = readControllerAxes(rightController);
+
+  if (!axes) return;
+
+  player.yaw = normalizeAngle(player.yaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
+}
+
+function updateMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
+  const axes = readControllerAxes(leftController);
 
   clearVRMovementKeys();
 
@@ -155,7 +168,7 @@ function clearVRMovementKeys(): void {
   pressedKeys.delete("KeyD");
 }
 
-function readMovementAxes(controller: XRControllerLike | null): { x: number; y: number } | null {
+function readControllerAxes(controller: XRControllerLike | null): { x: number; y: number } | null {
   const thumbstick = controller?.motionController?.getComponent?.("xr-standard-thumbstick")?.axes;
   const touchpad = controller?.motionController?.getComponent?.("xr-standard-touchpad")?.axes;
   const axes = thumbstick ?? touchpad;
@@ -204,6 +217,10 @@ function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rota
   }
 
   return camera.rotation?.y ?? 0;
+}
+
+function normalizeAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
 function syncXRCameraToPlayer(camera: { position: Vector3 }, player: PlayerPhysics): void {
