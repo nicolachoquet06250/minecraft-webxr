@@ -1,0 +1,32 @@
+import { BlockId } from "../types";
+import type { BlockDefinition } from "./types";
+
+export const decorativeBlockDefinitions: BlockDefinition[] = [
+  { id: BlockId.Cobblestone, name: "Cobblestone", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.MossyCobblestone, name: "Mossy Cobblestone", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.StoneBricks, name: "Stone Bricks", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.MossyStoneBricks, name: "Mossy Stone Bricks", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.CrackedStoneBricks, name: "Cracked Stone Bricks", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.ChiseledStoneBricks, name: "Chiseled Stone Bricks", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Bricks, name: "Bricks", color: [0.55, 0.2, 0.12, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Sandstone, name: "Sandstone", color: [0.82, 0.72, 0.42, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.RedSandstone, name: "Red Sandstone", color: [0.75, 0.33, 0.16, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.SmoothStone, name: "Smooth Stone", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.SmoothSandstone, name: "Smooth Sandstone", color: [0.82, 0.72, 0.42, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Netherrack, name: "Netherrack", color: [0.45, 0.08, 0.08, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.SoulSand, name: "Soul Sand", color: [0.23, 0.16, 0.12, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.SoulSoil, name: "Soul Soil", color: [0.23, 0.16, 0.12, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Basalt, name: "Basalt", color: [0.08, 0.08, 0.1, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Blackstone, name: "Blackstone", color: [0.08, 0.08, 0.1, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.MagmaBlock, name: "Magma Block", color: [0.95, 0.25, 0.05, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Glowstone, name: "Glowstone", color: [1.0, 0.82, 0.35, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.EndStone, name: "End Stone", color: [0.86, 0.84, 0.55, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.EndStoneBricks, name: "End Stone Bricks", color: [0.86, 0.84, 0.55, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.PurpurBlock, name: "Purpur Block", color: [0.55, 0.32, 0.62, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.CraftingTable, name: "Crafting Table", color: [0.5, 0.32, 0.16, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Furnace, name: "Furnace", color: [0.25, 0.25, 0.25, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Chest, name: "Chest", color: [0.72, 0.42, 0.12, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.Torch, name: "Torch", color: [1.0, 0.75, 0.18, 1.0], solid: false, transparentForMeshing: true },
+  { id: BlockId.Glass, name: "Glass", color: [0.8, 0.95, 1.0, 0.35], solid: true, transparentForMeshing: true },
+  { id: BlockId.Bookshelf, name: "Bookshelf", color: [0.45, 0.25, 0.12, 1.0], solid: true, transparentForMeshing: false },
+];
