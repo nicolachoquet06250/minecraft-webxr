@@ -9,7 +9,29 @@ function handleResize(engine: Engine) {
     return () => engine.resize();
 }
 
+function clearMovementKeys(): void {
+  pressedKeys.delete("KeyW");
+  pressedKeys.delete("KeyA");
+  pressedKeys.delete("KeyS");
+  pressedKeys.delete("KeyD");
+  pressedKeys.delete("Space");
+  pressedKeys.delete("ArrowUp");
+  pressedKeys.delete("ArrowDown");
+  pressedKeys.delete("ArrowLeft");
+  pressedKeys.delete("ArrowRight");
+}
+
 function handleKeyDown(event: KeyboardEvent) {
+  if (isCraftingOverlayOpen()) {
+    clearMovementKeys();
+
+    if (event.code !== "KeyE" && event.code !== "Escape") {
+      event.preventDefault();
+    }
+
+    return;
+  }
+
   pressedKeys.add(event.code);
 
   if (
@@ -29,6 +51,10 @@ function handleKeyUp(event: KeyboardEvent) {
 
 function handleMouseMove(canvas: HTMLCanvasElement, player: PlayerPhysics): (e: MouseEvent) => any {
     return function (event) {
+        if (isCraftingOverlayOpen()) {
+            return;
+        }
+
         if (document.pointerLockElement !== canvas) {
             return;
         }
@@ -51,6 +77,7 @@ function handleClick(
 ): (e: MouseEvent) => any {
   return async function () {
     if (isCraftingOverlayOpen()) {
+      clearMovementKeys();
       return;
     }
 
@@ -94,6 +121,11 @@ export default function (
   canvas.addEventListener(
     "click",
     (e) => {
+      if (isCraftingOverlayOpen()) {
+        clearMovementKeys();
+        return;
+      }
+
       if (isMobileMode()) {
         console.log("Canvas click blocked on mobile");
         return;
@@ -103,6 +135,14 @@ export default function (
   );
 
   canvas.addEventListener("touchstart", (e) => {
+    if (isCraftingOverlayOpen()) {
+      clearMovementKeys();
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      return;
+    }
+
     if (isMobileMode()) {
         console.log("Canvas touchstart received - blocking destruction on mobile");
         if (e.cancelable) {
