@@ -29,6 +29,7 @@ import {
 } from "./textured-world";
 
 import initializeEvents from "./events";
+import { updateBlockBreaking } from "./block-breaking";
 import { applyProceduralBlockAtlasMaterial } from "./block-atlas";
 import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar } from "./inventory-ui";
@@ -189,6 +190,7 @@ engine.runRenderLoop(() => {
     sizeZ,
   });
 
+  updateBlockBreaking(deltaTime);
   updateDroppedItems(droppedItems, player, worldChunks, sizeX, sizeY, sizeZ, deltaTime);
 
   scene.render();
