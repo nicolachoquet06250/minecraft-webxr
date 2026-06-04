@@ -1,6 +1,6 @@
 import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, RENDER_CHUNK_RADIUS, SEED } from "./constants";
-import { getBlockFaceTextureUv } from "./block-atlas";
+import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
 import type { BlockFaceName } from "./blocks";
 import {
   addToInventory,
@@ -72,7 +72,7 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
               z: worldZ,
               block,
             });
-            water.uvs.push(0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1);
+            water.uvs.push(...getFallbackTextureUv(), ...getFallbackTextureUv());
           }
 
           continue;
@@ -170,7 +170,7 @@ function addFlatFace(
     buffers.colors.push(color.r, color.g, color.b, color.a);
   }
 
-  buffers.uvs.push(...(textureUvs ?? [0, 0, 1, 0, 1, 1, 0, 1]));
+  buffers.uvs.push(...(textureUvs ?? getFallbackTextureUv()));
   buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
 }
 
