@@ -275,7 +275,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     let dropped = false;
 
     if (craftIndex !== -1) {
-      dropped = putItemInCraftSlot(craftIndex, item);
+      dropped = putItemInCraftSlot(craftIndex, item, true);
     } else if (inventoryIndex !== -1) {
       dropped = putItemInInventory(item);
     }
@@ -304,16 +304,22 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     const { item, source } = dragState;
 
     if (source.type === "craft") {
-      if (putItemInCraftSlot(source.index, item)) return;
+      if (putItemInCraftSlot(source.index, item, false)) return;
     }
 
     putItemInInventory(item);
   }
 
-  function putItemInCraftSlot(index: number, item: InventoryItem): boolean {
+  function putItemInCraftSlot(index: number, item: InventoryItem, replaceExisting: boolean): boolean {
     const slot = craftSlots[index];
 
     if (!slot) {
+      craftSlots[index] = { ...item };
+      return true;
+    }
+
+    if (replaceExisting) {
+      putItemInInventory(slot);
       craftSlots[index] = { ...item };
       return true;
     }
