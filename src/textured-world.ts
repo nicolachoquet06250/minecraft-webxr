@@ -144,7 +144,7 @@ function addTexturedOrFlatFace(params: {
     return;
   }
 
-  addMatrixTexturedFace({ ...params, texture });
+  addMatrixTexturedFace({ ...params, faceName, texture });
 }
 
 function addFlatFace(params: {
@@ -174,9 +174,10 @@ function addMatrixTexturedFace(params: {
   y: number;
   z: number;
   face: FaceDefinition;
+  faceName: BlockFaceName;
   texture: BlockTextureDefinition;
 }): void {
-  const { buffers, x, y, z, face, texture } = params;
+  const { buffers, x, y, z, face, faceName, texture } = params;
 
   for (let row = 0; row < BLOCK_TEXTURE_SIZE; row++) {
     const textureRow = texture.matrix[row];
@@ -193,10 +194,10 @@ function addMatrixTexturedFace(params: {
       const v1 = (row + 1) / BLOCK_TEXTURE_SIZE;
       const vertexIndex = buffers.positions.length / 3;
       const vertices = [
-        interpolateFaceVertex(face, u0, v0),
-        interpolateFaceVertex(face, u1, v0),
-        interpolateFaceVertex(face, u1, v1),
-        interpolateFaceVertex(face, u0, v1),
+        interpolateFaceVertex(face, faceName, u0, v0),
+        interpolateFaceVertex(face, faceName, u1, v0),
+        interpolateFaceVertex(face, faceName, u1, v1),
+        interpolateFaceVertex(face, faceName, u0, v1),
       ];
 
       for (const vertex of vertices) {
@@ -210,20 +211,28 @@ function addMatrixTexturedFace(params: {
   }
 }
 
-function interpolateFaceVertex(face: FaceDefinition, u: number, v: number): Vector3 {
+function interpolateFaceVertex(face: FaceDefinition, faceName: BlockFaceName, u: number, v: number): Vector3 {
   const [a, b, c, d] = face.vertices;
-  const topX = a[0] + (b[0] - a[0]) * u;
-  const topY = a[1] + (b[1] - a[1]) * u;
-  const topZ = a[2] + (b[2] - a[2]) * u;
-  const bottomX = d[0] + (c[0] - d[0]) * u;
-  const bottomY = d[1] + (c[1] - d[1]) * u;
-  const bottomZ = d[2] + (c[2] - d[2]) * u;
+  const [topLeft, topRight, bottomRight, bottomLeft] = isSideFace(faceName)
+    ? [b, c, d, a]
+    : [a, b, c, d];
+
+  const topX = topLeft[0] + (topRight[0] - topLeft[0]) * u;
+  const topY = topLeft[1] + (topRight[1] - topLeft[1]) * u;
+  const topZ = topLeft[2] + (topRight[2] - topLeft[2]) * u;
+  const bottomX = bottomLeft[0] + (bottomRight[0] - bottomLeft[0]) * u;
+  const bottomY = bottomLeft[1] + (bottomRight[1] - bottomLeft[1]) * u;
+  const bottomZ = bottomLeft[2] + (bottomRight[2] - bottomLeft[2]) * u;
 
   return new Vector3(
     topX + (bottomX - topX) * v,
     topY + (bottomY - topY) * v,
     topZ + (bottomZ - topZ) * v,
   );
+}
+
+function isSideFace(faceName: BlockFaceName): boolean {
+  return faceName === "front" || faceName === "back" || faceName === "right" || faceName === "left";
 }
 
 function getFaceName(normal: [number, number, number]): BlockFaceName {
