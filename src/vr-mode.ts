@@ -1,10 +1,9 @@
 import { Matrix, Quaternion, Scene, Vector3, WebXRState } from "@babylonjs/core";
-import { JUMP_VELOCITY, pressedKeys } from "./constants";
+import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 const CONTROLLER_DEAD_ZONE = 0.18;
-const VR_CAMERA_HEIGHT_OFFSET = 1.15;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -208,5 +207,5 @@ function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rota
 }
 
 function syncXRCameraToPlayer(camera: { position: Vector3 }, player: PlayerPhysics): void {
-  camera.position.copyFrom(player.position.add(new Vector3(0, VR_CAMERA_HEIGHT_OFFSET, 0)));
+  camera.position.copyFrom(player.position.add(new Vector3(0, EYE_HEIGHT, 0)));
 }
