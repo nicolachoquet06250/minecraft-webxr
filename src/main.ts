@@ -23,12 +23,12 @@ import {
   initializeCrosshair,
   findDrySpawnPosition,
   ensureChunksAroundPlayer,
-  initializeInventoryBar,
   updateDroppedItems,
 } from "./functions";
 
 import initializeEvents from "./events";
 import { initializeCraftingOverlay } from "./crafting-ui";
+import { initializeInventoryBar } from "./inventory-ui";
 import initializeMobileControls, { isVRMode } from "./mobile-controls";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
