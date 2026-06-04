@@ -2,7 +2,7 @@ import type { Scene } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
 import { isMobileMode } from "./mobile-controls";
-import { BlockId, type PlayerPhysics } from "./types";
+import { type PlayerPhysics } from "./types";
 
 const INVENTORY_SLOT_COUNT = 9;
 
