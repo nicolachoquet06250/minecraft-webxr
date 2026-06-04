@@ -1,6 +1,6 @@
 import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, RENDER_CHUNK_RADIUS, SEED } from "./constants";
-import { getBlockDefinition, type BlockFaceName, type BlockTextureDefinition, type RgbaColor } from "./blocks";
+import { getBlockDefinition, type BlockFaceName, type BlockTextureDefinition } from "./blocks";
 import {
   addToInventory,
   addWaterTopFaceDoubleSided,
