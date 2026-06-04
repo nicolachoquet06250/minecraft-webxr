@@ -78,7 +78,10 @@ function getFaceUvFromTile(tileIndex: number, faceName: BlockFaceName): FaceUv {
   const { u0, u1, v0, v1 } = getTileUv(tileIndex);
 
   if (faceName === "front" || faceName === "back" || faceName === "right" || faceName === "left") {
-    return [u0, v0, u1, v0, u1, v1, u0, v1];
+    // Les faces latérales de FACES sont ordonnées comme suit :
+    // bottom-left, top-left, top-right, bottom-right.
+    // On mappe donc la première ligne de la matrice sur les vertices du haut.
+    return [u0, v1, u0, v0, u1, v0, u1, v1];
   }
 
   return [u0, v0, u1, v0, u1, v1, u0, v1];
