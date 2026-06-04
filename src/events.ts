@@ -5,8 +5,33 @@ import { breakBlock } from "./tree-decay";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 
+const MIN_PITCH = -Math.PI / 2 + 0.05;
+const MAX_PITCH = Math.PI / 2 - 0.05;
+const MAX_MOUSE_DELTA = 80;
+const MAX_TRUSTED_MOUSE_DELTA = 500;
+
 function handleResize(engine: Engine) {
     return () => engine.resize();
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function sanitizeMouseDelta(delta: number): number {
+  if (!Number.isFinite(delta)) {
+    return 0;
+  }
+
+  if (Math.abs(delta) > MAX_TRUSTED_MOUSE_DELTA) {
+    return 0;
+  }
+
+  return clamp(delta, -MAX_MOUSE_DELTA, MAX_MOUSE_DELTA);
 }
 
 function clearMovementKeys(): void {
@@ -59,8 +84,15 @@ function handleMouseMove(canvas: HTMLCanvasElement, player: PlayerPhysics): (e: 
             return;
         }
 
-        player.yaw += event.movementX * MOUSE_SENSIBILITY;
-        player.pitch += event.movementY * MOUSE_SENSIBILITY;
+        const movementX = sanitizeMouseDelta(event.movementX);
+        const movementY = sanitizeMouseDelta(event.movementY);
+
+        player.yaw = normalizeAngle(player.yaw + movementX * MOUSE_SENSIBILITY);
+        player.pitch = clamp(
+          player.pitch + movementY * MOUSE_SENSIBILITY,
+          MIN_PITCH,
+          MAX_PITCH,
+        );
     }
 }
 
