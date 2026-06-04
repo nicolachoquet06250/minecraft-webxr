@@ -7,8 +7,6 @@ import {
   TREE_DECAY_LOG_SEARCH_RADIUS,
 } from "./constants";
 import {
-  breakBlock as breakBlockBase,
-  createChunkMesh,
   getChunkFromWorldPosition,
   getChunkKey,
   getWorldBlock,
@@ -16,6 +14,10 @@ import {
   spawnDrop,
   worldToLocalCoordinate,
 } from "./functions";
+import {
+  breakBlock as breakBlockBase,
+  createChunkMesh,
+} from "./textured-world";
 import { BlockId, type DroppedItem, type PlayerPhysics, type WorldChunks } from "./types";
 
 export type BreakBlockWithLeafDecayParams = {
