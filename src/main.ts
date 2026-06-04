@@ -140,7 +140,6 @@ const camera = initializeCamera(scene, player);
 
 initializeCrosshair(scene);
 initializeInventoryBar(scene, player);
-initializeCraftingOverlay(scene, player);
 initializeEvents(
   engine,
   player,
@@ -154,6 +153,7 @@ initializeEvents(
   droppedItems,
 );
 initializeMobileControls(scene, player);
+initializeCraftingOverlay(scene, player);
 
 if (isVRMode()) {
     await scene.createDefaultXRExperienceAsync({
