@@ -29,6 +29,11 @@ const JUMP_BUTTON_SIZE = 90;
 const JUMP_BUTTON_RIGHT = 60;
 const JUMP_BUTTON_BOTTOM = 40;
 
+const CRAFT_BUTTON_WIDTH = 116;
+const CRAFT_BUTTON_HEIGHT = 48;
+const CRAFT_BUTTON_RIGHT = 48;
+const CRAFT_BUTTON_TOP = 24;
+
 // @ts-ignore
 const MOVE_THUMB_SIZE = 60;
 const LOOK_THUMB_SIZE = 60;
@@ -188,6 +193,44 @@ function createBreakButton(): Ellipse {
   return button;
 }
 
+function createCraftButton(): Rectangle {
+  const button = new Rectangle("mobile-craft-button");
+  button.width = `${CRAFT_BUTTON_WIDTH}px`;
+  button.height = `${CRAFT_BUTTON_HEIGHT}px`;
+  button.cornerRadius = 12;
+  button.thickness = 2;
+  button.color = "rgba(255, 255, 255, 0.55)";
+  button.background = "rgba(0, 0, 0, 0.34)";
+  button.alpha = 0.94;
+  button.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+  button.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+  button.left = `-${CRAFT_BUTTON_RIGHT}px`;
+  button.top = `${CRAFT_BUTTON_TOP}px`;
+  button.isPointerBlocker = true;
+
+  const label = new TextBlock("mobile-craft-label");
+  label.text = "Craft";
+  label.color = "white";
+  label.fontSize = 20;
+  label.fontWeight = "700";
+  label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  label.isPointerBlocker = false;
+
+  button.addControl(label);
+
+  return button;
+}
+
+function dispatchCraftToggle(): void {
+  window.dispatchEvent(new KeyboardEvent("keydown", {
+    code: "KeyE",
+    key: "e",
+    bubbles: true,
+    cancelable: true,
+  }));
+}
+
 function resetMoveState(thumb: Control, state: JoystickState): void {
   state.pointerId = null;
   state.x = 0;
@@ -259,6 +302,9 @@ export default function initializeMobileControls(
   const breakButton = createBreakButton();
   ui.addControl(breakButton);
 
+  const craftButton = createCraftButton();
+  ui.addControl(craftButton);
+
   const moveState: JoystickState = {
     pointerId: null,
     origin: { x: 0, y: 0 },
@@ -274,6 +320,28 @@ export default function initializeMobileControls(
   };
 
   let jumpPointerId: number | null = null;
+
+  // Craft Button Events
+  let craftPointerId: number | null = null;
+  craftButton.onPointerDownObservable.add((coordinates: any) => {
+    if (craftPointerId !== null) {
+      return;
+    }
+
+    craftPointerId = coordinates.pointerId;
+    craftButton.background = "rgba(255, 255, 255, 0.46)";
+    dispatchCraftToggle();
+  });
+
+  const resetCraft = (pointerId: number) => {
+    if (craftPointerId === pointerId) {
+      craftPointerId = null;
+      craftButton.background = "rgba(0, 0, 0, 0.34)";
+    }
+  };
+
+  craftButton.onPointerUpObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
+  craftButton.onPointerOutObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
 
   // Break Button Events
   let breakPointerId: number | null = null;
