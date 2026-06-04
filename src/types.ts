@@ -33,6 +33,12 @@ export type UpdatePlayerPhysicsParams = {
   deltaTime: number;
 };
 
+export type SpawnPosition = {
+  x: number;
+  y: number;
+  z: number;
+};
+
 export enum BlockId {
   Air = 0,
 
