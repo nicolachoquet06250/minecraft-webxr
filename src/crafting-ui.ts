@@ -1,11 +1,11 @@
 import type { Scene } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Grid, Image, Rectangle, TextBlock } from "@babylonjs/gui";
+import { craftingRecipes, type CraftingRecipe } from "./crafts";
 import { addToInventory, getBlockColor } from "./functions";
 import { setCraftingOverlayOpen } from "./ui-state";
 import { BlockId, type InventoryItem, type PlayerPhysics } from "./types";
 
 type CraftingSlot = InventoryItem | null;
-type CraftingRecipe = { pattern: (BlockId | null)[]; result: InventoryItem };
 type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number } | { type: "result" };
 type DragState = { item: InventoryItem; source: DragSource };
 
@@ -15,19 +15,6 @@ const INVENTORY_SLOT_COUNT = 9;
 const MAX_STACK_SIZE = 64;
 const RIGHT_MOUSE_BUTTON = 2;
 const DIRT_GRASS_PICKAXE_ICON_SRC = "/items/pickaxe-grass-dirt.png";
-
-const recipes: CraftingRecipe[] = [
-  { pattern: [BlockId.OakLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.OakPlanks, count: 4 } },
-  { pattern: [BlockId.SpruceLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.SprucePlanks, count: 4 } },
-  { pattern: [BlockId.BirchLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.BirchPlanks, count: 4 } },
-  { pattern: [BlockId.JungleLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.JunglePlanks, count: 4 } },
-  { pattern: [BlockId.AcaciaLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.AcaciaPlanks, count: 4 } },
-  { pattern: [BlockId.DarkOakLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.DarkOakPlanks, count: 4 } },
-  { pattern: [BlockId.MangroveLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.MangrovePlanks, count: 4 } },
-  { pattern: [BlockId.CherryLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.CherryPlanks, count: 4 } },
-  { pattern: [BlockId.OakPlanks, BlockId.OakPlanks, null, BlockId.OakPlanks, BlockId.OakPlanks, null, null, null, null], result: { blockId: BlockId.CraftingTable, count: 1 } },
-  { pattern: [BlockId.GrassBlock, BlockId.GrassBlock, BlockId.GrassBlock, null, BlockId.Dirt, null, null, BlockId.Dirt, null], result: { blockId: BlockId.DirtGrassPickaxe, count: 1 } },
-];
 
 export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("crafting-overlay-ui", true, scene);
@@ -365,7 +352,7 @@ function containsPointer(control: Rectangle, pointerX: number, pointerY: number)
 }
 
 function findRecipeResult(slots: CraftingSlot[]): InventoryItem | null {
-  for (const recipe of recipes) if (matchesRecipe(slots, recipe)) return { ...recipe.result };
+  for (const recipe of craftingRecipes) if (matchesRecipe(slots, recipe)) return { ...recipe.result };
   return null;
 }
 
