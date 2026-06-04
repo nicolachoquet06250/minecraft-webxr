@@ -8,6 +8,7 @@ import { terrainBlockDefinitions } from "./terrain-blocks";
 import { treeBlockDefinitions } from "./tree-blocks";
 import type { BlockDefinition } from "./types";
 import { woolBlockDefinitions } from "./wool-blocks";
+import { stoneBlockDefinitions } from "./stone-blocks";
 
 export type {
   BlockDefinition,
@@ -26,6 +27,7 @@ export const blockDefinitions: BlockDefinition[] = [
   ...decorativeBlockDefinitions,
   ...plantBlockDefinitions,
   ...woolBlockDefinitions,
+  ...stoneBlockDefinitions,
 ];
 
 const blockDefinitionById = new Map<BlockId, BlockDefinition>(
