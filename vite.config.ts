@@ -26,6 +26,12 @@ export default defineConfig({
             type: "image/svg+xml",
             purpose: "any maskable",
           },
+          {
+            src: "/favicon-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable",
+          },
         ],
       },
       workbox: {
