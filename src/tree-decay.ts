@@ -11,12 +11,12 @@ import {
   getChunkKey,
   getWorldBlock,
   setBlock,
-  spawnDrop,
   worldToLocalCoordinate,
 } from "./functions";
 import {
   breakBlock as breakBlockBase,
   createChunkMesh,
+  spawnTexturedDrop,
 } from "./textured-world";
 import { BlockId, type DroppedItem, type PlayerPhysics, type WorldChunks } from "./types";
 
@@ -84,7 +84,7 @@ function scheduleLeafDecayIfTreeHasNoLogs(params: BreakBlockWithLeafDecayParams,
 }
 
 function decayLeaf(params: BreakBlockWithLeafDecayParams, leaf: WorldBlockPosition): void {
-  const { scene, worldChunks, sizeX, sizeY, sizeZ, droppedItems } = params;
+  const { scene, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
   const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, leaf.x, leaf.y, leaf.z);
 
   if (!isLeafBlock(block)) return;
@@ -97,7 +97,7 @@ function decayLeaf(params: BreakBlockWithLeafDecayParams, leaf: WorldBlockPositi
   const localZ = worldToLocalCoordinate(leaf.z, sizeZ);
 
   setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, leaf.y, localZ, BlockId.Air);
-  spawnDrop(scene, leaf.x, leaf.y, leaf.z, block, droppedItems);
+  spawnTexturedDrop(scene, leaf.x, leaf.y, leaf.z, block, material, droppedItems);
   rebuildAffectedChunks(params, chunk.chunkX, chunk.chunkZ, localX, localZ);
 }
 
