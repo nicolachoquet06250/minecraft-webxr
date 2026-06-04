@@ -1,4 +1,4 @@
-import { Mesh, Scene, StandardMaterial, VertexData } from "@babylonjs/core";
+import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv } from "./block-atlas";
 import type { BlockFaceName } from "./blocks";
@@ -225,7 +225,7 @@ export function ensureChunksAroundPlayer(params: {
 export function breakBlock(params: BreakBlockParams): void {
   const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
   const ray = scene.createPickingRay(scene.getEngine().getRenderWidth() / 2, scene.getEngine().getRenderHeight() / 2, null, scene.activeCamera);
-  const start = player.position.add({ x: 0, y: EYE_HEIGHT, z: 0 } as any);
+  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
   const direction = ray.direction.normalize();
   let targetWorldX = 0;
   let targetWorldY = 0;
