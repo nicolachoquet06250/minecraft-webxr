@@ -20,7 +20,6 @@ import {
   type DroppedItem,
   BlockId
 } from "./types";
-import type { BlockTextureDefinition } from "./blocks";
 
 export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   const {
