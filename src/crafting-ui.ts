@@ -154,6 +154,24 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   backdrop.addControl(dragPreview);
 
+  window.addEventListener("pointerdown", (event) => {
+    if (!ui.rootContainer.isVisible || dragState) return;
+
+    const craftIndex = findControlIndexAt(craftSlotControls, event.clientX, event.clientY);
+    const inventoryIndex = findControlIndexAt(inventorySlotControls, event.clientX, event.clientY);
+
+    if (craftIndex !== -1) {
+      startDragFromCraftSlot(craftIndex, event.button);
+    } else if (inventoryIndex !== -1) {
+      startDragFromInventorySlot(inventoryIndex, event.button);
+    } else {
+      return;
+    }
+
+    moveDragPreview(event.clientX, event.clientY);
+    event.preventDefault();
+  }, { capture: true, passive: false });
+
   window.addEventListener("pointermove", (event) => {
     if (!dragState || !ui.rootContainer.isVisible) return;
 
