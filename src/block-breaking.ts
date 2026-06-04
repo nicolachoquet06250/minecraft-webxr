@@ -1,12 +1,15 @@
 import {
+  DynamicTexture,
   Effect,
   Mesh,
   Scene,
   ShaderMaterial,
   StandardMaterial,
+  Texture,
   Vector3,
   VertexData,
 } from "@babylonjs/core";
+import { BREAKING_SPRITE_MASKS, BREAKING_SPRITE_TILE_SIZE } from "./block-breaking-sprite";
 import { EYE_HEIGHT, FACES } from "./constants";
 import { getWorldBlock } from "./functions";
 import { breakBlock } from "./tree-decay";
@@ -21,6 +24,7 @@ export const BLOCK_BREAKING_TIMES_MS: Partial<Record<BlockId, number>> = {
 
 const BREAKING_REACH = 3;
 const BREAKING_OVERLAY_OFFSET = 0.003;
+const BREAKING_STAGE_COUNT = 4;
 
 type BlockBreakingParams = {
   scene: Scene;
@@ -51,6 +55,7 @@ type BreakingState = {
 
 let activeBreaking: BreakingState | null = null;
 let shadersRegistered = false;
+const breakingSpriteTextures = new WeakMap<Scene, DynamicTexture>();
 
 export function startBlockBreaking(params: BlockBreakingParams): void {
   const target = findTargetBlock(params);
@@ -107,7 +112,7 @@ export function updateBlockBreaking(deltaTimeSeconds: number): void {
   activeBreaking.elapsedMs += deltaTimeSeconds * 1000;
 
   const progress = Math.min(activeBreaking.elapsedMs / activeBreaking.durationMs, 1);
-  const stage = Math.floor(progress * 9);
+  const stage = Math.min(BREAKING_STAGE_COUNT - 1, Math.floor(progress * BREAKING_STAGE_COUNT));
 
   activeBreaking.shader.setFloat("progress", progress);
   activeBreaking.shader.setFloat("stage", stage);
@@ -232,6 +237,7 @@ function createBreakingShader(scene: Scene): ShaderMaterial {
     {
       attributes: ["position", "normal", "uv"],
       uniforms: ["worldViewProjection", "progress", "stage"],
+      samplers: ["breakingSprite"],
       needAlphaBlending: true,
     },
   );
@@ -239,8 +245,58 @@ function createBreakingShader(scene: Scene): ShaderMaterial {
   shader.backFaceCulling = false;
   shader.setFloat("progress", 0);
   shader.setFloat("stage", 0);
+  shader.setTexture("breakingSprite", getBreakingSpriteTexture(scene));
 
   return shader;
+}
+
+function getBreakingSpriteTexture(scene: Scene): DynamicTexture {
+  const cachedTexture = breakingSpriteTextures.get(scene);
+
+  if (cachedTexture) {
+    return cachedTexture;
+  }
+
+  const width = BREAKING_SPRITE_TILE_SIZE * BREAKING_STAGE_COUNT;
+  const height = BREAKING_SPRITE_TILE_SIZE;
+  const texture = new DynamicTexture(
+    "block-breaking-sprite",
+    { width, height },
+    scene,
+    false,
+    Texture.NEAREST_SAMPLINGMODE,
+  );
+  const context = texture.getContext();
+
+  context.clearRect(0, 0, width, height);
+
+  for (let stageIndex = 0; stageIndex < BREAKING_STAGE_COUNT; stageIndex++) {
+    const mask = BREAKING_SPRITE_MASKS[stageIndex];
+    const originX = stageIndex * BREAKING_SPRITE_TILE_SIZE;
+
+    for (let y = 0; y < BREAKING_SPRITE_TILE_SIZE; y++) {
+      const row = mask[y];
+
+      for (let x = 0; x < BREAKING_SPRITE_TILE_SIZE; x++) {
+        const alpha = parseInt(row[x], 16) / 15;
+
+        if (alpha <= 0) {
+          continue;
+        }
+
+        context.fillStyle = `rgba(8, 8, 8, ${Math.min(1, alpha * 1.25)})`;
+        context.fillRect(originX + x, y, 1, 1);
+      }
+    }
+  }
+
+  texture.hasAlpha = true;
+  texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+  texture.wrapV = Texture.CLAMP_ADDRESSMODE;
+  texture.update(false);
+  breakingSpriteTextures.set(scene, texture);
+
+  return texture;
 }
 
 function registerBlockBreakingShaders(): void {
@@ -271,39 +327,20 @@ function registerBlockBreakingShaders(): void {
 
     uniform float progress;
     uniform float stage;
-
-    float crackLine(vec2 uv, float angle, float offset, float thickness) {
-      vec2 direction = vec2(cos(angle), sin(angle));
-      float distanceToLine = abs(dot(uv - 0.5, direction) + offset);
-      return 1.0 - smoothstep(thickness, thickness + 0.012, distanceToLine);
-    }
-
-    float gridCrack(vec2 uv, float scale, float thickness) {
-      vec2 grid = abs(fract(uv * scale) - 0.5);
-      float line = min(grid.x, grid.y);
-      return 1.0 - smoothstep(thickness, thickness + 0.01, line);
-    }
+    uniform sampler2D breakingSprite;
 
     void main(void) {
-      float normalizedStage = clamp(stage / 9.0, 0.0, 1.0);
-      float thickness = mix(0.006, 0.035, normalizedStage);
-      float visibility = smoothstep(0.02, 0.16, progress);
-
-      float cracks = 0.0;
-      cracks = max(cracks, crackLine(vUV, 0.55, -0.15, thickness));
-      cracks = max(cracks, crackLine(vUV, 2.15, 0.08, thickness * 0.9));
-      cracks = max(cracks, crackLine(vUV, -0.95, 0.22, thickness * 0.75));
-      cracks = max(cracks, gridCrack(vUV + vec2(0.03, 0.07), 3.0 + stage * 0.55, thickness * 0.45));
-
-      float centerMask = smoothstep(0.62, 0.12, distance(vUV, vec2(0.5)));
-      float crackMask = cracks * centerMask * visibility;
-      float alpha = crackMask * mix(0.35, 0.9, normalizedStage);
+      float tileCount = 4.0;
+      vec2 spriteUV = vec2((vUV.x + stage) / tileCount, vUV.y);
+      vec4 crack = texture2D(breakingSprite, spriteUV);
+      float fadeIn = smoothstep(0.01, 0.08, progress);
+      float alpha = crack.a * fadeIn;
 
       if (alpha < 0.03) {
         discard;
       }
 
-      gl_FragColor = vec4(0.02, 0.018, 0.015, alpha);
+      gl_FragColor = vec4(crack.rgb, alpha);
     }
   `;
 
