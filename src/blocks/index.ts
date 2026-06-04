@@ -9,7 +9,14 @@ import { treeBlockDefinitions } from "./tree-blocks";
 import type { BlockDefinition } from "./types";
 import { woolBlockDefinitions } from "./wool-blocks";
 
-export type { BlockDefinition, RgbaColor } from "./types";
+export type {
+  BlockDefinition,
+  BlockFaceName,
+  BlockFaceTextureDefinitions,
+  BlockTextureDefinition,
+  BlockTextureMatrix,
+  RgbaColor,
+} from "./types";
 
 export const blockDefinitions: BlockDefinition[] = [
   ...terrainBlockDefinitions,
