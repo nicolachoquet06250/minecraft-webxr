@@ -15,6 +15,6 @@ export type CraftingPattern = readonly [
 
 export type CraftingRecipe = {
   readonly id: string;
-  readonly pattern: CraftingPattern;
+  readonly patterns: readonly CraftingPattern[];
   readonly result: InventoryItem;
 };
