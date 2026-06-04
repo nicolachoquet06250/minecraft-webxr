@@ -28,6 +28,7 @@ import {
 } from "./functions";
 
 import initializeEvents from "./events";
+import { initializeCraftingOverlay } from "./crafting-ui";
 import initializeMobileControls, { isVRMode } from "./mobile-controls";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
@@ -139,6 +140,7 @@ const camera = initializeCamera(scene, player);
 
 initializeCrosshair(scene);
 initializeInventoryBar(scene, player);
+initializeCraftingOverlay(scene, player);
 initializeEvents(
   engine,
   player,
