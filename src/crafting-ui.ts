@@ -7,6 +7,7 @@ import {
   TextBlock,
 } from "@babylonjs/gui";
 import { addToInventory, getBlockColor } from "./functions";
+import { setCraftingOverlayOpen } from "./ui-state";
 import { BlockId, type InventoryItem, type PlayerPhysics } from "./types";
 
 type CraftingSlot = InventoryItem | null;
@@ -63,6 +64,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("crafting-overlay-ui", true, scene);
   ui.rootContainer.isVisible = false;
   ui.rootContainer.zIndex = 10_000;
+  setCraftingOverlayOpen(false);
 
   const craftSlots: CraftingSlot[] = Array.from({ length: CRAFT_GRID_SIZE * CRAFT_GRID_SIZE }, () => null);
   const craftSlotControls: Rectangle[] = [];
@@ -165,9 +167,14 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   function toggle(): void {
     const nextVisible = !ui.rootContainer.isVisible;
     ui.rootContainer.isVisible = nextVisible;
+    setCraftingOverlayOpen(nextVisible);
 
     if (nextVisible && document.pointerLockElement) {
       document.exitPointerLock();
+    }
+
+    if (!nextVisible) {
+      returnAllCraftSlotsToInventory();
     }
   }
 
@@ -178,6 +185,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
     returnAllCraftSlotsToInventory();
     ui.rootContainer.isVisible = false;
+    setCraftingOverlayOpen(false);
     updateAll();
   }
 
