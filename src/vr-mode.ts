@@ -1,5 +1,5 @@
 import { Matrix, Quaternion, Scene, Vector3, WebXRState } from "@babylonjs/core";
-import { EYE_HEIGHT, JUMP_VELOCITY } from "./constants";
+import { JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
@@ -72,6 +72,7 @@ export async function initializeWebXRGameControls(
 
       const xrCamera = xrExperience.baseExperience.camera;
       player.yaw = getYawFromCamera(xrCamera);
+      updateMovementKeysFromControllers(leftController, rightController);
 
       if (isJumpPressed(rightController) || isJumpPressed(leftController)) {
         if (player.grounded) {
@@ -100,8 +101,12 @@ export async function initializeWebXRGameControls(
     active = state === WebXRState.IN_XR;
 
     if (active && xrExperience) {
+      clearVRMovementKeys();
       syncXRCameraToPlayer(xrExperience.baseExperience.camera, player);
+      return;
     }
+
+    clearVRMovementKeys();
   });
 
   xrExperience.input.onControllerAddedObservable.add((controller) => {
@@ -128,6 +133,26 @@ export async function initializeWebXRGameControls(
   });
 
   return controls;
+}
+
+function updateMovementKeysFromControllers(leftController: XRControllerLike | null, rightController: XRControllerLike | null): void {
+  const axes = readMovementAxes(leftController) ?? readMovementAxes(rightController);
+
+  clearVRMovementKeys();
+
+  if (!axes) return;
+
+  if (axes.y < -CONTROLLER_DEAD_ZONE) pressedKeys.add("KeyW");
+  if (axes.y > CONTROLLER_DEAD_ZONE) pressedKeys.add("KeyS");
+  if (axes.x < -CONTROLLER_DEAD_ZONE) pressedKeys.add("KeyA");
+  if (axes.x > CONTROLLER_DEAD_ZONE) pressedKeys.add("KeyD");
+}
+
+function clearVRMovementKeys(): void {
+  pressedKeys.delete("KeyW");
+  pressedKeys.delete("KeyA");
+  pressedKeys.delete("KeyS");
+  pressedKeys.delete("KeyD");
 }
 
 function readMovementAxes(controller: XRControllerLike | null): { x: number; y: number } | null {
@@ -182,5 +207,5 @@ function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rota
 }
 
 function syncXRCameraToPlayer(camera: { position: Vector3 }, player: PlayerPhysics): void {
-  camera.position.copyFrom(player.position.add(new Vector3(0, EYE_HEIGHT, 0)));
+  camera.position.copyFrom(player.position);
 }
