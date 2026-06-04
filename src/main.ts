@@ -166,7 +166,7 @@ const webXRControls = await initializeWebXRGameControls(scene, player);
 engine.runRenderLoop(() => {
   const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
 
-  webXRControls.syncBeforePhysics();
+  webXRControls.syncBeforePhysics(deltaTime);
 
   updatePlayerPhysics({
     player,
