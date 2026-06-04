@@ -1,6 +1,15 @@
 import { BlockId } from "../types";
 import type { BlockDefinition, BlockTextureDefinition } from "./types";
 
+const allFaces = (texture: BlockTextureDefinition) => ({
+  top: texture,
+  bottom: texture,
+  front: texture,
+  back: texture,
+  right: texture,
+  left: texture,
+});
+
 const dirtTexture: BlockTextureDefinition = {
   palette: {
     A: [0.42, 0.27, 0.16, 1],
@@ -157,14 +166,7 @@ export const terrainBlockDefinitions: BlockDefinition[] = [
     color: [0.45, 0.45, 0.45, 1.0], 
     solid: true, 
     transparentForMeshing: false,
-    textures: {
-      top: stoneTexture,
-      bottom: stoneTexture,
-      front: stoneTexture,
-      back: stoneTexture,
-      right: stoneTexture,
-      left: stoneTexture,
-    },
+    textures: allFaces(stoneTexture),
   },
   { id: BlockId.Deepslate, name: "Deepslate", color: [0.18, 0.18, 0.2, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Granite, name: "Granite", color: [0.58, 0.36, 0.29, 1.0], solid: true, transparentForMeshing: false },
