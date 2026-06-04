@@ -16,6 +16,10 @@ export const SEED = 12345;
 export const SPAWN_X = 8;
 export const SPAWN_Z = 8;
 
+export const LEAF_DECAY_INTERVAL_MS = 30_000;
+export const TREE_DECAY_LOG_SEARCH_RADIUS = 8;
+export const TREE_DECAY_LEAF_SEARCH_RADIUS = 8;
+
 export const pressedKeys = new Set<string>();
 
 export const FACES: FaceDefinition[] = [
