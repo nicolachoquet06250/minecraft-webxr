@@ -3,6 +3,16 @@ import type { CraftingRecipe } from "./types";
 
 export const mangrovePlanksCraft: CraftingRecipe = {
   id: "mangrove-planks",
-  patterns: [[BlockId.MangroveLog, null, null, null, null, null, null, null, null]],
+  patterns: [
+    [BlockId.MangroveLog, null, null, null, null, null, null, null, null],
+    [null, BlockId.MangroveLog, null, null, null, null, null, null, null], 
+    [null, null, BlockId.MangroveLog, null, null, null, null, null, null],
+    [null, null, null, BlockId.MangroveLog, null, null, null, null, null],
+    [null, null, null, null, BlockId.MangroveLog, null, null, null, null], 
+    [null, null, null, null, null, BlockId.MangroveLog, null, null, null], 
+    [null, null, null, null, null, null, BlockId.MangroveLog, null, null],
+    [null, null, null, null, null, null, null, BlockId.MangroveLog, null],
+    [null, null, null, null, null, null, null, null, BlockId.MangroveLog]
+  ],
   result: { blockId: BlockId.MangrovePlanks, count: 4 },
 };

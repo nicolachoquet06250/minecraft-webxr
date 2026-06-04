@@ -3,6 +3,16 @@ import type { CraftingRecipe } from "./types";
 
 export const darkOakPlanksCraft: CraftingRecipe = {
   id: "dark-oak-planks",
-  patterns: [[BlockId.DarkOakLog, null, null, null, null, null, null, null, null]],
+  patterns: [
+    [BlockId.DarkOakLog, null, null, null, null, null, null, null, null],
+    [null, BlockId.DarkOakLog, null, null, null, null, null, null, null], 
+    [null, null, BlockId.DarkOakLog, null, null, null, null, null, null],
+    [null, null, null, BlockId.DarkOakLog, null, null, null, null, null],
+    [null, null, null, null, BlockId.DarkOakLog, null, null, null, null], 
+    [null, null, null, null, null, BlockId.DarkOakLog, null, null, null], 
+    [null, null, null, null, null, null, BlockId.DarkOakLog, null, null],
+    [null, null, null, null, null, null, null, BlockId.DarkOakLog, null],
+    [null, null, null, null, null, null, null, null, BlockId.DarkOakLog]
+  ],
   result: { blockId: BlockId.DarkOakPlanks, count: 4 },
 };
