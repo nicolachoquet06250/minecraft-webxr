@@ -45,6 +45,10 @@ const recipes: CraftingRecipe[] = [
     pattern: [BlockId.OakPlanks, BlockId.OakPlanks, null, BlockId.OakPlanks, BlockId.OakPlanks, null, null, null, null],
     result: { blockId: BlockId.CraftingTable, count: 1 },
   },
+  {
+    pattern: [BlockId.GrassBlock, BlockId.GrassBlock, BlockId.GrassBlock, null, BlockId.Dirt, null, null, BlockId.Dirt, null],
+    result: { blockId: BlockId.DirtGrassPickaxe, count: 1 },
+  },
 ];
 
 export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
@@ -594,7 +598,7 @@ function renderItemIcon(icon: Rectangle, countText: TextBlock, item: InventoryIt
     return;
   }
 
-  const color = getBlockColor(item.blockId);
+  const color = item.blockId === BlockId.DirtGrassPickaxe ? { r: 0.45, g: 0.28, b: 0.12, a: 1 } : getBlockColor(item.blockId);
   icon.isVisible = true;
   icon.background = `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`;
   countText.isVisible = item.count > 1;
