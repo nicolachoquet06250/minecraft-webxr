@@ -30,6 +30,7 @@ const SLOT_SIZE = 48;
 const CRAFT_GRID_SIZE = 3;
 const INVENTORY_SLOT_COUNT = 9;
 const MAX_STACK_SIZE = 64;
+const RIGHT_MOUSE_BUTTON = 2;
 
 const recipes: CraftingRecipe[] = [
   { pattern: [BlockId.OakLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.OakPlanks, count: 4 } },
@@ -106,7 +107,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   for (let index = 0; index < craftSlots.length; index++) {
     const slot = createSlot(`craft-slot-${index}`, SLOT_SIZE);
-    slot.onPointerDownObservable.add(() => startDragFromCraftSlot(index));
+    slot.onPointerDownObservable.add((eventData) => startDragFromCraftSlot(index, getPointerButton(eventData)));
     craftSlotControls.push(slot);
     craftGrid.addControl(slot, Math.floor(index / CRAFT_GRID_SIZE), index % CRAFT_GRID_SIZE);
   }
@@ -146,7 +147,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   for (let index = 0; index < INVENTORY_SLOT_COUNT; index++) {
     const slot = createSlot(`craft-inventory-slot-${index}`, SLOT_SIZE);
-    slot.onPointerDownObservable.add(() => startDragFromInventorySlot(index));
+    slot.onPointerDownObservable.add((eventData) => startDragFromInventorySlot(index, getPointerButton(eventData)));
     inventorySlotControls.push(slot);
     inventoryGrid.addControl(slot, 0, index);
   }
@@ -170,6 +171,12 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   window.addEventListener("touchmove", (event) => {
     if (ui.rootContainer.isVisible) event.preventDefault();
   }, { passive: false });
+
+  window.addEventListener("contextmenu", (event) => {
+    if (!ui.rootContainer.isVisible) return;
+
+    event.preventDefault();
+  });
 
   function toggle(): void {
     const nextVisible = !ui.rootContainer.isVisible;
@@ -213,34 +220,48 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   updateAll();
   return ui;
 
-  function startDragFromInventorySlot(index: number): void {
+  function startDragFromInventorySlot(index: number, pointerButton: number): void {
     if (dragState || !ui.rootContainer.isVisible) return;
 
     const item = player.inventory[index];
     if (!item) return;
 
+    const draggedCount = getDraggedCount(item.count, pointerButton);
+
     dragState = {
-      item: { ...item },
+      item: { blockId: item.blockId, count: draggedCount },
       source: { type: "inventory", index },
     };
 
-    player.inventory.splice(index, 1);
+    item.count -= draggedCount;
+
+    if (item.count <= 0) {
+      player.inventory.splice(index, 1);
+    }
+
     showDragPreview(dragState.item);
     updateAll();
   }
 
-  function startDragFromCraftSlot(index: number): void {
+  function startDragFromCraftSlot(index: number, pointerButton: number): void {
     if (dragState || !ui.rootContainer.isVisible) return;
 
     const item = craftSlots[index];
     if (!item) return;
 
+    const draggedCount = getDraggedCount(item.count, pointerButton);
+
     dragState = {
-      item: { ...item },
+      item: { blockId: item.blockId, count: draggedCount },
       source: { type: "craft", index },
     };
 
-    craftSlots[index] = null;
+    item.count -= draggedCount;
+
+    if (item.count <= 0) {
+      craftSlots[index] = null;
+    }
+
     showDragPreview(dragState.item);
     updateAll();
   }
@@ -383,6 +404,24 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     dragPreview.left = `${pointerX - window.innerWidth / 2}px`;
     dragPreview.top = `${pointerY - window.innerHeight / 2}px`;
   }
+}
+
+function getPointerButton(eventData: unknown): number {
+  const data = eventData as {
+    buttonIndex?: number;
+    button?: number;
+    event?: { button?: number };
+  };
+
+  return data.buttonIndex ?? data.button ?? data.event?.button ?? 0;
+}
+
+function getDraggedCount(stackCount: number, pointerButton: number): number {
+  if (pointerButton === RIGHT_MOUSE_BUTTON) {
+    return stackCount;
+  }
+
+  return 1;
 }
 
 function addStackToInventory(player: PlayerPhysics, item: InventoryItem): void {
