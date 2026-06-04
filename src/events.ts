@@ -1,7 +1,7 @@
 import type { Engine, Scene, StandardMaterial } from "@babylonjs/core";
 import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
 import type { PlayerPhysics, WorldChunks, DroppedItem } from "./types";
-import { breakBlock } from "./functions";
+import { breakBlock } from "./tree-decay";
 import { isMobileMode } from "./mobile-controls";
 
 function handleResize(engine: Engine) {
@@ -97,7 +97,6 @@ export default function (
     }
   );
 
-  // Add touchstart listener to prevent default browser behavior that might trigger synthetic clicks
   canvas.addEventListener("touchstart", (e) => {
     if (isMobileMode()) {
         console.log("Canvas touchstart received - blocking destruction on mobile");
