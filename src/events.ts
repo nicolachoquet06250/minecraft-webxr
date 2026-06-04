@@ -1,7 +1,7 @@
 import type { Engine, Scene, StandardMaterial } from "@babylonjs/core";
 import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
 import type { PlayerPhysics, WorldChunks, DroppedItem } from "./types";
-import { breakBlock } from "./tree-decay";
+import { breakBlock } from "./textured-world";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 
