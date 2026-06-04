@@ -89,6 +89,33 @@ const grassSideTexture: BlockTextureDefinition = {
   ],
 };
 
+const stoneTexture: BlockTextureDefinition = {
+  palette: {
+    A: [0.56, 0.56, 0.56, 1],
+    B: [0.50, 0.50, 0.50, 1],
+    C: [0.45, 0.45, 0.45, 1],
+    D: [0.41, 0.41, 0.41, 1],
+  },
+  matrix: [
+    "AAAABCCBCDCCBBBB",
+    "BBCBCBBBBBBDDCBC",
+    "BCDDCCCDCCCBBBBB",
+    "BBAABABBAABBBCCC",
+    "CBBCCCBCBAAAACBB",
+    "BABBBBBBBCCDCDCA",
+    "CBBAAACAACCCBBBB",
+    "CCDDCDCCBBCCCBBB",
+    "AAABABBAAABBBBBC",
+    "BBABBBAAABBAAAAB",
+    "DBCBCCDDCBCBBCCC",
+    "BBBBBAABBBBBAABA",
+    "BCCCBABCCBBDDCDC",
+    "AABCCBBCCCBBCCCA",
+    "BCCBBBBBBBBBAAAA",
+    "BBBBBBCCBAABBCBB",
+  ],
+};
+
 export const terrainBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.Air, name: "Air", color: [1.0, 1.0, 1.0, 0.0], solid: false, transparentForMeshing: true },
   {
@@ -124,7 +151,21 @@ export const terrainBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.CoarseDirt, name: "Coarse Dirt", color: [0.45, 0.28, 0.12, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Podzol, name: "Podzol", color: [0.36, 0.23, 0.11, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.RootedDirt, name: "Rooted Dirt", color: [0.45, 0.28, 0.12, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.Stone, name: "Stone", color: [0.45, 0.45, 0.45, 1.0], solid: true, transparentForMeshing: false },
+  { 
+    id: BlockId.Stone, 
+    name: "Stone", 
+    color: [0.45, 0.45, 0.45, 1.0], 
+    solid: true, 
+    transparentForMeshing: false,
+    textures: {
+      top: stoneTexture,
+      bottom: stoneTexture,
+      front: stoneTexture,
+      back: stoneTexture,
+      right: stoneTexture,
+      left: stoneTexture,
+    },
+  },
   { id: BlockId.Deepslate, name: "Deepslate", color: [0.18, 0.18, 0.2, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Granite, name: "Granite", color: [0.58, 0.36, 0.29, 1.0], solid: true, transparentForMeshing: false },
   { id: BlockId.Diorite, name: "Diorite", color: [0.78, 0.78, 0.76, 1.0], solid: true, transparentForMeshing: false },
