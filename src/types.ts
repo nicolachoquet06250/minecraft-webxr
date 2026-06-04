@@ -171,6 +171,8 @@ export enum BlockId {
   GreenWool = 120,
   RedWool = 121,
   BlackWool = 122,
+
+  DirtGrassPickaxe = 123,
 }
 
 export type CreateChunkMeshParams = {
@@ -216,10 +218,4 @@ export type DroppedItem = {
   blockId: BlockId;
   createdAt: number;
   velocity: Vector3;
-};
-
-export type SpawnPosition = {
-  x: number;
-  y: number;
-  z: number;
 };
