@@ -1,4 +1,4 @@
-import { Mesh, MeshBuilder, Quaternion, Scene, Vector3 } from "@babylonjs/core";
+import { Mesh, MeshBuilder, Quaternion, Scene, TransformNode } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { EYE_HEIGHT } from "./constants";
 import { renderItemIconControl } from "./items/rendering";
@@ -61,14 +61,19 @@ export function initializeVRInventoryBar(
   player: PlayerPhysics,
   webXRControls: WebXRGameControls,
 ): Mesh {
+  const bodyAnchor = new TransformNode("vr-body-ui-anchor", scene);
+  bodyAnchor.setEnabled(false);
+
   const panel = MeshBuilder.CreatePlane(
     "vr-inventory-hotbar-panel",
     { width: 1.45, height: 0.24 },
     scene,
   );
   panel.isPickable = false;
-  panel.setEnabled(false);
+  panel.parent = bodyAnchor;
+  panel.position.set(0, VR_HOTBAR_VERTICAL_OFFSET, VR_HOTBAR_DISTANCE);
   panel.rotationQuaternion = Quaternion.FromEulerAngles(0, Math.PI, 0);
+  panel.setEnabled(false);
 
   const ui = AdvancedDynamicTexture.CreateForMesh(panel, 1450, 240, false);
   const controls = createInventoryBarControls({
@@ -84,25 +89,15 @@ export function initializeVRInventoryBar(
 
   scene.onBeforeRenderObservable.add(() => {
     if (!webXRControls.isActive()) {
+      bodyAnchor.setEnabled(false);
       panel.setEnabled(false);
       return;
     }
 
+    bodyAnchor.setEnabled(true);
     panel.setEnabled(true);
-
-    if (panel.parent !== null) {
-      panel.parent = null;
-    }
-
-    const forward = new Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw));
-    const bodyOrigin = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
-
-    panel.position.copyFrom(
-      bodyOrigin
-        .add(forward.scale(VR_HOTBAR_DISTANCE))
-        .add(new Vector3(0, VR_HOTBAR_VERTICAL_OFFSET, 0)),
-    );
-    panel.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw + Math.PI, 0);
+    bodyAnchor.position.copyFromFloats(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
+    bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw, 0);
   });
 
   return panel;
