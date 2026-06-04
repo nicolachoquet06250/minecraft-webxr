@@ -56,6 +56,8 @@ export async function initializeWebXRGameControls(
   let leftController: XRControllerLike | null = null;
   let rightController: XRControllerLike | null = null;
   let active = false;
+  let headOffset = Vector3.Zero();
+  let headRotation: Quaternion | null = null;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -71,6 +73,10 @@ export async function initializeWebXRGameControls(
     syncBeforePhysics: (deltaTimeSeconds: number) => {
       if (!active || !xrExperience) return;
 
+      const xrCamera = xrExperience.baseExperience.camera;
+      headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
+      headRotation = xrCamera.rotationQuaternion?.clone() ?? null;
+
       applySmoothTurnFromRightJoystick(player, rightController, deltaTimeSeconds);
       updateMovementKeysFromLeftController(leftController);
 
@@ -84,7 +90,7 @@ export async function initializeWebXRGameControls(
     syncAfterPhysics: () => {
       if (!active || !xrExperience) return;
 
-      syncXRCameraToPlayer(xrExperience.baseExperience.camera, player);
+      syncXRCameraToPlayer(xrExperience.baseExperience.camera, player, headOffset, headRotation);
     },
   };
 
@@ -103,7 +109,9 @@ export async function initializeWebXRGameControls(
     if (active && xrExperience) {
       clearVRMovementKeys();
       player.yaw = getYawFromCamera(xrExperience.baseExperience.camera);
-      syncXRCameraToPlayer(xrExperience.baseExperience.camera, player);
+      headOffset = Vector3.Zero();
+      headRotation = xrExperience.baseExperience.camera.rotationQuaternion?.clone() ?? null;
+      syncXRCameraToPlayer(xrExperience.baseExperience.camera, player, headOffset, headRotation);
       return;
     }
 
@@ -219,10 +227,24 @@ function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rota
   return camera.rotation?.y ?? 0;
 }
 
+function getPlayerEyesPosition(player: PlayerPhysics): Vector3 {
+  return player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+}
+
 function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
-function syncXRCameraToPlayer(camera: { position: Vector3 }, player: PlayerPhysics): void {
-  camera.position.copyFrom(player.position.add(new Vector3(0, EYE_HEIGHT, 0)));
+function syncXRCameraToPlayer(
+  camera: { position: Vector3; rotationQuaternion?: Quaternion | null },
+  player: PlayerPhysics,
+  headOffset: Vector3,
+  headRotation: Quaternion | null,
+): void {
+  camera.position.copyFrom(getPlayerEyesPosition(player).add(headOffset));
+
+  if (headRotation) {
+    const bodyRotation = Quaternion.FromEulerAngles(0, player.yaw, 0);
+    camera.rotationQuaternion = bodyRotation.multiply(headRotation);
+  }
 }
