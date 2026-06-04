@@ -1,11 +1,14 @@
-import { Mesh, MeshBuilder, Quaternion, Scene } from "@babylonjs/core";
+import { Mesh, MeshBuilder, Quaternion, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
+import { EYE_HEIGHT } from "./constants";
 import { renderItemIconControl } from "./items/rendering";
 import { isMobileMode } from "./mobile-controls";
 import { type PlayerPhysics } from "./types";
 import type { WebXRGameControls } from "./vr-mode";
 
 const INVENTORY_SLOT_COUNT = 9;
+const VR_HOTBAR_DISTANCE = 1.15;
+const VR_HOTBAR_VERTICAL_OFFSET = -0.42;
 
 type InventoryBarControls = {
   readonly updateUI: () => void;
@@ -80,21 +83,26 @@ export function initializeVRInventoryBar(
   controls.updateUI();
 
   scene.onBeforeRenderObservable.add(() => {
-    const camera = scene.activeCamera;
-
-    if (!webXRControls.isActive() || !camera) {
+    if (!webXRControls.isActive()) {
       panel.setEnabled(false);
       return;
     }
 
     panel.setEnabled(true);
 
-    if (panel.parent !== camera) {
-      panel.parent = camera;
+    if (panel.parent !== null) {
+      panel.parent = null;
     }
 
-    panel.position.set(0, -0.42, 1.15);
-    panel.rotationQuaternion = Quaternion.FromEulerAngles(0, Math.PI, 0);
+    const forward = new Vector3(Math.sin(player.yaw), 0, Math.cos(player.yaw));
+    const bodyOrigin = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+
+    panel.position.copyFrom(
+      bodyOrigin
+        .add(forward.scale(VR_HOTBAR_DISTANCE))
+        .add(new Vector3(0, VR_HOTBAR_VERTICAL_OFFSET, 0)),
+    );
+    panel.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw + Math.PI, 0);
   });
 
   return panel;
