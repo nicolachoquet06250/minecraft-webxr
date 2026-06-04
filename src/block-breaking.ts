@@ -13,10 +13,10 @@ import { breakBlock } from "./tree-decay";
 import { BlockId, type DroppedItem, type FaceDefinition, type PlayerPhysics, type WorldChunks } from "./types";
 
 export const BLOCK_BREAKING_TIMES_MS: Partial<Record<BlockId, number>> = {
-  [BlockId.Dirt]: 650,
-  [BlockId.GrassBlock]: 750,
+  [BlockId.Dirt]: 1000,
+  [BlockId.GrassBlock]: 1000,
   [BlockId.Sand]: 500,
-  [BlockId.Stone]: 1800,
+  [BlockId.Stone]: 3000,
 };
 
 const BREAKING_REACH = 3;
