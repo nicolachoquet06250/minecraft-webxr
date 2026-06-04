@@ -33,7 +33,8 @@ import { updateBlockBreaking } from "./block-breaking";
 import { applyProceduralBlockAtlasMaterial } from "./block-atlas";
 import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar } from "./inventory-ui";
-import initializeMobileControls, { isVRMode } from "./mobile-controls";
+import initializeMobileControls from "./mobile-controls";
+import { isImmersiveVrSupported } from "./vr-mode";
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init(voxelWasmUrl);
@@ -160,7 +161,7 @@ initializeEvents(
 initializeMobileControls(scene, player);
 initializeCraftingOverlay(scene, player);
 
-if (isVRMode()) {
+if (await isImmersiveVrSupported()) {
     await scene.createDefaultXRExperienceAsync({
         floorMeshes: [],
     });
