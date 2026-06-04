@@ -1,9 +1,11 @@
 import type { Scene } from "@babylonjs/core";
-import { AdvancedDynamicTexture, Control, Grid, Image, Rectangle, TextBlock } from "@babylonjs/gui";
+import { AdvancedDynamicTexture, Control, Grid, Rectangle, TextBlock } from "@babylonjs/gui";
 import { craftingRecipes, type CraftingPattern, type CraftingRecipe } from "./crafts";
-import { addToInventory, getBlockColor } from "./functions";
+import { addToInventory } from "./functions";
+import { renderItemIconControl } from "./items/rendering";
+import { getItemMaxStackSize } from "./items";
 import { setCraftingOverlayOpen } from "./ui-state";
-import { BlockId, type InventoryItem, type PlayerPhysics } from "./types";
+import { type InventoryItem, type PlayerPhysics } from "./types";
 
 type CraftingSlot = InventoryItem | null;
 type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number } | { type: "result" };
@@ -12,9 +14,7 @@ type DragState = { item: InventoryItem; source: DragSource };
 const SLOT_SIZE = 48;
 const CRAFT_GRID_SIZE = 3;
 const INVENTORY_SLOT_COUNT = 9;
-const MAX_STACK_SIZE = 64;
 const RIGHT_MOUSE_BUTTON = 2;
-const DIRT_GRASS_PICKAXE_ICON_SRC = "/items/pickaxe-grass-dirt.png";
 
 export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("crafting-overlay-ui", true, scene);
@@ -326,18 +326,22 @@ function getDraggedCount(stackCount: number, pointerButton: number): number {
 
 function addStackToInventory(player: PlayerPhysics, item: InventoryItem): void {
   let remaining = item.count;
+  const maxStackSize = getItemMaxStackSize(item.blockId);
+
   for (const existing of player.inventory) {
     if (remaining <= 0) return;
-    if (existing.blockId !== item.blockId || existing.count >= MAX_STACK_SIZE) continue;
-    const added = Math.min(MAX_STACK_SIZE - existing.count, remaining);
+    if (existing.blockId !== item.blockId || existing.count >= maxStackSize) continue;
+    const added = Math.min(maxStackSize - existing.count, remaining);
     existing.count += added;
     remaining -= added;
   }
+
   while (remaining > 0 && player.inventory.length < INVENTORY_SLOT_COUNT) {
-    const added = Math.min(MAX_STACK_SIZE, remaining);
+    const added = Math.min(maxStackSize, remaining);
     player.inventory.push({ blockId: item.blockId, count: added });
     remaining -= added;
   }
+
   if (remaining > 0) for (let count = 0; count < remaining; count++) addToInventory(player, item.blockId);
 }
 
@@ -440,29 +444,11 @@ function createCountText(name: string): TextBlock {
 }
 
 function renderItemIcon(icon: Rectangle, countText: TextBlock, item: InventoryItem | null): void {
-  icon.children.slice().forEach((child) => icon.removeControl(child));
+  renderItemIconControl(icon, item?.blockId ?? null);
+
   if (!item) {
-    icon.isVisible = false;
     countText.isVisible = false;
     return;
-  }
-
-  icon.isVisible = true;
-
-  if (item.blockId === BlockId.DirtGrassPickaxe) {
-    icon.thickness = 0;
-    icon.background = "transparent";
-    const image = new Image(`${icon.name}-image`, DIRT_GRASS_PICKAXE_ICON_SRC);
-    image.width = "100%";
-    image.height = "100%";
-    image.stretch = Image.STRETCH_UNIFORM;
-    image.isPointerBlocker = false;
-    icon.addControl(image);
-  } else {
-    const color = getBlockColor(item.blockId);
-    icon.thickness = 1;
-    icon.color = "rgba(255, 255, 255, 0.35)";
-    icon.background = `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`;
   }
 
   countText.isVisible = item.count > 1;
