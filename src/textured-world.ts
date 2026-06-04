@@ -14,11 +14,12 @@ import {
   isSolidBlock,
   isTransparentForMeshing,
   setBlock,
-  spawnDrop,
   worldToLocalCoordinate,
 } from "./functions";
 import type { CreateChunkMeshParams, DroppedItem, FaceDefinition, PlayerPhysics, VoxelWasmModule, WorldChunk, WorldChunks } from "./types";
 import { BlockId } from "./types";
+
+const DROP_SIZE = 0.3;
 
 type MeshBuffers = {
   positions: number[];
@@ -174,6 +175,62 @@ function addFlatFace(
   buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
 }
 
+export function spawnTexturedDrop(
+  scene: Scene,
+  worldX: number,
+  worldY: number,
+  worldZ: number,
+  blockId: BlockId,
+  material: StandardMaterial,
+  droppedItems: DroppedItem[],
+): void {
+  const buffers = createMeshBuffers();
+
+  for (const face of FACES) {
+    addDroppedBlockFace(buffers, blockId, face);
+  }
+
+  const mesh = new Mesh(`drop-${blockId}-${Date.now()}`, scene);
+  const vertexData = new VertexData();
+  vertexData.positions = buffers.positions;
+  vertexData.indices = buffers.indices;
+  vertexData.normals = buffers.normals;
+  vertexData.colors = buffers.colors;
+  vertexData.uvs = buffers.uvs;
+  vertexData.applyToMesh(mesh);
+
+  mesh.position = new Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
+  mesh.material = material;
+  mesh.hasVertexAlpha = true;
+
+  droppedItems.push({
+    mesh,
+    blockId,
+    createdAt: Date.now(),
+    velocity: new Vector3(0, 0, 0),
+  });
+}
+
+function addDroppedBlockFace(buffers: MeshBuffers, block: BlockId, face: FaceDefinition): void {
+  const faceName = getFaceName(face.normal);
+  const textureUvs = getBlockFaceTextureUv(block, faceName);
+  const vertexIndex = buffers.positions.length / 3;
+  const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
+
+  for (const vertex of face.vertices) {
+    buffers.positions.push(
+      (vertex[0] - 0.5) * DROP_SIZE,
+      (vertex[1] - 0.5) * DROP_SIZE,
+      (vertex[2] - 0.5) * DROP_SIZE,
+    );
+    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.colors.push(color.r, color.g, color.b, color.a);
+  }
+
+  buffers.uvs.push(...(textureUvs ?? getFallbackTextureUv()));
+  buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
+}
+
 function getFaceName(normal: [number, number, number]): BlockFaceName {
   if (normal[1] === 1) return "top";
   if (normal[1] === -1) return "bottom";
@@ -276,7 +333,7 @@ export function breakBlock(params: BreakBlockParams): void {
   setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, targetWorldY, localZ, newBlock);
 
   if (brokenBlock !== BlockId.Air) {
-    spawnDrop(scene, targetWorldX, targetWorldY, targetWorldZ, brokenBlock, droppedItems);
+    spawnTexturedDrop(scene, targetWorldX, targetWorldY, targetWorldZ, brokenBlock, material, droppedItems);
   }
 
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
