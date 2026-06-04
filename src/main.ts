@@ -144,7 +144,7 @@ const player = generatePlayer(spawn);
 
 const camera = initializeCamera(scene, player);
 
-initializeCrosshair(scene);
+const crosshairUi = initializeCrosshair(scene);
 initializeInventoryBar(scene, player);
 initializeEvents(
   engine,
@@ -167,6 +167,7 @@ initializeVRInventoryBar(scene, player, webXRControls);
 engine.runRenderLoop(() => {
   const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
 
+  crosshairUi.rootContainer.isVisible = !webXRControls.isActive();
   webXRControls.syncBeforePhysics(deltaTime);
 
   updatePlayerPhysics({
