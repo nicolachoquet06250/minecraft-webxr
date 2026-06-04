@@ -10,6 +10,7 @@
     "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
   },
