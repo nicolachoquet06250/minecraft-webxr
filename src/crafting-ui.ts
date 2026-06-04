@@ -17,43 +17,29 @@ type CraftingRecipe = {
   result: InventoryItem;
 };
 
+type DragSource =
+  | { type: "inventory"; index: number }
+  | { type: "craft"; index: number };
+
+type DragState = {
+  item: InventoryItem;
+  source: DragSource;
+};
+
 const SLOT_SIZE = 48;
 const CRAFT_GRID_SIZE = 3;
 const INVENTORY_SLOT_COUNT = 9;
+const MAX_STACK_SIZE = 64;
 
 const recipes: CraftingRecipe[] = [
-  {
-    pattern: [BlockId.OakLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.OakPlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.SpruceLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.SprucePlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.BirchLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.BirchPlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.JungleLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.JunglePlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.AcaciaLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.AcaciaPlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.DarkOakLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.DarkOakPlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.MangroveLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.MangrovePlanks, count: 4 },
-  },
-  {
-    pattern: [BlockId.CherryLog, null, null, null, null, null, null, null, null],
-    result: { blockId: BlockId.CherryPlanks, count: 4 },
-  },
+  { pattern: [BlockId.OakLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.OakPlanks, count: 4 } },
+  { pattern: [BlockId.SpruceLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.SprucePlanks, count: 4 } },
+  { pattern: [BlockId.BirchLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.BirchPlanks, count: 4 } },
+  { pattern: [BlockId.JungleLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.JunglePlanks, count: 4 } },
+  { pattern: [BlockId.AcaciaLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.AcaciaPlanks, count: 4 } },
+  { pattern: [BlockId.DarkOakLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.DarkOakPlanks, count: 4 } },
+  { pattern: [BlockId.MangroveLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.MangrovePlanks, count: 4 } },
+  { pattern: [BlockId.CherryLog, null, null, null, null, null, null, null, null], result: { blockId: BlockId.CherryPlanks, count: 4 } },
   {
     pattern: [BlockId.OakPlanks, BlockId.OakPlanks, null, BlockId.OakPlanks, BlockId.OakPlanks, null, null, null, null],
     result: { blockId: BlockId.CraftingTable, count: 1 },
@@ -72,7 +58,14 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   const resultSlot = createSlot("craft-result-slot", 58);
   const resultIcon = createItemIcon("craft-result-icon", 34);
   const resultCount = createCountText("craft-result-count");
+  const dragPreview = createDragPreview();
+  const dragPreviewIcon = createItemIcon("craft-drag-preview-icon", 34);
+  const dragPreviewCount = createCountText("craft-drag-preview-count");
   let currentResult: InventoryItem | null = null;
+  let dragState: DragState | null = null;
+
+  dragPreview.addControl(dragPreviewIcon);
+  dragPreview.addControl(dragPreviewCount);
 
   const backdrop = new Rectangle("crafting-backdrop");
   backdrop.width = "100%";
@@ -113,10 +106,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   for (let index = 0; index < craftSlots.length; index++) {
     const slot = createSlot(`craft-slot-${index}`, SLOT_SIZE);
-    slot.onPointerClickObservable.add(() => {
-      returnCraftSlotToInventory(index);
-      updateAll();
-    });
+    slot.onPointerDownObservable.add(() => startDragFromCraftSlot(index));
     craftSlotControls.push(slot);
     craftGrid.addControl(slot, Math.floor(index / CRAFT_GRID_SIZE), index % CRAFT_GRID_SIZE);
   }
@@ -156,13 +146,30 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   for (let index = 0; index < INVENTORY_SLOT_COUNT; index++) {
     const slot = createSlot(`craft-inventory-slot-${index}`, SLOT_SIZE);
-    slot.onPointerClickObservable.add(() => {
-      moveOneInventoryItemToCraftingGrid(index);
-      updateAll();
-    });
+    slot.onPointerDownObservable.add(() => startDragFromInventorySlot(index));
     inventorySlotControls.push(slot);
     inventoryGrid.addControl(slot, 0, index);
   }
+
+  backdrop.addControl(dragPreview);
+
+  window.addEventListener("pointermove", (event) => {
+    if (!dragState || !ui.rootContainer.isVisible) return;
+
+    moveDragPreview(event.clientX, event.clientY);
+    event.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener("pointerup", (event) => {
+    if (!dragState || !ui.rootContainer.isVisible) return;
+
+    finishDrag(event.clientX, event.clientY);
+    event.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener("touchmove", (event) => {
+    if (ui.rootContainer.isVisible) event.preventDefault();
+  }, { passive: false });
 
   function toggle(): void {
     const nextVisible = !ui.rootContainer.isVisible;
@@ -174,15 +181,15 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     }
 
     if (!nextVisible) {
+      cancelDrag();
       returnAllCraftSlotsToInventory();
     }
   }
 
   function close(): void {
-    if (!ui.rootContainer.isVisible) {
-      return;
-    }
+    if (!ui.rootContainer.isVisible) return;
 
+    cancelDrag();
     returnAllCraftSlotsToInventory();
     ui.rootContainer.isVisible = false;
     setCraftingOverlayOpen(false);
@@ -206,45 +213,108 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   updateAll();
   return ui;
 
-  function moveOneInventoryItemToCraftingGrid(inventoryIndex: number): void {
-    const item = player.inventory[inventoryIndex];
+  function startDragFromInventorySlot(index: number): void {
+    if (dragState || !ui.rootContainer.isVisible) return;
 
-    if (!item || item.count <= 0) {
-      return;
+    const item = player.inventory[index];
+    if (!item) return;
+
+    dragState = {
+      item: { ...item },
+      source: { type: "inventory", index },
+    };
+
+    player.inventory.splice(index, 1);
+    showDragPreview(dragState.item);
+    updateAll();
+  }
+
+  function startDragFromCraftSlot(index: number): void {
+    if (dragState || !ui.rootContainer.isVisible) return;
+
+    const item = craftSlots[index];
+    if (!item) return;
+
+    dragState = {
+      item: { ...item },
+      source: { type: "craft", index },
+    };
+
+    craftSlots[index] = null;
+    showDragPreview(dragState.item);
+    updateAll();
+  }
+
+  function finishDrag(pointerX: number, pointerY: number): void {
+    if (!dragState) return;
+
+    const craftIndex = findControlIndexAt(craftSlotControls, pointerX, pointerY);
+    const inventoryIndex = findControlIndexAt(inventorySlotControls, pointerX, pointerY);
+    const item = dragState.item;
+    let dropped = false;
+
+    if (craftIndex !== -1) {
+      dropped = putItemInCraftSlot(craftIndex, item);
+    } else if (inventoryIndex !== -1) {
+      dropped = putItemInInventory(item);
     }
 
-    const targetIndex = craftSlots.findIndex((slot) => !slot || slot.blockId === item.blockId);
-
-    if (targetIndex === -1) {
-      return;
+    if (!dropped) {
+      restoreDraggedItem();
     }
 
-    const targetSlot = craftSlots[targetIndex];
+    dragState = null;
+    hideDragPreview();
+    updateAll();
+  }
 
-    if (targetSlot) {
-      targetSlot.count++;
-    } else {
-      craftSlots[targetIndex] = { blockId: item.blockId, count: 1 };
+  function cancelDrag(): void {
+    if (!dragState) return;
+
+    restoreDraggedItem();
+    dragState = null;
+    hideDragPreview();
+    updateAll();
+  }
+
+  function restoreDraggedItem(): void {
+    if (!dragState) return;
+
+    const { item, source } = dragState;
+
+    if (source.type === "craft") {
+      if (putItemInCraftSlot(source.index, item)) return;
     }
 
-    item.count--;
+    putItemInInventory(item);
+  }
 
-    if (item.count <= 0) {
-      player.inventory.splice(inventoryIndex, 1);
+  function putItemInCraftSlot(index: number, item: InventoryItem): boolean {
+    const slot = craftSlots[index];
+
+    if (!slot) {
+      craftSlots[index] = { ...item };
+      return true;
     }
+
+    if (slot.blockId !== item.blockId) {
+      return false;
+    }
+
+    slot.count += item.count;
+    return true;
+  }
+
+  function putItemInInventory(item: InventoryItem): boolean {
+    addStackToInventory(player, item);
+    return true;
   }
 
   function returnCraftSlotToInventory(index: number): void {
     const item = craftSlots[index];
+    if (!item) return;
 
-    if (!item) {
-      return;
-    }
-
-    for (let count = 0; count < item.count; count++) {
-      addToInventory(player, item.blockId);
-    }
-
+    putItemInInventory(item);
     craftSlots[index] = null;
   }
 
@@ -255,14 +325,10 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   }
 
   function craftCurrentRecipe(): void {
-    if (!currentResult) {
-      return;
-    }
+    if (!currentResult || dragState) return;
 
     for (const slot of craftSlots) {
-      if (slot) {
-        slot.count--;
-      }
+      if (slot) slot.count--;
     }
 
     for (let index = 0; index < craftSlots.length; index++) {
@@ -271,9 +337,7 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
       }
     }
 
-    for (let count = 0; count < currentResult.count; count++) {
-      addToInventory(player, currentResult.blockId);
-    }
+    putItemInInventory(currentResult);
   }
 
   function updateAll(): void {
@@ -303,6 +367,62 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     renderItemIcon(resultIcon, resultCount, currentResult);
     resultSlot.background = currentResult ? "#e8e8e8" : "#8f8f8f";
   }
+
+  function showDragPreview(item: InventoryItem): void {
+    dragPreview.isVisible = true;
+    renderItemIcon(dragPreviewIcon, dragPreviewCount, item);
+    moveDragPreview(scene.pointerX, scene.pointerY);
+  }
+
+  function hideDragPreview(): void {
+    dragPreview.isVisible = false;
+    renderItemIcon(dragPreviewIcon, dragPreviewCount, null);
+  }
+
+  function moveDragPreview(pointerX: number, pointerY: number): void {
+    dragPreview.left = `${pointerX - window.innerWidth / 2}px`;
+    dragPreview.top = `${pointerY - window.innerHeight / 2}px`;
+  }
+}
+
+function addStackToInventory(player: PlayerPhysics, item: InventoryItem): void {
+  let remaining = item.count;
+
+  for (const existing of player.inventory) {
+    if (remaining <= 0) return;
+    if (existing.blockId !== item.blockId || existing.count >= MAX_STACK_SIZE) continue;
+
+    const added = Math.min(MAX_STACK_SIZE - existing.count, remaining);
+    existing.count += added;
+    remaining -= added;
+  }
+
+  while (remaining > 0 && player.inventory.length < INVENTORY_SLOT_COUNT) {
+    const added = Math.min(MAX_STACK_SIZE, remaining);
+    player.inventory.push({ blockId: item.blockId, count: added });
+    remaining -= added;
+  }
+
+  if (remaining > 0) {
+    for (let count = 0; count < remaining; count++) addToInventory(player, item.blockId);
+  }
+}
+
+function findControlIndexAt(controls: Rectangle[], pointerX: number, pointerY: number): number {
+  return controls.findIndex((control) => containsPointer(control, pointerX, pointerY));
+}
+
+function containsPointer(control: Rectangle, pointerX: number, pointerY: number): boolean {
+  const measure = (control as any)._currentMeasure;
+
+  if (!measure) return false;
+
+  return (
+    pointerX >= measure.left &&
+    pointerX <= measure.left + measure.width &&
+    pointerY >= measure.top &&
+    pointerY <= measure.top + measure.height
+  );
 }
 
 function findRecipeResult(slots: CraftingSlot[]): InventoryItem | null {
@@ -320,13 +440,8 @@ function matchesRecipe(slots: CraftingSlot[], recipe: CraftingRecipe): boolean {
     const expected = recipe.pattern[index];
     const actual = slots[index];
 
-    if (expected === null && actual !== null) {
-      return false;
-    }
-
-    if (expected !== null && (!actual || actual.blockId !== expected || actual.count <= 0)) {
-      return false;
-    }
+    if (expected === null && actual !== null) return false;
+    if (expected !== null && (!actual || actual.blockId !== expected || actual.count <= 0)) return false;
   }
 
   return true;
@@ -339,13 +454,8 @@ function createGrid(name: string, rows: number, columns: number, slotSize: numbe
   grid.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
   grid.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
 
-  for (let row = 0; row < rows; row++) {
-    grid.addRowDefinition(1 / rows);
-  }
-
-  for (let column = 0; column < columns; column++) {
-    grid.addColumnDefinition(1 / columns);
-  }
+  for (let row = 0; row < rows; row++) grid.addRowDefinition(1 / rows);
+  for (let column = 0; column < columns; column++) grid.addColumnDefinition(1 / columns);
 
   return grid;
 }
@@ -360,6 +470,16 @@ function createSlot(name: string, size: number): Rectangle {
   slot.isPointerBlocker = true;
 
   return slot;
+}
+
+function createDragPreview(): Rectangle {
+  const preview = createSlot("craft-drag-preview", SLOT_SIZE);
+  preview.isVisible = false;
+  preview.isPointerBlocker = false;
+  preview.zIndex = 10_010;
+  preview.alpha = 0.92;
+
+  return preview;
 }
 
 function renderSlotContent(slot: Rectangle, item: InventoryItem | null): void {
@@ -414,7 +534,6 @@ function renderItemIcon(icon: Rectangle, countText: TextBlock, item: InventoryIt
   const color = getBlockColor(item.blockId);
   icon.isVisible = true;
   icon.background = `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`;
-
   countText.isVisible = item.count > 1;
   countText.text = `${item.count}`;
 }
