@@ -1,4 +1,4 @@
-import { Matrix, Quaternion, Scene, Vector3, WebXRState } from "@babylonjs/core";
+import { Axis, Matrix, Quaternion, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 
@@ -6,6 +6,7 @@ const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pic
 const MOVE_DEAD_ZONE = 0.18;
 const TURN_DEAD_ZONE = 0.35;
 const VR_SMOOTH_TURN_SPEED = 1.6;
+const CONTROLLER_RAY_LENGTH = 8;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -13,21 +14,31 @@ type WebXRNavigator = Navigator & {
   };
 };
 
+type MotionControllerComponentLike = {
+  axes?: { x?: number; y?: number };
+  value?: number;
+  pressed?: boolean;
+};
+
 type MotionControllerLike = {
-  getComponent?: (componentId: string) => {
-    axes?: { x?: number; y?: number };
-    value?: number;
-    pressed?: boolean;
-  } | undefined;
+  getComponent?: (componentId: string) => MotionControllerComponentLike | undefined;
 };
 
 type XRControllerLike = {
+  pointer?: {
+    getAbsolutePosition?: () => Vector3;
+    getDirection?: (localAxis: Vector3) => Vector3;
+  };
   motionController?: MotionControllerLike;
 };
+
+export type XRHandedness = "left" | "right";
 
 export type WebXRGameControls = {
   isActive: () => boolean;
   getMoveDirection: () => Vector3;
+  getControllerRay: (handedness: XRHandedness) => Ray | null;
+  isTriggerPressed: (handedness: XRHandedness) => boolean;
   syncBeforePhysics: (deltaTimeSeconds: number) => void;
   syncAfterPhysics: () => void;
 };
@@ -63,6 +74,16 @@ export async function initializeWebXRGameControls(
   const controls: WebXRGameControls = {
     isActive: () => active,
     getMoveDirection: () => Vector3.Zero(),
+    getControllerRay: (handedness) => {
+      if (!active) return null;
+
+      return getControllerRay(handedness === "left" ? leftController : rightController);
+    },
+    isTriggerPressed: (handedness) => {
+      if (!active) return false;
+
+      return isTriggerPressed(handedness === "left" ? leftController : rightController);
+    },
     syncBeforePhysics: (deltaTimeSeconds: number) => {
       if (!active || !xrExperience) return;
 
@@ -136,6 +157,17 @@ export async function initializeWebXRGameControls(
   return controls;
 }
 
+function getControllerRay(controller: XRControllerLike | null): Ray | null {
+  const pointer = controller?.pointer;
+
+  if (!pointer?.getAbsolutePosition || !pointer.getDirection) return null;
+
+  const origin = pointer.getAbsolutePosition();
+  const direction = pointer.getDirection(Axis.Z).normalize();
+
+  return new Ray(origin, direction, CONTROLLER_RAY_LENGTH);
+}
+
 function applySmoothTurnFromRightJoystick(
   bodyYaw: number,
   rightController: XRControllerLike | null,
@@ -180,6 +212,14 @@ function readControllerAxes(controller: XRControllerLike | null): { x: number; y
   if (Math.abs(x) > 1.2 || Math.abs(y) > 1.2) return null;
 
   return { x, y };
+}
+
+function isTriggerPressed(controller: XRControllerLike | null): boolean {
+  const trigger =
+    controller?.motionController?.getComponent?.("xr-standard-trigger") ??
+    controller?.motionController?.getComponent?.("trigger");
+
+  return Boolean(trigger?.pressed || (trigger?.value ?? 0) > 0.65);
 }
 
 function isJumpPressed(controller: XRControllerLike | null): boolean {
