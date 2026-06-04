@@ -14,7 +14,6 @@ import {
 import { Color4, Engine, Scene } from "@babylonjs/core";
 
 import {
-  createChunkMesh,
   updatePlayerPhysics,
   initializeCamera,
   inisializeLight,
@@ -22,9 +21,12 @@ import {
   getChunkKey,
   initializeCrosshair,
   findDrySpawnPosition,
+} from "./functions";
+import {
+  createChunkMesh,
   ensureChunksAroundPlayer,
   updateDroppedItems,
-} from "./functions";
+} from "./textured-world";
 
 import initializeEvents from "./events";
 import { initializeCraftingOverlay } from "./crafting-ui";
