@@ -57,7 +57,6 @@ export async function initializeWebXRGameControls(
   let rightController: XRControllerLike | null = null;
   let active = false;
   let headOffset = Vector3.Zero();
-  let headRotation: Quaternion | null = null;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -75,7 +74,6 @@ export async function initializeWebXRGameControls(
 
       const xrCamera = xrExperience.baseExperience.camera;
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
-      headRotation = xrCamera.rotationQuaternion?.clone() ?? null;
 
       applySmoothTurnFromRightJoystick(player, rightController, deltaTimeSeconds);
       updateMovementKeysFromLeftController(leftController);
@@ -90,7 +88,7 @@ export async function initializeWebXRGameControls(
     syncAfterPhysics: () => {
       if (!active || !xrExperience) return;
 
-      syncXRCameraToPlayer(xrExperience.baseExperience.camera, player, headOffset, headRotation);
+      syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
     },
   };
 
@@ -110,8 +108,7 @@ export async function initializeWebXRGameControls(
       clearVRMovementKeys();
       player.yaw = getYawFromCamera(xrExperience.baseExperience.camera);
       headOffset = Vector3.Zero();
-      headRotation = xrExperience.baseExperience.camera.rotationQuaternion?.clone() ?? null;
-      syncXRCameraToPlayer(xrExperience.baseExperience.camera, player, headOffset, headRotation);
+      syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
       return;
     }
 
@@ -235,16 +232,10 @@ function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
-function syncXRCameraToPlayer(
-  camera: { position: Vector3; rotationQuaternion?: Quaternion | null },
+function syncXRCameraPositionToPlayer(
+  camera: { position: Vector3 },
   player: PlayerPhysics,
   headOffset: Vector3,
-  headRotation: Quaternion | null,
 ): void {
   camera.position.copyFrom(getPlayerEyesPosition(player).add(headOffset));
-
-  if (headRotation) {
-    const bodyRotation = Quaternion.FromEulerAngles(0, player.yaw, 0);
-    camera.rotationQuaternion = bodyRotation.multiply(headRotation);
-  }
 }
