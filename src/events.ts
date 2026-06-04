@@ -3,6 +3,7 @@ import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
 import type { PlayerPhysics, WorldChunks, DroppedItem } from "./types";
 import { breakBlock } from "./tree-decay";
 import { isMobileMode } from "./mobile-controls";
+import { isCraftingOverlayOpen } from "./ui-state";
 
 function handleResize(engine: Engine) {
     return () => engine.resize();
@@ -49,6 +50,10 @@ function handleClick(
   droppedItems: DroppedItem[],
 ): (e: MouseEvent) => any {
   return async function () {
+    if (isCraftingOverlayOpen()) {
+      return;
+    }
+
     if (document.pointerLockElement !== canvas) {
       await canvas.requestPointerLock();
     } else {
