@@ -3,10 +3,10 @@ import type { CraftingRecipe } from "./types";
 
 export const dirtGrassPickaxeCraft: CraftingRecipe = {
   id: "dirt-grass-pickaxe",
-  pattern: [
+  patterns: [[
     BlockId.GrassBlock, BlockId.GrassBlock, BlockId.GrassBlock,
     null,               BlockId.Dirt,       null,
     null,               BlockId.Dirt,       null,
-  ],
+  ]],
   result: { blockId: BlockId.DirtGrassPickaxe, count: 1 },
 };
