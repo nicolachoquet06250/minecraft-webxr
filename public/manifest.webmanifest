@@ -1,0 +1,20 @@
+{
+  "name": "Minecraft WebXR",
+  "short_name": "Minecraft XR",
+  "description": "Minecraft-like TypeScript Babylon.js WebXR game",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#8cbfff",
+  "theme_color": "#8cbfff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
