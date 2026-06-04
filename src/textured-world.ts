@@ -1,6 +1,7 @@
-import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
+import { Mesh, Scene, StandardMaterial, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, RENDER_CHUNK_RADIUS, SEED } from "./constants";
-import { getBlockDefinition, type BlockFaceName, type BlockTextureDefinition } from "./blocks";
+import { getBlockFaceTextureUv } from "./block-atlas";
+import type { BlockFaceName } from "./blocks";
 import {
   addToInventory,
   addWaterTopFaceDoubleSided,
@@ -19,13 +20,12 @@ import {
 import type { CreateChunkMeshParams, DroppedItem, FaceDefinition, PlayerPhysics, VoxelWasmModule, WorldChunk, WorldChunks } from "./types";
 import { BlockId } from "./types";
 
-const BLOCK_TEXTURE_SIZE = 16;
-
 type MeshBuffers = {
   positions: number[];
   indices: number[];
   normals: number[];
   colors: number[];
+  uvs: number[];
 };
 
 type BreakBlockParams = {
@@ -42,8 +42,8 @@ type BreakBlockParams = {
 export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   const { scene, name, blocks, sizeX, sizeY, sizeZ, chunkX, chunkZ, material } = params;
 
-  const solid: MeshBuffers = { positions: [], indices: [], normals: [], colors: [] };
-  const water: MeshBuffers = { positions: [], indices: [], normals: [], colors: [] };
+  const solid: MeshBuffers = createMeshBuffers();
+  const water: MeshBuffers = createMeshBuffers();
   const worldOffsetX = chunkX * sizeX;
   const worldOffsetZ = chunkZ * sizeZ;
 
@@ -72,6 +72,7 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
               z: worldZ,
               block,
             });
+            water.uvs.push(0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1);
           }
 
           continue;
@@ -109,6 +110,7 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   vertexData.indices = solid.indices;
   vertexData.normals = solid.normals;
   vertexData.colors = solid.colors;
+  vertexData.uvs = solid.uvs;
   vertexData.applyToMesh(mesh);
   mesh.material = material;
 
@@ -119,6 +121,7 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
     waterVertexData.indices = water.indices;
     waterVertexData.normals = water.normals;
     waterVertexData.colors = water.colors;
+    waterVertexData.uvs = water.uvs;
     waterVertexData.applyToMesh(waterMesh);
     waterMesh.hasVertexAlpha = true;
     waterMesh.material = material;
@@ -126,6 +129,10 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   }
 
   return mesh;
+}
+
+function createMeshBuffers(): MeshBuffers {
+  return { positions: [], indices: [], normals: [], colors: [], uvs: [] };
 }
 
 function addTexturedOrFlatFace(params: {
@@ -137,27 +144,25 @@ function addTexturedOrFlatFace(params: {
   block: BlockId;
 }): void {
   const faceName = getFaceName(params.face.normal);
-  const texture = getBlockDefinition(params.block)?.textures?.[faceName] ?? null;
+  const textureUvs = getBlockFaceTextureUv(params.block, faceName);
 
-  if (!texture) {
-    addFlatFace(params);
-    return;
-  }
-
-  addMatrixTexturedFace({ ...params, faceName, texture });
+  addFlatFace(params, textureUvs);
 }
 
-function addFlatFace(params: {
-  buffers: MeshBuffers;
-  x: number;
-  y: number;
-  z: number;
-  face: FaceDefinition;
-  block: BlockId;
-}): void {
+function addFlatFace(
+  params: {
+    buffers: MeshBuffers;
+    x: number;
+    y: number;
+    z: number;
+    face: FaceDefinition;
+    block: BlockId;
+  },
+  textureUvs: readonly number[] | null = null,
+): void {
   const { buffers, x, y, z, face, block } = params;
   const vertexIndex = buffers.positions.length / 3;
-  const color = getBlockFaceColor(block, face.normal);
+  const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
 
   for (const vertex of face.vertices) {
     buffers.positions.push(x + vertex[0], y + vertex[1], z + vertex[2]);
@@ -165,74 +170,8 @@ function addFlatFace(params: {
     buffers.colors.push(color.r, color.g, color.b, color.a);
   }
 
+  buffers.uvs.push(...(textureUvs ?? [0, 0, 1, 0, 1, 1, 0, 1]));
   buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
-}
-
-function addMatrixTexturedFace(params: {
-  buffers: MeshBuffers;
-  x: number;
-  y: number;
-  z: number;
-  face: FaceDefinition;
-  faceName: BlockFaceName;
-  texture: BlockTextureDefinition;
-}): void {
-  const { buffers, x, y, z, face, faceName, texture } = params;
-
-  for (let row = 0; row < BLOCK_TEXTURE_SIZE; row++) {
-    const textureRow = texture.matrix[row];
-
-    for (let column = 0; column < BLOCK_TEXTURE_SIZE; column++) {
-      const colorKey = textureRow[column];
-      const rgba = texture.palette[colorKey];
-
-      if (!rgba) continue;
-
-      const u0 = column / BLOCK_TEXTURE_SIZE;
-      const u1 = (column + 1) / BLOCK_TEXTURE_SIZE;
-      const v0 = row / BLOCK_TEXTURE_SIZE;
-      const v1 = (row + 1) / BLOCK_TEXTURE_SIZE;
-      const vertexIndex = buffers.positions.length / 3;
-      const vertices = [
-        interpolateFaceVertex(face, faceName, u0, v0),
-        interpolateFaceVertex(face, faceName, u1, v0),
-        interpolateFaceVertex(face, faceName, u1, v1),
-        interpolateFaceVertex(face, faceName, u0, v1),
-      ];
-
-      for (const vertex of vertices) {
-        buffers.positions.push(x + vertex.x, y + vertex.y, z + vertex.z);
-        buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
-        buffers.colors.push(rgba[0], rgba[1], rgba[2], rgba[3]);
-      }
-
-      buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
-    }
-  }
-}
-
-function interpolateFaceVertex(face: FaceDefinition, faceName: BlockFaceName, u: number, v: number): Vector3 {
-  const [a, b, c, d] = face.vertices;
-  const [topLeft, topRight, bottomRight, bottomLeft] = isSideFace(faceName)
-    ? [b, c, d, a]
-    : [a, b, c, d];
-
-  const topX = topLeft[0] + (topRight[0] - topLeft[0]) * u;
-  const topY = topLeft[1] + (topRight[1] - topLeft[1]) * u;
-  const topZ = topLeft[2] + (topRight[2] - topLeft[2]) * u;
-  const bottomX = bottomLeft[0] + (bottomRight[0] - bottomLeft[0]) * u;
-  const bottomY = bottomLeft[1] + (bottomRight[1] - bottomLeft[1]) * u;
-  const bottomZ = bottomLeft[2] + (bottomRight[2] - bottomLeft[2]) * u;
-
-  return new Vector3(
-    topX + (bottomX - topX) * v,
-    topY + (bottomY - topY) * v,
-    topZ + (bottomZ - topZ) * v,
-  );
-}
-
-function isSideFace(faceName: BlockFaceName): boolean {
-  return faceName === "front" || faceName === "back" || faceName === "right" || faceName === "left";
 }
 
 function getFaceName(normal: [number, number, number]): BlockFaceName {
@@ -286,7 +225,7 @@ export function ensureChunksAroundPlayer(params: {
 export function breakBlock(params: BreakBlockParams): void {
   const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
   const ray = scene.createPickingRay(scene.getEngine().getRenderWidth() / 2, scene.getEngine().getRenderHeight() / 2, null, scene.activeCamera);
-  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+  const start = player.position.add({ x: 0, y: EYE_HEIGHT, z: 0 } as any);
   const direction = ray.direction.normalize();
   let targetWorldX = 0;
   let targetWorldY = 0;
