@@ -4,15 +4,23 @@ import { EYE_HEIGHT } from "./constants";
 import { renderItemIconControl } from "./items/rendering";
 import { isMobileMode } from "./mobile-controls";
 import { type PlayerPhysics } from "./types";
-import type { WebXRGameControls } from "./vr-mode";
+import type { WebXRGameControls, XRHandedness } from "./vr-mode";
 
 const INVENTORY_SLOT_COUNT = 9;
 const VR_HOTBAR_DISTANCE = 1.15;
 const VR_HOTBAR_VERTICAL_OFFSET = -0.42;
+const VR_HOTBAR_WIDTH = 1.45;
+const VR_HOTBAR_HEIGHT = 0.24;
+const VR_TRIGGER_SELECTION_COOLDOWN_MS = 180;
 
 type InventoryBarControls = {
   readonly updateUI: () => void;
   readonly updateSelectedSlot: (nextSelectedIndex: number) => void;
+};
+
+type VRSlotHitbox = {
+  readonly index: number;
+  readonly mesh: Mesh;
 };
 
 export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
@@ -66,7 +74,7 @@ export function initializeVRInventoryBar(
 
   const panel = MeshBuilder.CreatePlane(
     "vr-inventory-hotbar-panel",
-    { width: 1.45, height: 0.24 },
+    { width: VR_HOTBAR_WIDTH, height: VR_HOTBAR_HEIGHT },
     scene,
   );
   panel.isPickable = false;
@@ -75,6 +83,7 @@ export function initializeVRInventoryBar(
   panel.rotationQuaternion = Quaternion.FromEulerAngles(0, Math.PI, 0);
   panel.setEnabled(false);
 
+  const hitboxes = createVRSlotHitboxes(scene, bodyAnchor);
   const ui = AdvancedDynamicTexture.CreateForMesh(panel, 1450, 240, false);
   const controls = createInventoryBarControls({
     ui,
@@ -87,20 +96,85 @@ export function initializeVRInventoryBar(
   registerInventoryUpdater(player, controls.updateUI);
   controls.updateUI();
 
+  let lastSelectedSlot = -1;
+  let lastSelectionTime = 0;
+
   scene.onBeforeRenderObservable.add(() => {
     if (!webXRControls.isActive()) {
       bodyAnchor.setEnabled(false);
       panel.setEnabled(false);
+      hitboxes.forEach((hitbox) => hitbox.mesh.setEnabled(false));
       return;
     }
 
     bodyAnchor.setEnabled(true);
     panel.setEnabled(true);
+    hitboxes.forEach((hitbox) => hitbox.mesh.setEnabled(true));
     bodyAnchor.position.copyFromFloats(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
     bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw, 0);
+
+    const pointedSlot = findPointedVRSlot(webXRControls, hitboxes);
+    const canSelect = performance.now() - lastSelectionTime >= VR_TRIGGER_SELECTION_COOLDOWN_MS;
+
+    if (pointedSlot !== null && canSelect && isAnyVRTriggerPressed(webXRControls)) {
+      controls.updateSelectedSlot(pointedSlot);
+      lastSelectedSlot = pointedSlot;
+      lastSelectionTime = performance.now();
+      return;
+    }
+
+    lastSelectedSlot = pointedSlot ?? lastSelectedSlot;
   });
 
   return panel;
+}
+
+function createVRSlotHitboxes(scene: Scene, bodyAnchor: TransformNode): VRSlotHitbox[] {
+  const slotWidth = VR_HOTBAR_WIDTH / INVENTORY_SLOT_COUNT;
+  const hitboxes: VRSlotHitbox[] = [];
+
+  for (let index = 0; index < INVENTORY_SLOT_COUNT; index++) {
+    const hitbox = MeshBuilder.CreatePlane(
+      `vr-inventory-slot-hitbox-${index}`,
+      { width: slotWidth, height: VR_HOTBAR_HEIGHT },
+      scene,
+    );
+    hitbox.parent = bodyAnchor;
+    hitbox.position.set(
+      -VR_HOTBAR_WIDTH / 2 + slotWidth * index + slotWidth / 2,
+      VR_HOTBAR_VERTICAL_OFFSET,
+      VR_HOTBAR_DISTANCE - 0.005,
+    );
+    hitbox.rotationQuaternion = Quaternion.FromEulerAngles(0, Math.PI, 0);
+    hitbox.isVisible = false;
+    hitbox.isPickable = true;
+    hitbox.setEnabled(false);
+    hitboxes.push({ index, mesh: hitbox });
+  }
+
+  return hitboxes;
+}
+
+function findPointedVRSlot(webXRControls: WebXRGameControls, hitboxes: VRSlotHitbox[]): number | null {
+  for (const handedness of ["right", "left"] as const satisfies XRHandedness[]) {
+    const ray = webXRControls.getControllerRay(handedness);
+
+    if (!ray) continue;
+
+    for (const hitbox of hitboxes) {
+      const hit = ray.intersectsMesh(hitbox.mesh, false);
+
+      if (hit.hit) {
+        return hitbox.index;
+      }
+    }
+  }
+
+  return null;
+}
+
+function isAnyVRTriggerPressed(webXRControls: WebXRGameControls): boolean {
+  return webXRControls.isTriggerPressed("right") || webXRControls.isTriggerPressed("left");
 }
 
 function createInventoryBarControls(params: {
