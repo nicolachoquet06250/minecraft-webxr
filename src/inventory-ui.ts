@@ -1,15 +1,10 @@
 import type { Scene } from "@babylonjs/core";
-import { AdvancedDynamicTexture, Control, Image, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
-import { getBlockColor } from "./functions";
+import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
+import { renderItemIconControl } from "./items/rendering";
 import { isMobileMode } from "./mobile-controls";
 import { BlockId, type PlayerPhysics } from "./types";
 
 const INVENTORY_SLOT_COUNT = 9;
-const DIRT_GRASS_PICKAXE_ICON_SRC = "/items/pickaxe-grass-dirt.png";
-
-function color4ToCssRgba(color: { r: number; g: number; b: number; a: number }, alpha = color.a): string {
-  return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${alpha})`;
-}
 
 export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("inventory-ui", true, scene);
@@ -56,7 +51,7 @@ export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): Adv
       const icon = itemIcons[index];
       const countText = countTexts[index];
 
-      renderInventoryItemIcon(icon, inventoryItem?.blockId ?? null);
+      renderItemIconControl(icon, inventoryItem?.blockId ?? null);
 
       if (inventoryItem) {
         countText.isVisible = inventoryItem.count > 1;
@@ -144,33 +139,4 @@ export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): Adv
   });
 
   return ui;
-}
-
-function renderInventoryItemIcon(icon: Rectangle, blockId: BlockId | null): void {
-  icon.children.slice().forEach((child) => icon.removeControl(child));
-
-  if (blockId === null) {
-    icon.isVisible = false;
-    return;
-  }
-
-  icon.isVisible = true;
-
-  if (blockId === BlockId.DirtGrassPickaxe) {
-    icon.thickness = 0;
-    icon.background = "transparent";
-
-    const image = new Image(`${icon.name}-image`, DIRT_GRASS_PICKAXE_ICON_SRC);
-    image.width = "100%";
-    image.height = "100%";
-    image.stretch = Image.STRETCH_UNIFORM;
-    image.isPointerBlocker = false;
-    icon.addControl(image);
-    return;
-  }
-
-  const color = getBlockColor(blockId);
-  icon.thickness = 1;
-  icon.color = "rgba(255, 255, 255, 0.35)";
-  icon.background = color4ToCssRgba(color, blockId === BlockId.Water ? 0.75 : 1.0);
 }
