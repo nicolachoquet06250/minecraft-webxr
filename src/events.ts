@@ -1,7 +1,10 @@
 import type { Engine, Scene, StandardMaterial } from "@babylonjs/core";
 import { MOUSE_SENSIBILITY, pressedKeys } from "./constants";
 import type { PlayerPhysics, WorldChunks, DroppedItem } from "./types";
-import { breakBlock } from "./tree-decay";
+import {
+  cancelBlockBreaking,
+  startBlockBreaking,
+} from "./block-breaking";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 
@@ -49,6 +52,7 @@ function clearMovementKeys(): void {
 function handleKeyDown(event: KeyboardEvent) {
   if (isCraftingOverlayOpen()) {
     clearMovementKeys();
+    cancelBlockBreaking();
 
     if (event.code !== "KeyE" && event.code !== "Escape") {
       event.preventDefault();
@@ -96,8 +100,7 @@ function handleMouseMove(canvas: HTMLCanvasElement, player: PlayerPhysics): (e: 
     }
 }
 
-function handleClick(
-  canvas: HTMLCanvasElement,
+function getBreakingParams(
   scene: Scene,
   player: PlayerPhysics,
   worldChunks: WorldChunks,
@@ -106,27 +109,16 @@ function handleClick(
   sizeZ: number,
   material: StandardMaterial,
   droppedItems: DroppedItem[],
-): (e: MouseEvent) => any {
-  return async function () {
-    if (isCraftingOverlayOpen()) {
-      clearMovementKeys();
-      return;
-    }
-
-    if (document.pointerLockElement !== canvas) {
-      await canvas.requestPointerLock();
-    } else {
-      breakBlock({
-        scene,
-        player,
-        worldChunks,
-        sizeX,
-        sizeY,
-        sizeZ,
-        material,
-        droppedItems,
-      });
-    }
+) {
+  return {
+    scene,
+    player,
+    worldChunks,
+    sizeX,
+    sizeY,
+    sizeZ,
+    material,
+    droppedItems,
   };
 }
 
@@ -144,31 +136,66 @@ export default function (
 ) {
   new ResizeObserver(handleResize(engine)).observe(window.document.body);
 
+  const breakingParams = getBreakingParams(
+    scene,
+    player,
+    worldChunks,
+    sizeX,
+    sizeY,
+    sizeZ,
+    material,
+    droppedItems,
+  );
+
   window.addEventListener("keydown", handleKeyDown);
 
   window.addEventListener("keyup", handleKeyUp);
 
   window.addEventListener("mousemove", handleMouseMove(canvas, player));
 
-  canvas.addEventListener(
-    "click",
-    (e) => {
-      if (isCraftingOverlayOpen()) {
-        clearMovementKeys();
-        return;
-      }
-
-      if (isMobileMode()) {
-        console.log("Canvas click blocked on mobile");
-        return;
-      }
-      handleClick(canvas, scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems)(e);
+  document.addEventListener("pointerlockchange", () => {
+    if (document.pointerLockElement !== canvas) {
+      cancelBlockBreaking();
     }
-  );
+  });
+
+  canvas.addEventListener("pointerdown", async (event) => {
+    if (isCraftingOverlayOpen()) {
+      clearMovementKeys();
+      cancelBlockBreaking();
+      return;
+    }
+
+    if (isMobileMode()) {
+      return;
+    }
+
+    if (event.button !== 0) {
+      return;
+    }
+
+    if (document.pointerLockElement !== canvas) {
+      await canvas.requestPointerLock();
+      return;
+    }
+
+    startBlockBreaking(breakingParams);
+  });
+
+  canvas.addEventListener("pointerup", (event) => {
+    if (event.button === 0) {
+      cancelBlockBreaking();
+    }
+  });
+
+  canvas.addEventListener("pointerleave", () => {
+    cancelBlockBreaking();
+  });
 
   canvas.addEventListener("touchstart", (e) => {
     if (isCraftingOverlayOpen()) {
       clearMovementKeys();
+      cancelBlockBreaking();
       if (e.cancelable) {
         e.preventDefault();
       }
