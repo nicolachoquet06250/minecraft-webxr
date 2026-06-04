@@ -28,8 +28,11 @@ import {
 
 import initializeEvents from "./events";
 import { initializeCraftingOverlay } from "./crafting-ui";
+import { initializeFullscreenOnUserGesture } from "./fullscreen";
 import { initializeInventoryBar } from "./inventory-ui";
 import initializeMobileControls, { isVRMode } from "./mobile-controls";
+
+initializeFullscreenOnUserGesture();
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init(voxelWasmUrl);
