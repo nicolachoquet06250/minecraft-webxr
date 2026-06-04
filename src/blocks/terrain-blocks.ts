@@ -81,8 +81,9 @@ const grassSideTexture: BlockTextureDefinition = {
   matrix: [
     "ABCCBCBACCCBBCAA",
     "BCCCBCCACCCBBCAB",
-    "DDEFDDEEGDDEFFDE",
-    "FEGDEHDFEGFDEGDF",
+    "BCACDBCACCEBCFAB",
+    "DDCFBBCAGDDCFFDE",
+    "FEGDEHCBFGFDEGDF",
     "DGFEFDEGDFEHGDEE",
     "GDFEDGFEGDFEDGFE",
     "DEGFDEHFGDEGFDDE",
@@ -94,7 +95,6 @@ const grassSideTexture: BlockTextureDefinition = {
     "DEGFDEGDFEDDEGFE",
     "FDEHGFEDGDFEGDFE",
     "GDFEDGFEHDFEDGFE",
-    "DEGFDDEGFEGDFEHD",
   ],
 };
 
