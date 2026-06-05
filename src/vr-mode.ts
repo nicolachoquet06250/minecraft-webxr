@@ -113,6 +113,7 @@ export async function initializeWebXRGameControls(
       xrExperience = await scene.createDefaultXRExperienceAsync({
         floorMeshes: [],
       });
+        alert('ok')
 
       xrExperience.baseExperience.onStateChangedObservable.add((state) => {
         active = state === WebXRState.IN_XR;
@@ -152,6 +153,7 @@ export async function initializeWebXRGameControls(
         }
       });
     } catch (error) {
+        alert((error as any).message)
       console.warn("WebXR non disponible", error);
       return controls;
     }
@@ -190,8 +192,22 @@ function updateForwardBackwardKeysFromLeftController(leftController: XRControlle
 
   if (!axes) return;
 
-  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
-  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
+  const hasHorizontalInput = Math.abs(axes.x) > MOVE_DEAD_ZONE;
+  const hasVerticalInput = Math.abs(axes.y) > MOVE_DEAD_ZONE;
+
+  // Joystick gauche strictement cardinal : une diagonale ne déclenche aucun mouvement.
+  if (hasHorizontalInput && hasVerticalInput) {
+    return;
+  }
+
+  if (hasHorizontalInput) {
+    pressedKeys.add(axes.x < 0 ? "KeyA" : "KeyD");
+    return;
+  }
+
+  if (hasVerticalInput) {
+    pressedKeys.add(axes.y < 0 ? "KeyW" : "KeyS");
+  }
 }
 
 function clearVRMovementKeys(): void {

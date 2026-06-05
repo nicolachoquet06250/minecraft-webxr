@@ -4,16 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run build:wasm && vite",
+    "dev": "npm run build:wasm && vite --host",
     "build": "npm run build:wasm && tsc && vite build",
     "preview": "vite preview",
     "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm"
   },
   "devDependencies": {
-    "@vite-pwa/assets-generator": "^1.0.0",
     "@types/node": "^25.9.1",
+    "@vite-pwa/assets-generator": "^1.0.0",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
+    "vite-plugin-mkcert": "^2.1.0",
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
