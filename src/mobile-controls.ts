@@ -11,6 +11,8 @@ import {
 import { pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 import { breakBlock } from "./tree-decay";
+import { placeBlock } from "./textured-world";
+import { startBlockBreaking, cancelBlockBreaking, updateBlockBreaking } from "./block-breaking";
 import { isCraftingOverlayOpen } from "./ui-state";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
@@ -29,6 +31,7 @@ const LOOK_JOYSTICK_BOTTOM = 140;
 const JUMP_BUTTON_SIZE = 90;
 const JUMP_BUTTON_RIGHT = 60;
 const JUMP_BUTTON_BOTTOM = 40;
+const PLACE_BUTTON_LEFT = 60;
 
 const CRAFT_BUTTON_WIDTH = 116;
 const CRAFT_BUTTON_HEIGHT = 48;
@@ -194,6 +197,34 @@ function createBreakButton(): Ellipse {
   return button;
 }
 
+function createPlaceButton(): Ellipse {
+  const button = new Ellipse("mobile-place-button");
+  button.width = `${JUMP_BUTTON_SIZE}px`;
+  button.height = `${JUMP_BUTTON_SIZE}px`;
+  button.thickness = 2;
+  button.color = "rgba(255, 255, 255, 0.5)";
+  button.background = "rgba(0, 130, 220, 0.3)";
+  button.alpha = 0.94;
+  button.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+  button.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+  button.left = `${PLACE_BUTTON_LEFT}px`;
+  button.top = `-${JUMP_BUTTON_BOTTOM}px`;
+  button.isPointerBlocker = true;
+
+  const label = new TextBlock("mobile-place-label");
+  label.text = "▣";
+  label.color = "white";
+  label.fontSize = 32;
+  label.fontWeight = "700";
+  label.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  label.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  label.isPointerBlocker = false;
+
+  button.addControl(label);
+
+  return button;
+}
+
 function createCraftButton(): Rectangle {
   const button = new Rectangle("mobile-craft-button");
   button.width = `${CRAFT_BUTTON_WIDTH}px`;
@@ -303,6 +334,9 @@ export default function initializeMobileControls(
   const breakButton = createBreakButton();
   ui.addControl(breakButton);
 
+  const placeButton = createPlaceButton();
+  ui.addControl(placeButton);
+
   const craftButton = createCraftButton();
   ui.addControl(craftButton);
 
@@ -322,6 +356,7 @@ export default function initializeMobileControls(
 
   let jumpPointerId: number | null = null;
   let breakPointerId: number | null = null;
+  let placePointerId: number | null = null;
   let craftPointerId: number | null = null;
 
   const resetBreak = (pointerId: number | null) => {
@@ -346,11 +381,19 @@ export default function initializeMobileControls(
     }
   };
 
+  const resetPlace = (pointerId: number | null) => {
+    if (placePointerId === pointerId || pointerId === null) {
+      placePointerId = null;
+      placeButton.background = "rgba(0, 130, 220, 0.3)";
+    }
+  };
+
   const resetAllControls = (): void => {
     resetMoveState(moveJoystick.thumb, moveState);
     resetLookState(lookJoystick.thumb, lookState);
     resetJump(null);
     resetBreak(null);
+    resetPlace(null);
   };
 
   // Craft Button Events
@@ -378,10 +421,10 @@ export default function initializeMobileControls(
       breakPointerId = coordinates.pointerId;
       breakButton.background = "rgba(255, 0, 0, 0.4)";
       
-      breakBlock({
+      startBlockBreaking({
         scene,
         player,
-        worldChunks: (player as any)._worldChunks, // On va devoir l'exposer
+        worldChunks: (player as any)._worldChunks,
         sizeX: (player as any)._sizeX,
         sizeY: (player as any)._sizeY,
         sizeZ: (player as any)._sizeZ,
@@ -391,8 +434,45 @@ export default function initializeMobileControls(
     }
   });
 
-  breakButton.onPointerUpObservable.add((coordinates: any) => resetBreak(coordinates.pointerId));
-  breakButton.onPointerOutObservable.add((coordinates: any) => resetBreak(coordinates.pointerId));
+  breakButton.onPointerUpObservable.add((coordinates: any) => {
+    if (breakPointerId === coordinates.pointerId) {
+      cancelBlockBreaking();
+    }
+    resetBreak(coordinates.pointerId);
+  });
+  breakButton.onPointerOutObservable.add((coordinates: any) => {
+    if (breakPointerId === coordinates.pointerId) {
+      cancelBlockBreaking();
+    }
+    resetBreak(coordinates.pointerId);
+  });
+
+  // Place Button Events
+  placeButton.onPointerDownObservable.add((coordinates: any) => {
+    if (isCraftingOverlayOpen()) {
+      resetAllControls();
+      return;
+    }
+
+    if (placePointerId === null) {
+      placePointerId = coordinates.pointerId;
+      placeButton.background = "rgba(30, 160, 255, 0.45)";
+
+      placeBlock({
+        scene,
+        player,
+        worldChunks: (player as any)._worldChunks,
+        sizeX: (player as any)._sizeX,
+        sizeY: (player as any)._sizeY,
+        sizeZ: (player as any)._sizeZ,
+        material: (player as any)._material,
+        droppedItems: (player as any)._droppedItems,
+      });
+    }
+  });
+
+  placeButton.onPointerUpObservable.add((coordinates: any) => resetPlace(coordinates.pointerId));
+  placeButton.onPointerOutObservable.add((coordinates: any) => resetPlace(coordinates.pointerId));
 
   // Jump Button Events
   jumpButton.onPointerDownObservable.add((coordinates: any) => {
@@ -508,6 +588,7 @@ export default function initializeMobileControls(
     }
 
     const deltaTime = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
+    updateBlockBreaking(deltaTime);
 
     if (
       lookState.pointerId !== null &&

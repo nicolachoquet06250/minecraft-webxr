@@ -5,6 +5,7 @@ import {
   cancelBlockBreaking,
   startBlockBreaking,
 } from "./block-breaking";
+import { placeBlock } from "./textured-world";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 
@@ -165,6 +166,10 @@ export default function (
     }
   });
 
+  canvas.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+
   canvas.addEventListener("pointerdown", async (event) => {
     if (isCraftingOverlayOpen()) {
       clearMovementKeys();
@@ -173,6 +178,17 @@ export default function (
     }
 
     if (isMobileMode()) {
+      return;
+    }
+
+    if (event.button === 2) {
+      event.preventDefault();
+
+      if (document.pointerLockElement !== canvas) {
+        return;
+      }
+
+      placeBlock(breakingParams);
       return;
     }
 

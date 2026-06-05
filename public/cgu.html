@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" type="image/png" href="/favicon-192x192.png" />
+  <meta name="theme-color" content="#8cbfff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Politique de confidentialité</title>
+  <style>
+    :root {
+      --sky: #7ec8ff;
+      --cloud: rgba(255, 255, 255, 0.35);
+      --grass-dark: #2f7d32;
+      --grass: #4caf38;
+      --grass-light: #7bc950;
+      --dirt-dark: #4a2b17;
+      --dirt: #7a4a24;
+      --dirt-light: #a06a35;
+      --stone: #6f6f6f;
+      --stone-light: #9a9a9a;
+      --text: #24170d;
+      --paper: #f3dfb0;
+      --paper-shadow: #c89d5a;
+      --border: #2d1a0d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background:
+        linear-gradient(
+          to bottom,
+          var(--sky) 0 42%,
+          var(--grass-light) 42% 45%,
+          var(--grass) 45% 48%,
+          var(--dirt) 48% 100%
+        );
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+      line-height: 1.65;
+      color: var(--text);
+      background:
+        linear-gradient(90deg, var(--cloud) 0 16px, transparent 16px 48px) 8% 8% / 96px 32px no-repeat,
+        linear-gradient(90deg, var(--cloud) 0 24px, transparent 24px 72px) 75% 16% / 144px 40px no-repeat,
+        linear-gradient(90deg, rgba(255,255,255,0.28) 0 18px, transparent 18px 64px) 42% 4% / 128px 34px no-repeat,
+        repeating-linear-gradient(
+          90deg,
+          rgba(255,255,255,0.06) 0 24px,
+          transparent 24px 48px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          rgba(0,0,0,0.08) 0 24px,
+          transparent 24px 48px
+        );
+      image-rendering: pixelated;
+      padding: 32px 16px;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 42px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.25), transparent 28%),
+        var(--paper);
+      border: 6px solid var(--border);
+      outline: 6px solid var(--dirt-dark);
+      box-shadow:
+        0 0 0 10px var(--dirt),
+        12px 12px 0 10px rgba(0, 0, 0, 0.28);
+      position: relative;
+    }
+
+    main::before {
+      content: "";
+      position: absolute;
+      inset: -6px -6px auto -6px;
+      height: 18px;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          var(--grass-dark) 0 24px,
+          var(--grass) 24px 48px,
+          var(--grass-light) 48px 72px
+        );
+      border-bottom: 6px solid var(--border);
+    }
+
+    h1 {
+      margin: 10px 0 8px;
+      padding: 18px 18px 16px;
+      color: #ffffff;
+      background:
+        linear-gradient(to bottom, var(--grass-light), var(--grass-dark));
+      border: 5px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: center;
+      text-shadow:
+        3px 3px 0 #1f4f20,
+        5px 5px 0 rgba(0, 0, 0, 0.35);
+      box-shadow:
+        inset 0 5px 0 rgba(255,255,255,0.25),
+        inset 0 -5px 0 rgba(0,0,0,0.22),
+        6px 6px 0 rgba(0,0,0,0.25);
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      line-height: 1.1;
+    }
+
+    .updated-at {
+      display: inline-block;
+      margin: 16px 0 28px;
+      padding: 8px 12px;
+      color: #ffffff;
+      background: var(--dirt);
+      border: 4px solid var(--border);
+      box-shadow:
+        inset 0 4px 0 rgba(255,255,255,0.15),
+        inset 0 -4px 0 rgba(0,0,0,0.22);
+      font-weight: bold;
+    }
+
+    h2 {
+      margin: 34px 0 14px;
+      padding: 10px 14px;
+      color: #ffffff;
+      background:
+        linear-gradient(to bottom, var(--stone-light), var(--stone));
+      border: 4px solid var(--border);
+      box-shadow:
+        inset 0 4px 0 rgba(255,255,255,0.22),
+        inset 0 -4px 0 rgba(0,0,0,0.22),
+        5px 5px 0 rgba(0,0,0,0.18);
+      font-size: 1.25rem;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.45);
+    }
+
+    p {
+      margin: 0 0 14px;
+      font-size: 1rem;
+    }
+
+    ul {
+      margin: 0 0 18px;
+      padding: 16px 18px 12px 42px;
+      background: rgba(122, 74, 36, 0.13);
+      border: 4px solid rgba(45, 26, 13, 0.45);
+      box-shadow: inset 0 0 0 4px rgba(255,255,255,0.18);
+    }
+
+    li {
+      margin-bottom: 8px;
+      padding-left: 4px;
+    }
+
+    li::marker {
+      content: "■  ";
+      color: var(--grass-dark);
+    }
+
+    a {
+      color: var(--grass-dark);
+      font-weight: bold;
+    }
+
+    ::selection {
+      color: #ffffff;
+      background: var(--grass-dark);
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 0;
+      }
+
+      main {
+        min-height: 100vh;
+        padding: 26px 18px;
+        border-width: 4px;
+        outline: 0;
+        box-shadow: none;
+      }
+
+      main::before {
+        height: 14px;
+        border-bottom-width: 4px;
+      }
+
+      h1 {
+        margin-top: 18px;
+        border-width: 4px;
+      }
+
+      h2 {
+        font-size: 1.08rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Politique de confidentialité</h1>
+    <p class="updated-at">Dernière mise à jour : 5 juin 2026</p>
+
+    <p>Cette politique de confidentialité explique quelles données sont collectées, utilisées et stockées par l’application.</p>
+
+    <h2>1. Données collectées</h2>
+    <p>L’application ne collecte aucune donnée personnelle identifiable.</p>
+    <p>Aucune information telle que le nom, l’adresse e-mail, l’adresse IP, la localisation, les contacts ou toute autre donnée personnelle n’est demandée ou transmise par l’application.</p>
+
+    <h2>2. Mode solo uniquement</h2>
+    <p>L’application est un jeu solo.</p>
+    <p>Elle ne propose pas de fonctionnalité multijoueur, de serveur en ligne, de chat, de liste d’amis ou d’échange de données entre joueurs.</p>
+
+    <h2>3. Données stockées localement</h2>
+    <p>Certaines données peuvent être stockées uniquement sur l’appareil de l’utilisateur afin de faire fonctionner le jeu correctement.</p>
+    <p>Ces données peuvent inclure :</p>
+    <ul>
+      <li>les mondes créés par l’utilisateur ;</li>
+      <li>la progression dans le jeu ;</li>
+      <li>l’inventaire du joueur ;</li>
+      <li>les paramètres graphiques, audio ou de contrôle ;</li>
+      <li>les préférences de jeu ;</li>
+      <li>les sauvegardes locales.</li>
+    </ul>
+    <p>Ces données restent sur l’appareil de l’utilisateur et ne sont pas envoyées à un serveur externe.</p>
+
+    <h2>4. Absence de compte utilisateur</h2>
+    <p>L’application ne nécessite pas la création d’un compte utilisateur.</p>
+    <p>Aucun identifiant, mot de passe ou profil en ligne n’est demandé.</p>
+
+    <h2>5. Absence de publicité et de suivi</h2>
+    <p>L’application ne contient pas de système de publicité intégré.</p>
+    <p>Elle n’utilise pas de technologie de suivi publicitaire, d’analyse comportementale ou de profilage utilisateur.</p>
+
+    <h2>6. Connexion Internet</h2>
+    <p>L’application n’a pas besoin d’une connexion Internet pour fonctionner.</p>
+    <p>Si une connexion Internet est utilisée dans une version future, par exemple pour vérifier les mises à jour ou télécharger du contenu additionnel, cette politique sera mise à jour en conséquence.</p>
+
+    <h2>7. Permissions de l’appareil</h2>
+    <p>L’application peut demander certaines permissions uniquement lorsque cela est nécessaire à son fonctionnement.</p>
+    <p>Par exemple :</p>
+    <ul>
+      <li>accès au stockage local pour sauvegarder ou charger les mondes ;</li>
+      <li>accès aux contrôleurs ou périphériques compatibles pour permettre les interactions en jeu.</li>
+    </ul>
+    <p>Aucune permission n’est utilisée pour collecter des données personnelles.</p>
+
+    <h2>8. Partage des données</h2>
+    <p>Aucune donnée personnelle n’est vendue, louée, partagée ou transmise à des tiers.</p>
+    <p>Les données de jeu restent locales à l’appareil de l’utilisateur.</p>
+
+    <h2>9. Suppression des données</h2>
+    <p>L’utilisateur peut supprimer ses données de jeu en supprimant les sauvegardes locales ou en désinstallant l’application.</p>
+    <p>La désinstallation peut entraîner la suppression des mondes, paramètres et progressions stockés localement, selon le système utilisé.</p>
+
+    <h2>10. Sécurité</h2>
+    <p>Comme les données sont stockées localement, leur sécurité dépend également de la sécurité de l’appareil de l’utilisateur.</p>
+    <p>Il est recommandé de conserver des sauvegardes des mondes importants si l’application le permet.</p>
+
+    <h2>11. Enfants</h2>
+    <p>L’application ne collecte pas volontairement de données personnelles concernant les enfants.</p>
+    <p>Comme aucun compte, chat ou service en ligne n’est proposé, l’application limite les risques liés aux interactions avec d’autres utilisateurs.</p>
+
+    <h2>12. Modifications de cette politique</h2>
+    <p>Cette politique de confidentialité peut être mise à jour si les fonctionnalités de l’application évoluent.</p>
+    <p>Toute modification importante, notamment l’ajout de fonctionnalités en ligne, de statistiques, de comptes utilisateurs ou de contenu téléchargeable, devra être reflétée dans une nouvelle version de cette politique.</p>
+
+    <h2>13. Contact</h2>
+    <p>Pour toute question concernant cette politique de confidentialité, vous pouvez contacter l’éditeur de l’application.</p>
+  </main>
+</body>
+</html>

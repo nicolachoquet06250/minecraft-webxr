@@ -1,6 +1,7 @@
 import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
-import { EYE_HEIGHT, FACES, GRAVITY, RENDER_CHUNK_RADIUS, SEED } from "./constants";
+import { EYE_HEIGHT, FACES, GRAVITY, PLAYER_HEIGHT, PLAYER_RADIUS, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
+import { getBlockDefinition } from "./blocks";
 import type { BlockFaceName } from "./blocks";
 import {
   addToInventory,
@@ -337,6 +338,101 @@ export function breakBlock(params: BreakBlockParams): void {
   }
 
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
+}
+
+export function placeBlock(params: BreakBlockParams): void {
+  const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material } = params;
+  const selectedItem = player.inventory[player.selectedSlot];
+
+  if (!selectedItem || selectedItem.count <= 0) {
+    return;
+  }
+
+  const blockToPlace = selectedItem.blockId;
+  const blockDefinition = getBlockDefinition(blockToPlace);
+
+  // Uniquement les blocs connus peuvent etre poses (pas les items/outils).
+  if (!blockDefinition || blockToPlace === BlockId.Air) {
+    return;
+  }
+
+  const ray = scene.createPickingRay(scene.getEngine().getRenderWidth() / 2, scene.getEngine().getRenderHeight() / 2, null, scene.activeCamera);
+  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+  const direction = ray.direction.normalize();
+  let placeTarget: { x: number; y: number; z: number } | null = null;
+
+  for (let distance = 0.1; distance <= 3; distance += 0.1) {
+    const point = start.add(direction.scale(distance));
+    const x = Math.floor(point.x);
+    const y = Math.floor(point.y);
+    const z = Math.floor(point.z);
+    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
+
+    if (block === BlockId.Air || block === BlockId.Water) {
+      placeTarget = { x, y, z };
+      continue;
+    }
+
+    break;
+  }
+
+  if (!placeTarget) {
+    return;
+  }
+
+  const existingBlock = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, placeTarget.x, placeTarget.y, placeTarget.z);
+
+  if (existingBlock !== BlockId.Air && existingBlock !== BlockId.Water) {
+    return;
+  }
+
+  if (blockDefinition.solid && !canPlaceSolidBlockAt(player, placeTarget.x, placeTarget.y, placeTarget.z)) {
+    return;
+  }
+
+  const chunk = getChunkFromWorldPosition(worldChunks, sizeX, sizeZ, placeTarget.x, placeTarget.z);
+
+  if (!chunk) {
+    return;
+  }
+
+  const localX = worldToLocalCoordinate(placeTarget.x, sizeX);
+  const localZ = worldToLocalCoordinate(placeTarget.z, sizeZ);
+
+  setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, placeTarget.y, localZ, blockToPlace);
+  rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
+
+  selectedItem.count -= 1;
+
+  if (selectedItem.count <= 0) {
+    player.inventory.splice(player.selectedSlot, 1);
+  }
+
+  if ((player as any)._updateInventoryUI) {
+    (player as any)._updateInventoryUI();
+  }
+}
+
+function canPlaceSolidBlockAt(player: PlayerPhysics, blockX: number, blockY: number, blockZ: number): boolean {
+  const playerMinX = player.position.x - PLAYER_RADIUS;
+  const playerMaxX = player.position.x + PLAYER_RADIUS;
+  const playerMinY = player.position.y;
+  const playerMaxY = player.position.y + PLAYER_HEIGHT;
+  const playerMinZ = player.position.z - PLAYER_RADIUS;
+  const playerMaxZ = player.position.z + PLAYER_RADIUS;
+
+  const blockMinX = blockX;
+  const blockMaxX = blockX + 1;
+  const blockMinY = blockY;
+  const blockMaxY = blockY + 1;
+  const blockMinZ = blockZ;
+  const blockMaxZ = blockZ + 1;
+
+  const overlapsX = playerMinX < blockMaxX && playerMaxX > blockMinX;
+  const overlapsY = playerMinY < blockMaxY && playerMaxY > blockMinY;
+  const overlapsZ = playerMinZ < blockMaxZ && playerMaxZ > blockMinZ;
+
+  return !(overlapsX && overlapsY && overlapsZ);
 }
 
 function rebuildAffectedChunks(
