@@ -21,9 +21,9 @@ export default defineConfig({
         theme_color: "#8cbfff",
         icons: [
           {
-            src: "/favicon.svg",
+            src: "/favicon-192x192.png",
             sizes: "any",
-            type: "image/svg+xml",
+            type: "image/png",
             purpose: "any maskable",
           },
           {
