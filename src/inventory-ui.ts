@@ -111,7 +111,7 @@ export function initializeVRInventoryBar(
     panel.setEnabled(true);
     hitboxes.forEach((hitbox) => hitbox.mesh.setEnabled(true));
     bodyAnchor.position.copyFromFloats(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
-    bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, webXRControls.getBodyYaw(), 0);
+    bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw, 0);
 
     const pointedSlot = findPointedVRSlot(webXRControls, hitboxes);
     const canSelect = performance.now() - lastSelectionTime >= VR_TRIGGER_SELECTION_COOLDOWN_MS;
