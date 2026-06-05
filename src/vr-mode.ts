@@ -37,7 +37,6 @@ export type XRHandedness = "left" | "right";
 
 export type WebXRGameControls = {
   isActive: () => boolean;
-  getBodyYaw: () => number;
   getMoveDirection: () => Vector3;
   getControllerRay: (handedness: XRHandedness) => Ray | null;
   isTriggerPressed: (handedness: XRHandedness) => boolean;
@@ -72,10 +71,10 @@ export async function initializeWebXRGameControls(
   let active = false;
   let headOffset = Vector3.Zero();
   let bodyYaw = 0;
+  let bodyYawOffset = 0;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
-    getBodyYaw: () => bodyYaw,
     getMoveDirection: () => Vector3.Zero(),
     getControllerRay: (handedness) => {
       if (!active) return null;
@@ -92,7 +91,8 @@ export async function initializeWebXRGameControls(
 
       const xrCamera = xrExperience.baseExperience.camera;
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
-      bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
+      bodyYawOffset = applySmoothTurnFromRightJoystick(bodyYawOffset, rightController, deltaTimeSeconds);
+      bodyYaw = normalizeAngle(getYawFromCamera(xrCamera) + bodyYawOffset);
       player.yaw = bodyYaw;
       updateMovementKeysFromLeftController(leftController);
 
@@ -121,6 +121,7 @@ export async function initializeWebXRGameControls(
 
         if (active && xrExperience) {
           clearVRMovementKeys();
+          bodyYawOffset = 0;
           bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
           player.yaw = bodyYaw;
           headOffset = Vector3.Zero();
@@ -128,6 +129,7 @@ export async function initializeWebXRGameControls(
           return;
         }
 
+        bodyYawOffset = 0;
         clearVRMovementKeys();
       });
 
@@ -174,15 +176,15 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
 }
 
 function applySmoothTurnFromRightJoystick(
-  bodyYaw: number,
+  bodyYawOffset: number,
   rightController: XRControllerLike | null,
   deltaTimeSeconds: number,
 ): number {
   const axes = readControllerAxes(rightController);
 
-  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYaw;
+  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYawOffset;
 
-  return normalizeAngle(bodyYaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
+  return normalizeAngle(bodyYawOffset + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
 }
 
 function updateMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
