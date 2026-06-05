@@ -1,6 +1,7 @@
 import { Axis, Matrix, Quaternion, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
+import { isVRMode } from "./mobile-controls";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 const MOVE_DEAD_ZONE = 0.18;
@@ -107,52 +108,54 @@ export async function initializeWebXRGameControls(
     },
   };
 
-  try {
-    xrExperience = await scene.createDefaultXRExperienceAsync({
-      floorMeshes: [],
-    });
-  } catch (error) {
-    console.warn("WebXR non disponible", error);
-    return controls;
+  if (isVRMode()) {
+    try {
+      xrExperience = await scene.createDefaultXRExperienceAsync({
+        floorMeshes: [],
+      });
+
+      xrExperience.baseExperience.onStateChangedObservable.add((state) => {
+        active = state === WebXRState.IN_XR;
+
+        if (active && xrExperience) {
+          clearVRMovementKeys();
+          bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
+          player.yaw = bodyYaw;
+          headOffset = Vector3.Zero();
+          syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
+          return;
+        }
+
+        clearVRMovementKeys();
+      });
+
+      xrExperience.input.onControllerAddedObservable.add((controller) => {
+        const handedness = controller.inputSource?.handedness;
+
+        if (handedness === "left") {
+          leftController = controller as XRControllerLike;
+          return;
+        }
+
+        if (handedness === "right") {
+          rightController = controller as XRControllerLike;
+        }
+      });
+
+      xrExperience.input.onControllerRemovedObservable.add((controller) => {
+        if (leftController === controller) {
+          leftController = null;
+        }
+
+        if (rightController === controller) {
+          rightController = null;
+        }
+      });
+    } catch (error) {
+      console.warn("WebXR non disponible", error);
+      return controls;
+    }
   }
-
-  xrExperience.baseExperience.onStateChangedObservable.add((state) => {
-    active = state === WebXRState.IN_XR;
-
-    if (active && xrExperience) {
-      clearVRMovementKeys();
-      bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
-      player.yaw = bodyYaw;
-      headOffset = Vector3.Zero();
-      syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
-      return;
-    }
-
-    clearVRMovementKeys();
-  });
-
-  xrExperience.input.onControllerAddedObservable.add((controller) => {
-    const handedness = controller.inputSource?.handedness;
-
-    if (handedness === "left") {
-      leftController = controller as XRControllerLike;
-      return;
-    }
-
-    if (handedness === "right") {
-      rightController = controller as XRControllerLike;
-    }
-  });
-
-  xrExperience.input.onControllerRemovedObservable.add((controller) => {
-    if (leftController === controller) {
-      leftController = null;
-    }
-
-    if (rightController === controller) {
-      rightController = null;
-    }
-  });
 
   return controls;
 }
