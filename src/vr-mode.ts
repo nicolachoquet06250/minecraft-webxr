@@ -8,7 +8,6 @@ const MOVE_DEAD_ZONE = 0.18;
 const TURN_DEAD_ZONE = 0.35;
 const VR_SMOOTH_TURN_SPEED = 1.6;
 const CONTROLLER_RAY_LENGTH = 8;
-const LEFT_JOYSTICK_AXIS_MARGIN = 0.12;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -72,6 +71,7 @@ export async function initializeWebXRGameControls(
   let active = false;
   let headOffset = Vector3.Zero();
   let bodyYaw = 0;
+  let bodyYawOffset = 0;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -91,7 +91,8 @@ export async function initializeWebXRGameControls(
 
       const xrCamera = xrExperience.baseExperience.camera;
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
-      bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
+      bodyYawOffset = applySmoothTurnFromRightJoystick(bodyYawOffset, rightController, deltaTimeSeconds);
+      bodyYaw = normalizeAngle(getYawFromCamera(xrCamera) + bodyYawOffset);
       player.yaw = bodyYaw;
       updateMovementKeysFromLeftController(leftController);
 
@@ -120,6 +121,7 @@ export async function initializeWebXRGameControls(
 
         if (active && xrExperience) {
           clearVRMovementKeys();
+          bodyYawOffset = 0;
           bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
           player.yaw = bodyYaw;
           headOffset = Vector3.Zero();
@@ -127,6 +129,7 @@ export async function initializeWebXRGameControls(
           return;
         }
 
+        bodyYawOffset = 0;
         clearVRMovementKeys();
       });
 
@@ -173,15 +176,15 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
 }
 
 function applySmoothTurnFromRightJoystick(
-  bodyYaw: number,
+  bodyYawOffset: number,
   rightController: XRControllerLike | null,
   deltaTimeSeconds: number,
 ): number {
   const axes = readControllerAxes(rightController);
 
-  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYaw;
+  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYawOffset;
 
-  return normalizeAngle(bodyYaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
+  return normalizeAngle(bodyYawOffset + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
 }
 
 function updateMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
@@ -191,17 +194,10 @@ function updateMovementKeysFromLeftController(leftController: XRControllerLike |
 
   if (!axes) return;
 
-  const absX = Math.abs(axes.x);
-  const absY = Math.abs(axes.y);
-
-  if (absY > MOVE_DEAD_ZONE && absY >= absX + LEFT_JOYSTICK_AXIS_MARGIN) {
-    pressedKeys.add(axes.y > 0 ? "KeyW" : "KeyS");
-    return;
-  }
-
-  if (absX > MOVE_DEAD_ZONE && absX >= absY + LEFT_JOYSTICK_AXIS_MARGIN) {
-    pressedKeys.add(axes.x < 0 ? "KeyA" : "KeyD");
-  }
+  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
+  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
+  if (axes.x < -MOVE_DEAD_ZONE) pressedKeys.add("KeyA");
+  if (axes.x > MOVE_DEAD_ZONE) pressedKeys.add("KeyD");
 }
 
 function clearVRMovementKeys(): void {
