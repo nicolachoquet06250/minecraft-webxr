@@ -1,4 +1,4 @@
-import { Mesh, MeshBuilder, Quaternion, Scene, TransformNode } from "@babylonjs/core";
+import { Mesh, MeshBuilder, Quaternion, Scene, TransformNode, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { EYE_HEIGHT } from "./constants";
 import { renderItemIconControl } from "./items/rendering";
@@ -12,7 +12,7 @@ const VR_HOTBAR_VERTICAL_OFFSET = -0.42;
 const VR_HOTBAR_WIDTH = 1.45;
 const VR_HOTBAR_HEIGHT = 0.24;
 const VR_TRIGGER_SELECTION_COOLDOWN_MS = 180;
-const VR_INVENTORY_REFERENCE_YAW_EVENT = "vr-inventory-reference-yaw-change";
+const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
 
 type InventoryBarControls = {
   readonly updateUI: () => void;
@@ -23,6 +23,8 @@ type VRSlotHitbox = {
   readonly index: number;
   readonly mesh: Mesh;
 };
+
+type VRBodyYawEvent = CustomEvent<{ yaw: number }>;
 
 export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("inventory-ui", true, scene);
@@ -80,7 +82,7 @@ export function initializeVRInventoryBar(
   );
   panel.isPickable = false;
   panel.parent = bodyAnchor;
-  panel.position.set(0, VR_HOTBAR_VERTICAL_OFFSET, VR_HOTBAR_DISTANCE);
+  panel.position.set(0, 0, 0);
   panel.rotationQuaternion = Quaternion.FromEulerAngles(0, Math.PI, 0);
   panel.setEnabled(false);
 
@@ -99,6 +101,15 @@ export function initializeVRInventoryBar(
 
   let lastSelectedSlot = -1;
   let lastSelectionTime = 0;
+  let bodyYaw = player.yaw;
+
+  window.addEventListener(VR_BODY_YAW_EVENT, (event) => {
+    const yaw = (event as VRBodyYawEvent).detail?.yaw;
+
+    if (Number.isFinite(yaw)) {
+      bodyYaw = yaw;
+    }
+  });
 
   scene.onBeforeRenderObservable.add(() => {
     if (!webXRControls.isActive()) {
@@ -111,9 +122,7 @@ export function initializeVRInventoryBar(
     bodyAnchor.setEnabled(true);
     panel.setEnabled(true);
     hitboxes.forEach((hitbox) => hitbox.mesh.setEnabled(true));
-    bodyAnchor.position.copyFromFloats(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
-    bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw, 0);
-    emitVRInventoryReferenceYaw(player.yaw);
+    positionVRInventoryAnchor(bodyAnchor, player, bodyYaw);
 
     const pointedSlot = findPointedVRSlot(webXRControls, hitboxes);
     const canSelect = performance.now() - lastSelectionTime >= VR_TRIGGER_SELECTION_COOLDOWN_MS;
@@ -131,10 +140,19 @@ export function initializeVRInventoryBar(
   return panel;
 }
 
-function emitVRInventoryReferenceYaw(yaw: number): void {
-  window.dispatchEvent(new CustomEvent(VR_INVENTORY_REFERENCE_YAW_EVENT, {
-    detail: { yaw },
-  }));
+function positionVRInventoryAnchor(bodyAnchor: TransformNode, player: PlayerPhysics, bodyYaw: number): void {
+  const forward = new Vector3(
+    Math.sin(bodyYaw),
+    0,
+    Math.cos(bodyYaw),
+  );
+
+  bodyAnchor.position.copyFromFloats(
+    player.position.x + forward.x * VR_HOTBAR_DISTANCE,
+    player.position.y + EYE_HEIGHT + VR_HOTBAR_VERTICAL_OFFSET,
+    player.position.z + forward.z * VR_HOTBAR_DISTANCE,
+  );
+  bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, bodyYaw, 0);
 }
 
 function createVRSlotHitboxes(scene: Scene, bodyAnchor: TransformNode): VRSlotHitbox[] {
@@ -150,8 +168,8 @@ function createVRSlotHitboxes(scene: Scene, bodyAnchor: TransformNode): VRSlotHi
     hitbox.parent = bodyAnchor;
     hitbox.position.set(
       -VR_HOTBAR_WIDTH / 2 + slotWidth * index + slotWidth / 2,
-      VR_HOTBAR_VERTICAL_OFFSET,
-      VR_HOTBAR_DISTANCE - 0.005,
+      0,
+      -0.005,
     );
     hitbox.rotationQuaternion = Quaternion.FromEulerAngles(0, Math.PI, 0);
     hitbox.isVisible = false;
