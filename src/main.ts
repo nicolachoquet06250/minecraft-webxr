@@ -38,6 +38,36 @@ import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
 import { initializeWebXRGameControls } from "./vr-mode";
+// @ts-ignore
+import { registerSW } from 'virtual:pwa-register';
+
+const registrations = await navigator.serviceWorker.getRegistrations();
+if (registrations.length > 1) {
+    (async (registrations) => {
+        for (const registration of registrations) {
+            await registration.unregister();
+        }
+
+        const keys = await caches.keys();
+        for (const key of keys) {
+            await caches.delete(key);
+        }
+
+        location.reload();
+    })(registrations)
+}
+
+registerSW({
+    immediate: true,
+
+    onNeedRefresh() {
+        window.location.reload();
+    },
+
+    onOfflineReady() {
+        console.log('App ready to work offline');
+    },
+});
 
 const AUTO_JUMP_PROBE_DISTANCE = 0.12;
 const AUTO_JUMP_STEP_HEIGHT = 1.05;

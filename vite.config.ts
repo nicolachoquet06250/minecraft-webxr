@@ -55,6 +55,9 @@ export default defineConfig({
         dir: "ltr"
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,wasm,svg,png,webp,ico}"],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
