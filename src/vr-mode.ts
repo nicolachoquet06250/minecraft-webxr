@@ -37,6 +37,7 @@ export type XRHandedness = "left" | "right";
 
 export type WebXRGameControls = {
   isActive: () => boolean;
+  getBodyYaw: () => number;
   getMoveDirection: () => Vector3;
   getControllerRay: (handedness: XRHandedness) => Ray | null;
   isTriggerPressed: (handedness: XRHandedness) => boolean;
@@ -74,6 +75,7 @@ export async function initializeWebXRGameControls(
 
   const controls: WebXRGameControls = {
     isActive: () => active,
+    getBodyYaw: () => bodyYaw,
     getMoveDirection: () => Vector3.Zero(),
     getControllerRay: (handedness) => {
       if (!active) return null;
