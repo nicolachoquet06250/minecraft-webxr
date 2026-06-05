@@ -190,16 +190,22 @@ function updateCardinalMovementKeysFromLeftController(leftController: XRControll
 
   if (!axes) return;
 
-  const isHorizontalDominant = Math.abs(axes.x) > Math.abs(axes.y);
+  const hasHorizontalInput = Math.abs(axes.x) > MOVE_DEAD_ZONE;
+  const hasVerticalInput = Math.abs(axes.y) > MOVE_DEAD_ZONE;
 
-  if (isHorizontalDominant) {
-    if (axes.x < -MOVE_DEAD_ZONE) pressedKeys.add("KeyA");
-    if (axes.x > MOVE_DEAD_ZONE) pressedKeys.add("KeyD");
+  // Joystick gauche strictement cardinal : une diagonale ne déclenche aucun mouvement.
+  if (hasHorizontalInput && hasVerticalInput) {
     return;
   }
 
-  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
-  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
+  if (hasHorizontalInput) {
+    pressedKeys.add(axes.x < 0 ? "KeyA" : "KeyD");
+    return;
+  }
+
+  if (hasVerticalInput) {
+    pressedKeys.add(axes.y < 0 ? "KeyW" : "KeyS");
+  }
 }
 
 function clearVRMovementKeys(): void {
