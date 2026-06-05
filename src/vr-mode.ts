@@ -71,7 +71,6 @@ export async function initializeWebXRGameControls(
   let active = false;
   let headOffset = Vector3.Zero();
   let bodyYaw = 0;
-  let bodyYawOffset = 0;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -91,8 +90,7 @@ export async function initializeWebXRGameControls(
 
       const xrCamera = xrExperience.baseExperience.camera;
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
-      bodyYawOffset = applySmoothTurnFromRightJoystick(bodyYawOffset, rightController, deltaTimeSeconds);
-      bodyYaw = normalizeAngle(getYawFromCamera(xrCamera) + bodyYawOffset);
+      bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
       player.yaw = bodyYaw;
       updateMovementKeysFromLeftController(leftController);
 
@@ -121,7 +119,6 @@ export async function initializeWebXRGameControls(
 
         if (active && xrExperience) {
           clearVRMovementKeys();
-          bodyYawOffset = 0;
           bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
           player.yaw = bodyYaw;
           headOffset = Vector3.Zero();
@@ -129,7 +126,6 @@ export async function initializeWebXRGameControls(
           return;
         }
 
-        bodyYawOffset = 0;
         clearVRMovementKeys();
       });
 
@@ -176,15 +172,15 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
 }
 
 function applySmoothTurnFromRightJoystick(
-  bodyYawOffset: number,
+  bodyYaw: number,
   rightController: XRControllerLike | null,
   deltaTimeSeconds: number,
 ): number {
   const axes = readControllerAxes(rightController);
 
-  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYawOffset;
+  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYaw;
 
-  return normalizeAngle(bodyYawOffset + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
+  return normalizeAngle(bodyYaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
 }
 
 function updateMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
