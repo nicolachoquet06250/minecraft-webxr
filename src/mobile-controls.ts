@@ -10,7 +10,6 @@ import {
 } from "@babylonjs/gui";
 import { pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
-import { breakBlock } from "./tree-decay";
 import { placeBlock } from "./textured-world";
 import { startBlockBreaking, cancelBlockBreaking, updateBlockBreaking } from "./block-breaking";
 import { isCraftingOverlayOpen } from "./ui-state";
