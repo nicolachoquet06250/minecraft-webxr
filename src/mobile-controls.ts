@@ -77,7 +77,7 @@ export function isVRMode(): boolean {
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
 
-  return isMobileUA && isVRHeadset;
+  return !isMobileUA && isVRHeadset;
 }
 
 function clamp(value: number, min: number, max: number): number {

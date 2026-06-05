@@ -113,6 +113,7 @@ export async function initializeWebXRGameControls(
       xrExperience = await scene.createDefaultXRExperienceAsync({
         floorMeshes: [],
       });
+        alert('ok')
 
       xrExperience.baseExperience.onStateChangedObservable.add((state) => {
         active = state === WebXRState.IN_XR;
@@ -152,6 +153,7 @@ export async function initializeWebXRGameControls(
         }
       });
     } catch (error) {
+        alert((error as any).message)
       console.warn("WebXR non disponible", error);
       return controls;
     }
