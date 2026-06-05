@@ -92,7 +92,7 @@ export async function initializeWebXRGameControls(
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
       bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
       player.yaw = bodyYaw;
-      updateCardinalMovementKeysFromLeftController(leftController);
+      updateForwardBackwardKeysFromLeftController(leftController);
 
       if (isJumpPressed(rightController) || isJumpPressed(leftController)) {
         if (player.grounded) {
@@ -183,7 +183,7 @@ function applySmoothTurnFromRightJoystick(
   return normalizeAngle(bodyYaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
 }
 
-function updateCardinalMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
+function updateForwardBackwardKeysFromLeftController(leftController: XRControllerLike | null): void {
   const axes = readControllerAxes(leftController);
 
   clearVRMovementKeys();
