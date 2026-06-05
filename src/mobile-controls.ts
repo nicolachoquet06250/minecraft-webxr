@@ -16,9 +16,10 @@ import { isCraftingOverlayOpen } from "./ui-state";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 
+const MOVE_JOYSTICK_SIZE = 180;
+const MOVE_JOYSTICK_RADIUS_X = 80;
 const MOVE_JOYSTICK_RADIUS_Y = 80;
-// @ts-ignore
-const MOVE_JOYSTICK_IDLE_THUMB_Y = -50;
+const MOVE_JOYSTICK_BAR_SIZE = 90;
 const MOVE_JOYSTICK_LEFT = 30;
 const MOVE_JOYSTICK_BOTTOM = 140;
 
@@ -37,7 +38,6 @@ const CRAFT_BUTTON_HEIGHT = 48;
 const CRAFT_BUTTON_RIGHT = 48;
 const CRAFT_BUTTON_TOP = 24;
 
-// @ts-ignore
 const MOVE_THUMB_SIZE = 60;
 const LOOK_THUMB_SIZE = 60;
 const MOVE_DEAD_ZONE = 0.18;
@@ -116,18 +116,38 @@ function createLookJoystick(name: string): { root: Ellipse; thumb: Ellipse } {
 
 function createMoveJoystick(name: string): { root: Rectangle; thumb: Ellipse } {
   const root = new Rectangle(`${name}-root`);
-  root.cornerRadius = 20;
-  root.width = `${LOOK_JOYSTICK_SIZE / 2}px`;
-  root.height = `${LOOK_JOYSTICK_SIZE}px`;
-  root.thickness = 2;
-  root.color = "rgba(255, 255, 255, 0.45)";
-  root.background = "rgba(0, 0, 0, 0.22)";
+  root.width = `${MOVE_JOYSTICK_SIZE}px`;
+  root.height = `${MOVE_JOYSTICK_SIZE}px`;
+  root.thickness = 0;
+  root.background = "rgba(0, 0, 0, 0)";
   root.alpha = 0.92;
   root.isPointerBlocker = true;
 
+  const horizontalBar = new Rectangle(`${name}-horizontal-bar`);
+  horizontalBar.width = `${MOVE_JOYSTICK_SIZE}px`;
+  horizontalBar.height = `${MOVE_JOYSTICK_BAR_SIZE}px`;
+  horizontalBar.cornerRadius = 20;
+  horizontalBar.thickness = 2;
+  horizontalBar.color = "rgba(255, 255, 255, 0.45)";
+  horizontalBar.background = "rgba(0, 0, 0, 0.22)";
+  horizontalBar.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  horizontalBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  horizontalBar.isPointerBlocker = false;
+
+  const verticalBar = new Rectangle(`${name}-vertical-bar`);
+  verticalBar.width = `${MOVE_JOYSTICK_BAR_SIZE}px`;
+  verticalBar.height = `${MOVE_JOYSTICK_SIZE}px`;
+  verticalBar.cornerRadius = 20;
+  verticalBar.thickness = 2;
+  verticalBar.color = "rgba(255, 255, 255, 0.45)";
+  verticalBar.background = "rgba(0, 0, 0, 0.22)";
+  verticalBar.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+  verticalBar.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+  verticalBar.isPointerBlocker = false;
+
   const thumb = new Ellipse(`${name}-thumb`);
-  thumb.width = `${LOOK_THUMB_SIZE}px`;
-  thumb.height = `${LOOK_THUMB_SIZE}px`;
+  thumb.width = `${MOVE_THUMB_SIZE}px`;
+  thumb.height = `${MOVE_THUMB_SIZE}px`;
   thumb.thickness = 2;
   thumb.color = "rgba(255, 255, 255, 0.55)";
   thumb.background = "rgba(255, 255, 255, 0.28)";
@@ -135,6 +155,8 @@ function createMoveJoystick(name: string): { root: Rectangle; thumb: Ellipse } {
   thumb.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
   thumb.isPointerBlocker = false;
 
+  root.addControl(horizontalBar);
+  root.addControl(verticalBar);
   root.addControl(thumb);
 
   return { root, thumb };
@@ -266,27 +288,38 @@ function resetMoveState(thumb: Control, state: JoystickState): void {
   state.pointerId = null;
   state.x = 0;
   state.y = 0;
+
   pressedKeys.delete("KeyW");
   pressedKeys.delete("KeyS");
+  pressedKeys.delete("KeyA");
+  pressedKeys.delete("KeyD");
+
   thumb.left = "0px";
   thumb.top = "0px";
 }
 
-function updateMoveKeys(y: number): void {
+function updateMoveKeys(x: number, y: number): void {
   if (y < -MOVE_DEAD_ZONE) {
     pressedKeys.add("KeyW");
     pressedKeys.delete("KeyS");
-    return;
-  }
-
-  if (y > MOVE_DEAD_ZONE) {
+  } else if (y > MOVE_DEAD_ZONE) {
     pressedKeys.add("KeyS");
     pressedKeys.delete("KeyW");
-    return;
+  } else {
+    pressedKeys.delete("KeyW");
+    pressedKeys.delete("KeyS");
   }
 
-  pressedKeys.delete("KeyW");
-  pressedKeys.delete("KeyS");
+  if (x < -MOVE_DEAD_ZONE) {
+    pressedKeys.add("KeyA");
+    pressedKeys.delete("KeyD");
+  } else if (x > MOVE_DEAD_ZONE) {
+    pressedKeys.add("KeyD");
+    pressedKeys.delete("KeyA");
+  } else {
+    pressedKeys.delete("KeyA");
+    pressedKeys.delete("KeyD");
+  }
 }
 
 function resetLookState(thumb: Control, state: JoystickState): void {
@@ -515,15 +548,37 @@ export default function initializeMobileControls(
     }
 
     if (moveState.pointerId === coordinates.pointerId) {
-      const y = clamp(
+      const rawX = clamp(
+        (coordinates.x - moveState.origin.x) / MOVE_JOYSTICK_RADIUS_X,
+        -1,
+        1,
+      );
+
+      const rawY = clamp(
         (coordinates.y - moveState.origin.y) / MOVE_JOYSTICK_RADIUS_Y,
         -1,
         1,
       );
-      moveState.x = 0;
-      moveState.y = y;
-      updateMoveKeys(moveState.y);
-      moveThumb(moveJoystick.thumb, 0, moveState.y, 0, MOVE_JOYSTICK_RADIUS_Y);
+
+      // Joystick en croix : on garde uniquement l'axe dominant.
+      // Haut/bas = avancer/reculer, gauche/droite = déplacement en crabe.
+      if (Math.abs(rawX) > Math.abs(rawY)) {
+        moveState.x = rawX;
+        moveState.y = 0;
+      } else {
+        moveState.x = 0;
+        moveState.y = rawY;
+      }
+
+      updateMoveKeys(moveState.x, moveState.y);
+
+      moveThumb(
+        moveJoystick.thumb,
+        moveState.x,
+        moveState.y,
+        MOVE_JOYSTICK_RADIUS_X,
+        MOVE_JOYSTICK_RADIUS_Y,
+      );
     }
   });
 
