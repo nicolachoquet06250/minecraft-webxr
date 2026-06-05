@@ -1,4 +1,4 @@
-import { Axis, Matrix, Quaternion, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
+import { Axis, Matrix, Quaternion, Ray, Scene, TransformNode, Vector3, WebXRState } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 import { isVRMode } from "./mobile-controls";
@@ -71,7 +71,7 @@ export async function initializeWebXRGameControls(
   let active = false;
   let headOffset = Vector3.Zero();
   let bodyYaw = 0;
-  let bodyYawOffset = 0;
+  let bodyRoot: TransformNode | null = null;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -91,9 +91,13 @@ export async function initializeWebXRGameControls(
 
       const xrCamera = xrExperience.baseExperience.camera;
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
-      bodyYawOffset = applySmoothTurnFromRightJoystick(bodyYawOffset, rightController, deltaTimeSeconds);
-      bodyYaw = normalizeAngle(getYawFromCamera(xrCamera) + bodyYawOffset);
-      player.yaw = bodyYaw;
+      bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
+
+      if (bodyRoot) {
+        bodyRoot.rotation.y = bodyYaw;
+      }
+
+      player.yaw = getYawFromCamera(xrCamera);
       updateMovementKeysFromLeftController(leftController);
 
       if (isJumpPressed(rightController) || isJumpPressed(leftController)) {
@@ -116,20 +120,32 @@ export async function initializeWebXRGameControls(
         floorMeshes: [],
       });
 
+      bodyRoot = new TransformNode("vr-body-root", scene);
+      xrExperience.baseExperience.camera.parent = bodyRoot;
+
       xrExperience.baseExperience.onStateChangedObservable.add((state) => {
         active = state === WebXRState.IN_XR;
 
         if (active && xrExperience) {
           clearVRMovementKeys();
-          bodyYawOffset = 0;
-          bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
-          player.yaw = bodyYaw;
+          bodyYaw = 0;
+
+          if (bodyRoot) {
+            bodyRoot.rotation.set(0, bodyYaw, 0);
+          }
+
+          player.yaw = getYawFromCamera(xrExperience.baseExperience.camera);
           headOffset = Vector3.Zero();
           syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
           return;
         }
 
-        bodyYawOffset = 0;
+        bodyYaw = 0;
+
+        if (bodyRoot) {
+          bodyRoot.rotation.set(0, bodyYaw, 0);
+        }
+
         clearVRMovementKeys();
       });
 
@@ -176,15 +192,15 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
 }
 
 function applySmoothTurnFromRightJoystick(
-  bodyYawOffset: number,
+  bodyYaw: number,
   rightController: XRControllerLike | null,
   deltaTimeSeconds: number,
 ): number {
   const axes = readControllerAxes(rightController);
 
-  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYawOffset;
+  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYaw;
 
-  return normalizeAngle(bodyYawOffset + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
+  return normalizeAngle(bodyYaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
 }
 
 function updateMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
@@ -241,7 +257,12 @@ function isJumpPressed(controller: XRControllerLike | null): boolean {
   return Boolean(button?.pressed || (button?.value ?? 0) > 0.65);
 }
 
-function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rotation?: Vector3 }): number {
+function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rotation?: Vector3; getDirection?: (localAxis: Vector3) => Vector3 }): number {
+  if (camera.getDirection) {
+    const forward = camera.getDirection(Axis.Z);
+    return Math.atan2(forward.x, forward.z);
+  }
+
   if (camera.rotationQuaternion) {
     const matrix = new Matrix();
     camera.rotationQuaternion.toRotationMatrix(matrix);
