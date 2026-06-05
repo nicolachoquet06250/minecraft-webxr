@@ -8,6 +8,7 @@ const MOVE_DEAD_ZONE = 0.18;
 const TURN_DEAD_ZONE = 0.35;
 const VR_SMOOTH_TURN_SPEED = 1.6;
 const CONTROLLER_RAY_LENGTH = 8;
+const VR_INVENTORY_REFERENCE_YAW_EVENT = "vr-inventory-reference-yaw-change";
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -32,6 +33,8 @@ type XRControllerLike = {
   };
   motionController?: MotionControllerLike;
 };
+
+type InventoryReferenceYawEvent = CustomEvent<{ yaw: number }>;
 
 export type XRHandedness = "left" | "right";
 
@@ -72,6 +75,15 @@ export async function initializeWebXRGameControls(
   let headOffset = Vector3.Zero();
   let bodyYaw = 0;
   let bodyYawOffset = 0;
+  let inventoryReferenceYaw: number | null = null;
+
+  window.addEventListener(VR_INVENTORY_REFERENCE_YAW_EVENT, (event) => {
+    const yaw = (event as InventoryReferenceYawEvent).detail?.yaw;
+
+    if (Number.isFinite(yaw)) {
+      inventoryReferenceYaw = yaw;
+    }
+  });
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -93,7 +105,7 @@ export async function initializeWebXRGameControls(
       headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
       bodyYawOffset = applySmoothTurnFromRightJoystick(bodyYawOffset, rightController, deltaTimeSeconds);
       bodyYaw = normalizeAngle(getYawFromCamera(xrCamera) + bodyYawOffset);
-      player.yaw = bodyYaw;
+      player.yaw = inventoryReferenceYaw ?? bodyYaw;
       updateMovementKeysFromLeftController(leftController);
 
       if (isJumpPressed(rightController) || isJumpPressed(leftController)) {
@@ -123,6 +135,7 @@ export async function initializeWebXRGameControls(
           clearVRMovementKeys();
           bodyYawOffset = 0;
           bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
+          inventoryReferenceYaw = null;
           player.yaw = bodyYaw;
           headOffset = Vector3.Zero();
           syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
@@ -130,6 +143,7 @@ export async function initializeWebXRGameControls(
         }
 
         bodyYawOffset = 0;
+        inventoryReferenceYaw = null;
         clearVRMovementKeys();
       });
 
