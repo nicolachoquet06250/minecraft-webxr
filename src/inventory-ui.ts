@@ -12,6 +12,7 @@ const VR_HOTBAR_VERTICAL_OFFSET = -0.42;
 const VR_HOTBAR_WIDTH = 1.45;
 const VR_HOTBAR_HEIGHT = 0.24;
 const VR_TRIGGER_SELECTION_COOLDOWN_MS = 180;
+const VR_INVENTORY_REFERENCE_YAW_EVENT = "vr-inventory-reference-yaw-change";
 
 type InventoryBarControls = {
   readonly updateUI: () => void;
@@ -112,6 +113,7 @@ export function initializeVRInventoryBar(
     hitboxes.forEach((hitbox) => hitbox.mesh.setEnabled(true));
     bodyAnchor.position.copyFromFloats(player.position.x, player.position.y + EYE_HEIGHT, player.position.z);
     bodyAnchor.rotationQuaternion = Quaternion.FromEulerAngles(0, player.yaw, 0);
+    emitVRInventoryReferenceYaw(player.yaw);
 
     const pointedSlot = findPointedVRSlot(webXRControls, hitboxes);
     const canSelect = performance.now() - lastSelectionTime >= VR_TRIGGER_SELECTION_COOLDOWN_MS;
@@ -127,6 +129,12 @@ export function initializeVRInventoryBar(
   });
 
   return panel;
+}
+
+function emitVRInventoryReferenceYaw(yaw: number): void {
+  window.dispatchEvent(new CustomEvent(VR_INVENTORY_REFERENCE_YAW_EVENT, {
+    detail: { yaw },
+  }));
 }
 
 function createVRSlotHitboxes(scene: Scene, bodyAnchor: TransformNode): VRSlotHitbox[] {
