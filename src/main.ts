@@ -2,16 +2,18 @@ import "./style.css";
 import init, * as wasmModule from "~/assets/wasm/voxel_wasm";
 import voxelWasmUrl from "~/assets/wasm/voxel_wasm_bg.wasm?url";
 
-import type { VoxelWasmModule, WorldChunks, DroppedItem } from "./types";
+import type { PlayerPhysics, VoxelWasmModule, WorldChunks, DroppedItem } from "./types";
 
 import {
   INITIAL_CHUNK_RADIUS,
+  JUMP_VELOCITY,
   SEED,
   SPAWN_X,
   SPAWN_Z,
+  pressedKeys,
 } from "./constants";
 
-import { Color4, Engine, Scene } from "@babylonjs/core";
+import { Color4, Engine, Scene, Vector3 } from "@babylonjs/core";
 
 import {
   updatePlayerPhysics,
@@ -21,6 +23,7 @@ import {
   getChunkKey,
   initializeCrosshair,
   findDrySpawnPosition,
+  hasCollisionAt,
 } from "./functions";
 import {
   createChunkMesh,
@@ -35,6 +38,10 @@ import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
 import { initializeWebXRGameControls } from "./vr-mode";
+
+const AUTO_JUMP_PROBE_DISTANCE = 0.12;
+const AUTO_JUMP_STEP_HEIGHT = 1.05;
+const AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
   await init(voxelWasmUrl);
@@ -54,6 +61,114 @@ function debugBlockDistribution(blocks: Uint8Array): void {
       .sort(([a], [b]) => a - b)
       .map(([blockId, count]) => ({ blockId, count })),
   );
+}
+
+function getInputMoveDirection(player: PlayerPhysics): Vector3 {
+  const forward = new Vector3(
+    Math.sin(player.yaw),
+    0,
+    Math.cos(player.yaw),
+  );
+
+  const right = new Vector3(
+    Math.cos(player.yaw),
+    0,
+    -Math.sin(player.yaw),
+  );
+
+  const moveDirection = Vector3.Zero();
+
+  if (
+    pressedKeys.has("KeyW") ||
+    pressedKeys.has("KeyZ") ||
+    pressedKeys.has("ArrowUp")
+  ) {
+    moveDirection.addInPlace(forward);
+  }
+
+  if (
+    pressedKeys.has("KeyS") ||
+    pressedKeys.has("ArrowDown")
+  ) {
+    moveDirection.subtractInPlace(forward);
+  }
+
+  if (
+    pressedKeys.has("KeyD") ||
+    pressedKeys.has("ArrowRight")
+  ) {
+    moveDirection.addInPlace(right);
+  }
+
+  if (
+    pressedKeys.has("KeyA") ||
+    pressedKeys.has("KeyQ") ||
+    pressedKeys.has("ArrowLeft")
+  ) {
+    moveDirection.subtractInPlace(right);
+  }
+
+  if (moveDirection.lengthSquared() > 0) {
+    moveDirection.normalize();
+  }
+
+  return moveDirection;
+}
+
+type AutoJumpParams = {
+  player: PlayerPhysics;
+  moveDirection: Vector3;
+  previousPosition: Vector3;
+  wasGrounded: boolean;
+  worldChunks: WorldChunks;
+  sizeX: number;
+  sizeY: number;
+  sizeZ: number;
+};
+
+function tryAutoJump(params: AutoJumpParams): void {
+  const {
+    player,
+    moveDirection,
+    previousPosition,
+    wasGrounded,
+    worldChunks,
+    sizeX,
+    sizeY,
+    sizeZ,
+  } = params;
+
+  if (!wasGrounded || !player.grounded || moveDirection.lengthSquared() === 0) {
+    return;
+  }
+
+  const actualHorizontalMove = player.position.subtract(previousPosition);
+  actualHorizontalMove.y = 0;
+
+  const progressInInputDirection = Vector3.Dot(actualHorizontalMove, moveDirection);
+
+  if (progressInInputDirection > AUTO_JUMP_MIN_HORIZONTAL_PROGRESS) {
+    return;
+  }
+
+  const blockedProbePosition = player.position.add(
+    moveDirection.scale(AUTO_JUMP_PROBE_DISTANCE),
+  );
+
+  if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, blockedProbePosition)) {
+    return;
+  }
+
+  const steppedProbePosition = blockedProbePosition.add(
+    new Vector3(0, AUTO_JUMP_STEP_HEIGHT, 0),
+  );
+
+  if (hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, steppedProbePosition)) {
+    return;
+  }
+
+  player.velocity.y = JUMP_VELOCITY;
+  player.grounded = false;
 }
 
 const canvas = document.querySelector("#minecraft");
@@ -170,6 +285,10 @@ engine.runRenderLoop(() => {
   crosshairUi.rootContainer.isVisible = !webXRControls.isActive();
   webXRControls.syncBeforePhysics(deltaTime);
 
+  const moveDirectionBeforePhysics = getInputMoveDirection(player);
+  const previousPlayerPosition = player.position.clone();
+  const wasGroundedBeforePhysics = player.grounded;
+
   updatePlayerPhysics({
     player,
     camera,
@@ -178,6 +297,17 @@ engine.runRenderLoop(() => {
     sizeY,
     sizeZ,
     deltaTime,
+  });
+
+  tryAutoJump({
+    player,
+    moveDirection: moveDirectionBeforePhysics,
+    previousPosition: previousPlayerPosition,
+    wasGrounded: wasGroundedBeforePhysics,
+    worldChunks,
+    sizeX,
+    sizeY,
+    sizeZ,
   });
 
   webXRControls.syncAfterPhysics();
