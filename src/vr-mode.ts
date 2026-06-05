@@ -190,22 +190,8 @@ function updateForwardBackwardKeysFromLeftController(leftController: XRControlle
 
   if (!axes) return;
 
-  const hasHorizontalInput = Math.abs(axes.x) > MOVE_DEAD_ZONE;
-  const hasVerticalInput = Math.abs(axes.y) > MOVE_DEAD_ZONE;
-
-  // Joystick gauche strictement cardinal : une diagonale ne déclenche aucun mouvement.
-  if (hasHorizontalInput && hasVerticalInput) {
-    return;
-  }
-
-  if (hasHorizontalInput) {
-    pressedKeys.add(axes.x < 0 ? "KeyA" : "KeyD");
-    return;
-  }
-
-  if (hasVerticalInput) {
-    pressedKeys.add(axes.y < 0 ? "KeyW" : "KeyS");
-  }
+  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
+  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
 }
 
 function clearVRMovementKeys(): void {
