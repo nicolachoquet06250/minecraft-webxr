@@ -38,6 +38,7 @@ import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
 import { initializeWebXRGameControls } from "./vr-mode";
+import { showMainMenu } from "./main-menu";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
@@ -207,154 +208,172 @@ if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error("Canvas #minecraft introuvable");
 }
 
-const engine = new Engine(canvas, true);
-const scene = new Scene(engine);
+const minecraftCanvas = canvas;
+const engine = new Engine(minecraftCanvas, true);
+let gameStarted = false;
 
-scene.clearColor = new Color4(0.55, 0.75, 1.0, 1.0);
+async function startGame(): Promise<void> {
+    if (gameStarted) {
+        return;
+    }
 
-const lightMaterial = inisializeLight(scene);
-applyProceduralBlockAtlasMaterial(scene, lightMaterial);
+    gameStarted = true;
+    const scene = new Scene(engine);
 
-const wasm = await loadVoxelWasm();
-const {
-  generate_chunk, chunk_size_x,
-  chunk_size_y, chunk_size_z
-} = wasm;
+    scene.clearColor = new Color4(0.55, 0.75, 1.0, 1.0);
 
-const sizeX = chunk_size_x();
-const sizeY = chunk_size_y();
-const sizeZ = chunk_size_z();
+    const lightMaterial = inisializeLight(scene);
+    applyProceduralBlockAtlasMaterial(scene, lightMaterial);
 
-const spawnChunkX = Math.floor(SPAWN_X / sizeX);
-const spawnChunkZ = Math.floor(SPAWN_Z / sizeZ);
+    const wasm = await loadVoxelWasm();
+    const {
+        generate_chunk, chunk_size_x,
+        chunk_size_y, chunk_size_z
+    } = wasm;
 
-const worldChunks: WorldChunks = new Map();
-const droppedItems: DroppedItem[] = [];
+    const sizeX = chunk_size_x();
+    const sizeY = chunk_size_y();
+    const sizeZ = chunk_size_z();
 
-for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
-  for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
-    const chunkX = spawnChunkX + offsetX;
-    const chunkZ = spawnChunkZ + offsetZ;
+    const spawnChunkX = Math.floor(SPAWN_X / sizeX);
+    const spawnChunkZ = Math.floor(SPAWN_Z / sizeZ);
 
-    const blocks = generate_chunk(chunkX, chunkZ, SEED);
+    const worldChunks: WorldChunks = new Map();
+    const droppedItems: DroppedItem[] = [];
 
-    debugBlockDistribution(blocks);
+    for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
+        for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
+            const chunkX = spawnChunkX + offsetX;
+            const chunkZ = spawnChunkZ + offsetZ;
 
-    const mesh = createChunkMesh({
-      scene,
-      name: `chunk-${chunkX}-${chunkZ}`,
-      blocks,
-      sizeX,
-      sizeY,
-      sizeZ,
-      chunkX,
-      chunkZ,
-      material: lightMaterial,
+            const blocks = generate_chunk(chunkX, chunkZ, SEED);
+
+            debugBlockDistribution(blocks);
+
+            const mesh = createChunkMesh({
+                scene,
+                name: `chunk-${chunkX}-${chunkZ}`,
+                blocks,
+                sizeX,
+                sizeY,
+                sizeZ,
+                chunkX,
+                chunkZ,
+                material: lightMaterial,
+            });
+
+            worldChunks.set(getChunkKey(chunkX, chunkZ), {
+                chunkX,
+                chunkZ,
+                blocks,
+                mesh,
+            });
+        }
+    }
+
+    const spawnChunk = worldChunks.get(getChunkKey(spawnChunkX, spawnChunkZ));
+
+    if (!spawnChunk) {
+        throw new Error("Chunk de spawn introuvable");
+    }
+
+    const spawn = findDrySpawnPosition(
+        worldChunks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        SPAWN_X,
+        SPAWN_Z,
+        64,
+    );
+
+    const player = generatePlayer(spawn);
+
+    // Expose properties for mobile controls
+    (player as any)._worldChunks = worldChunks;
+    (player as any)._sizeX = sizeX;
+    (player as any)._sizeY = sizeY;
+    (player as any)._sizeZ = sizeZ;
+    (player as any)._material = lightMaterial;
+    (player as any)._droppedItems = droppedItems;
+
+    const camera = initializeCamera(scene, player);
+
+    const crosshairUi = initializeCrosshair(scene);
+    initializeInventoryBar(scene, player);
+    initializeEvents(
+        engine,
+        player,
+        minecraftCanvas,
+        scene,
+        worldChunks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        lightMaterial,
+        droppedItems,
+    );
+    initializeMobileControls(scene, player);
+    initializeCraftingOverlay(scene, player);
+
+    const webXRControls = await initializeWebXRGameControls(scene, player);
+    initializeVRInventoryBar(scene, player, webXRControls);
+
+    engine.runRenderLoop(() => {
+        const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
+
+        crosshairUi.rootContainer.isVisible = !webXRControls.isActive();
+        webXRControls.syncBeforePhysics(deltaTime);
+
+        const moveDirectionBeforePhysics = getInputMoveDirection(player);
+        const previousPlayerPosition = player.position.clone();
+        const wasGroundedBeforePhysics = player.grounded;
+
+        updatePlayerPhysics({
+            player,
+            camera,
+            worldChunks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            deltaTime,
+        });
+
+        tryAutoJump({
+            player,
+            moveDirection: moveDirectionBeforePhysics,
+            previousPosition: previousPlayerPosition,
+            wasGrounded: wasGroundedBeforePhysics,
+            worldChunks,
+            sizeX,
+            sizeY,
+            sizeZ,
+        });
+
+        webXRControls.syncAfterPhysics();
+
+        ensureChunksAroundPlayer({
+            scene,
+            worldChunks,
+            wasm,
+            material: lightMaterial,
+            player,
+            sizeX,
+            sizeY,
+            sizeZ,
+        });
+
+        updateBlockBreaking(deltaTime);
+        updateDroppedItems(droppedItems, player, worldChunks, sizeX, sizeY, sizeZ, deltaTime);
+
+        scene.render();
     });
-
-    worldChunks.set(getChunkKey(chunkX, chunkZ), {
-      chunkX,
-      chunkZ,
-      blocks,
-      mesh,
-    });
-  }
 }
 
-const spawnChunk = worldChunks.get(getChunkKey(spawnChunkX, spawnChunkZ));
-
-if (!spawnChunk) {
-  throw new Error("Chunk de spawn introuvable");
-}
-
-const spawn = findDrySpawnPosition(
-  worldChunks,
-  sizeX,
-  sizeY,
-  sizeZ,
-  SPAWN_X,
-  SPAWN_Z,
-  64,
-);
-
-const player = generatePlayer(spawn);
-
-// Expose properties for mobile controls
-(player as any)._worldChunks = worldChunks;
-(player as any)._sizeX = sizeX;
-(player as any)._sizeY = sizeY;
-(player as any)._sizeZ = sizeZ;
-(player as any)._material = lightMaterial;
-(player as any)._droppedItems = droppedItems;
-
-const camera = initializeCamera(scene, player);
-
-const crosshairUi = initializeCrosshair(scene);
-initializeInventoryBar(scene, player);
-initializeEvents(
-  engine,
-  player,
-  canvas,
-  scene,
-  worldChunks,
-  sizeX,
-  sizeY,
-  sizeZ,
-  lightMaterial,
-  droppedItems,
-);
-initializeMobileControls(scene, player);
-initializeCraftingOverlay(scene, player);
-
-const webXRControls = await initializeWebXRGameControls(scene, player);
-initializeVRInventoryBar(scene, player, webXRControls);
-
-engine.runRenderLoop(() => {
-  const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
-
-  crosshairUi.rootContainer.isVisible = !webXRControls.isActive();
-  webXRControls.syncBeforePhysics(deltaTime);
-
-  const moveDirectionBeforePhysics = getInputMoveDirection(player);
-  const previousPlayerPosition = player.position.clone();
-  const wasGroundedBeforePhysics = player.grounded;
-
-  updatePlayerPhysics({
-    player,
-    camera,
-    worldChunks,
-    sizeX,
-    sizeY,
-    sizeZ,
-    deltaTime,
-  });
-
-  tryAutoJump({
-    player,
-    moveDirection: moveDirectionBeforePhysics,
-    previousPosition: previousPlayerPosition,
-    wasGrounded: wasGroundedBeforePhysics,
-    worldChunks,
-    sizeX,
-    sizeY,
-    sizeZ,
-  });
-
-  webXRControls.syncAfterPhysics();
-
-  ensureChunksAroundPlayer({
-    scene,
-    worldChunks,
-    wasm,
-    material: lightMaterial,
-    player,
-    sizeX,
-    sizeY,
-    sizeZ,
-  });
-
-  updateBlockBreaking(deltaTime);
-  updateDroppedItems(droppedItems, player, worldChunks, sizeX, sizeY, sizeZ, deltaTime);
-
-  scene.render();
+await showMainMenu({
+    engine,
+    canvas: minecraftCanvas,
+    onPlay: () => {
+        void startGame();
+    },
 });
