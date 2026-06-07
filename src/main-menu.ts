@@ -67,7 +67,7 @@ function showVRChaletMenu(
 
     const menuPlayer = createVRMenuPlayer();
     const camera = new TargetCamera("vr-menu-player-camera", getVRMenuEyesPosition(menuPlayer), scene);
-    camera.setTarget(new Vector3(-5, 2.3, 1.2));
+    camera.setTarget(new Vector3(VR_MENU_SPAWN.x, EYE_HEIGHT, 1.8));
     scene.activeCamera = camera;
 
     const light = new HemisphericLight("vr-menu-light", new Vector3(0.2, 1, 0.25), scene);
@@ -118,7 +118,7 @@ function createVRMenuPlayer(): PlayerPhysics {
     return {
         position: VR_MENU_SPAWN.clone(),
         velocity: Vector3.Zero(),
-        yaw: Math.PI,
+        yaw: 0,
         pitch: -0.08,
         grounded: true,
         inventory: [],
