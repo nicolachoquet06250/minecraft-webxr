@@ -1,4 +1,5 @@
 import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
+import type { Camera } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 import { isVRMode } from "./mobile-controls";
@@ -34,14 +35,9 @@ type XRControllerLike = {
   motionController?: MotionControllerLike;
 };
 
-type NonXRCameraLike = {
-  getDirection?: (localAxis: Vector3) => Vector3;
-  rotation?: Vector3;
-};
-
 type WebXRCameraLike = {
   position: Vector3;
-  setTransformationFromNonVRCamera?: (camera: NonXRCameraLike, resetToBaseReferenceSpace?: boolean) => void;
+  setTransformationFromNonVRCamera?: (camera?: Camera, resetToBaseReferenceSpace?: boolean) => void;
 };
 
 export type XRHandedness = "left" | "right";
@@ -91,7 +87,7 @@ export async function initializeWebXRGameControls(
   let active = false;
   let headOffset = Vector3.Zero();
   let bodyYaw = normalizeAngle(player.yaw);
-  const nonXRCamera = scene.activeCamera as NonXRCameraLike | null;
+  const nonXRCamera = scene.activeCamera;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -265,7 +261,7 @@ function isJumpPressed(controller: XRControllerLike | null): boolean {
   return Boolean(button?.pressed || (button?.value ?? 0) > 0.65);
 }
 
-function alignXRCameraFromNonVR(xrCamera: WebXRCameraLike, nonXRCamera: NonXRCameraLike | null): void {
+function alignXRCameraFromNonVR(xrCamera: WebXRCameraLike, nonXRCamera: Camera | null): void {
   if (!nonXRCamera || typeof xrCamera.setTransformationFromNonVRCamera !== "function") {
     return;
   }
@@ -273,19 +269,11 @@ function alignXRCameraFromNonVR(xrCamera: WebXRCameraLike, nonXRCamera: NonXRCam
   xrCamera.setTransformationFromNonVRCamera(nonXRCamera, true);
 }
 
-function getYawFromNonVRCamera(camera: NonXRCameraLike | null): number | null {
+function getYawFromNonVRCamera(camera: Camera | null): number | null {
   if (!camera) return null;
 
-  if (typeof camera.getDirection === "function") {
-    const forward = camera.getDirection(Axis.Z);
-    return normalizeAngle(Math.atan2(forward.x, forward.z));
-  }
-
-  if (typeof camera.rotation?.y === "number") {
-    return normalizeAngle(camera.rotation.y);
-  }
-
-  return null;
+  const forward = camera.getDirection(Axis.Z);
+  return normalizeAngle(Math.atan2(forward.x, forward.z));
 }
 
 function getPlayerEyesPosition(player: PlayerPhysics): Vector3 {
