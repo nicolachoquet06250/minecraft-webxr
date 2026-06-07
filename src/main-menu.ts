@@ -28,11 +28,11 @@ type MainMenuOptions = {
     onPlay: () => void;
 };
 
-export async function showMainMenu({ engine, canvas, onPlay }: MainMenuOptions): Promise<void> {
+export async function showMainMenu({ canvas, onPlay }: MainMenuOptions): Promise<void> {
     const device = await detectMenuDevice();
 
     if (device === "vr") {
-        showVRMenu(engine, onPlay);
+        onPlay();
         return;
     }
 
@@ -225,7 +225,6 @@ function createChaletScene(scene: Scene): void {
     const torch = createMaterial(scene, "vr-menu-torch", new Color3(1, 0.24, 0.02));
     const cyan = createMaterial(scene, "vr-menu-cyan", new Color3(0, 0.75, 0.8));
 
-    // Sol, plafond et murs : vrai intérieur fermé, plus aucune maison extérieure.
     const roomFloor = MeshBuilder.CreateBox("vr-menu-room-floor", { width: 17, depth: 14, height: 0.18 }, scene);
     roomFloor.position.set(3.5, -0.09, 1.8);
     roomFloor.material = floor;
@@ -262,7 +261,6 @@ function createChaletScene(scene: Scene): void {
     centralPillar.position.set(4.2, 2.25, 6.2);
     centralPillar.material = darkWood;
 
-    // Grand tableau/écran sur le mur gauche, comme dans l'image modèle.
     const bigScreen = MeshBuilder.CreateBox("vr-menu-big-wall-screen", { width: 5.8, height: 2.6, depth: 0.08 }, scene);
     bigScreen.position.set(-4.94, 2.55, 1.2);
     bigScreen.rotation.y = Math.PI / 2;
@@ -280,7 +278,6 @@ function createChaletScene(scene: Scene): void {
     screenSign.position.set(-4.75, 1.0, 1.2);
     screenSign.material = floor;
 
-    // Canapé blanc au centre, orienté vers l'écran.
     const sofaSeat = MeshBuilder.CreateBox("vr-menu-white-sofa-seat", { width: 4.8, depth: 1.2, height: 0.55 }, scene);
     sofaSeat.position.set(-0.8, 0.35, 0.3);
     sofaSeat.material = white;
@@ -303,7 +300,6 @@ function createChaletScene(scene: Scene): void {
     rug.position.set(-0.6, 0.05, -3.1);
     rug.material = gray;
 
-    // Torches au sol.
     for (const [x, z] of [[-4.0, -1.7], [2.3, -1.2], [-3.8, -3.8]] as const) {
         const base = MeshBuilder.CreateBox(`vr-menu-torch-stick-${x}-${z}`, { width: 0.13, depth: 0.13, height: 0.75 }, scene);
         base.position.set(x, 0.38, z);
@@ -314,7 +310,6 @@ function createChaletScene(scene: Scene): void {
         flame.material = torch;
     }
 
-    // Mur de droite : carte verte/bleue, fenêtre, bibliothèque, coffre et zone enchantement.
     const map = MeshBuilder.CreateBox("vr-menu-wall-map", { width: 0.08, height: 2.8, depth: 2.1 }, scene);
     map.position.set(11.92, 2.7, 2.3);
     map.material = mapGreen;
@@ -349,7 +344,6 @@ function createChaletScene(scene: Scene): void {
     enchant.position.set(9.7, 0.45, 5.9);
     enchant.material = black;
 
-    // Cadres sur le mur de séparation, comme les quatre item frames du modèle.
     for (const [x, y, material] of [
         [5.4, 3.25, mapGreen],
         [6.4, 3.25, glass],
