@@ -1,4 +1,4 @@
-import { Axis, Matrix, Quaternion, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
+import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 import { isVRMode } from "./mobile-controls";
@@ -80,7 +80,7 @@ export async function initializeWebXRGameControls(
   let rightController: XRControllerLike | null = null;
   let active = false;
   let headOffset = Vector3.Zero();
-  let bodyYaw = 0;
+  let bodyYaw = normalizeAngle(player.yaw);
 
   const controls: WebXRGameControls = {
     isActive: () => active,
@@ -130,7 +130,7 @@ export async function initializeWebXRGameControls(
 
         if (active && xrExperience) {
           clearVRMovementKeys();
-          bodyYaw = getYawFromCamera(xrExperience.baseExperience.camera);
+          bodyYaw = normalizeAngle(player.yaw);
           player.yaw = bodyYaw;
           emitVRBodyYaw(bodyYaw);
           headOffset = Vector3.Zero();
@@ -247,17 +247,6 @@ function isJumpPressed(controller: XRControllerLike | null): boolean {
     controller?.motionController?.getComponent?.("y-button");
 
   return Boolean(button?.pressed || (button?.value ?? 0) > 0.65);
-}
-
-function getYawFromCamera(camera: { rotationQuaternion?: Quaternion | null; rotation?: Vector3 }): number {
-  if (camera.rotationQuaternion) {
-    const matrix = new Matrix();
-    camera.rotationQuaternion.toRotationMatrix(matrix);
-    const forward = Vector3.TransformNormal(new Vector3(0, 0, 1), matrix);
-    return Math.atan2(forward.x, forward.z);
-  }
-
-  return camera.rotation?.y ?? 0;
 }
 
 function getPlayerEyesPosition(player: PlayerPhysics): Vector3 {
