@@ -13,8 +13,10 @@ import type { PlayerPhysics } from "./types";
 import { placeBlock } from "./textured-world";
 import { startBlockBreaking, cancelBlockBreaking, updateBlockBreaking } from "./block-breaking";
 import { isCraftingOverlayOpen } from "./ui-state";
+import {isForcedVRDebug} from "~/vr-mode.ts";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
+const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 
 const MOVE_JOYSTICK_SIZE = 180;
 const MOVE_JOYSTICK_RADIUS_X = 80;
@@ -63,14 +65,21 @@ export function isMobileMode(): boolean {
   const isCoarse = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+  // Pour être en mode mobile, on veut un UserAgent mobile ET (du tactile ou la media query)
+  // Cela évite que les PC portables avec écran tactile soient détectés comme mobiles.
   const isMobile = isMobileUA && (hasTouch || isCoarse);
-  const isVRHeadset = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+
+  // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
+  const isVRHeadset = VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent);
 
   return isMobile && !isVRHeadset;
 }
 
 export function isVRMode(): boolean {
-  return /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+  // Les casques autonomes (ex. Meta Quest) exposent souvent un User-Agent Android.
+  // On teste donc d'abord la signature du casque, sinon le monde VR ne charge pas
+  // son rendu dédié (chalet, position de spawn et contrôles WebXR) sur Quest.
+  return VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent) || isForcedVRDebug();
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -421,6 +430,7 @@ export default function initializeMobileControls(
     resetPlace(null);
   };
 
+  // Craft Button Events
   craftButton.onPointerDownObservable.add((coordinates: any) => {
     if (craftPointerId !== null) {
       return;
@@ -434,6 +444,7 @@ export default function initializeMobileControls(
   craftButton.onPointerUpObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
   craftButton.onPointerOutObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
 
+  // Break Button Events
   breakButton.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -470,6 +481,7 @@ export default function initializeMobileControls(
     resetBreak(coordinates.pointerId);
   });
 
+  // Place Button Events
   placeButton.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -496,6 +508,7 @@ export default function initializeMobileControls(
   placeButton.onPointerUpObservable.add((coordinates: any) => resetPlace(coordinates.pointerId));
   placeButton.onPointerOutObservable.add((coordinates: any) => resetPlace(coordinates.pointerId));
 
+  // Jump Button Events
   jumpButton.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -517,6 +530,7 @@ export default function initializeMobileControls(
     resetJump(coordinates.pointerId);
   });
 
+  // Move Joystick Events
   moveJoystick.root.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -548,6 +562,8 @@ export default function initializeMobileControls(
         1,
       );
 
+      // Joystick en croix : on garde uniquement l'axe dominant.
+      // Haut/bas = avancer/reculer, gauche/droite = déplacement en crabe.
       if (Math.abs(rawX) > Math.abs(rawY)) {
         moveState.x = rawX;
         moveState.y = 0;
@@ -576,6 +592,7 @@ export default function initializeMobileControls(
 
   moveJoystick.root.onPointerUpObservable.add((coordinates: any) => endMove(coordinates.pointerId));
 
+  // Look Joystick Events
   lookJoystick.root.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();

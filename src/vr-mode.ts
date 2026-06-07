@@ -45,6 +45,15 @@ export type WebXRGameControls = {
   syncAfterPhysics: () => void;
 };
 
+export function isForcedVRDebug(): boolean {
+    const params = new URLSearchParams(window.location.search);
+
+    return (
+        params.has("force_vr") ||
+        localStorage.getItem("force_vr") === "1"
+    );
+}
+
 export async function isImmersiveVrSupported(): Promise<boolean> {
   const xr = (navigator as WebXRNavigator).xr;
 

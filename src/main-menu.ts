@@ -17,11 +17,10 @@ import {
     TextBlock,
 } from "@babylonjs/gui";
 import { EYE_HEIGHT, MOVE_SPEED, pressedKeys } from "./constants";
-import { isMobileMode } from "./mobile-controls";
+import { isMobileMode, isVRMode } from "./mobile-controls";
 import type { PlayerPhysics } from "./types";
 import { initializeWebXRGameControls } from "./vr-mode";
 
-const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 const VR_MENU_SPAWN = new Vector3(2.5, 0, -4.8);
 const VR_MENU_MIN_X = -4.4;
 const VR_MENU_MAX_X = 11.3;
@@ -48,7 +47,7 @@ export async function showMainMenu({ engine, canvas, onPlay }: MainMenuOptions):
 }
 
 async function detectMenuDevice(): Promise<MenuDevice> {
-    if (VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent)) {
+    if (isVRMode()) {
         return "vr";
     }
 
