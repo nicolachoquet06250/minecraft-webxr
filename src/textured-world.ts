@@ -42,7 +42,17 @@ type BreakBlockParams = {
 };
 
 export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
-  const { scene, name, blocks, sizeX, sizeY, sizeZ, chunkX, chunkZ, material } = params;
+  const {
+      scene,
+      name,
+      blocks,
+      sizeX,
+      sizeY,
+      sizeZ,
+      chunkX,
+      chunkZ,
+      material
+  } = params;
 
   const solid: MeshBuffers = createMeshBuffers();
   const water: MeshBuffers = createMeshBuffers();
