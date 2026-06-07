@@ -16,9 +16,17 @@ import {
     StackPanel,
     TextBlock,
 } from "@babylonjs/gui";
+import { EYE_HEIGHT, MOVE_SPEED, pressedKeys } from "./constants";
 import { isMobileMode } from "./mobile-controls";
+import type { PlayerPhysics } from "./types";
+import { initializeWebXRGameControls } from "./vr-mode";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
+const VR_MENU_SPAWN = new Vector3(2.5, 0, -4.8);
+const VR_MENU_MIN_X = -4.4;
+const VR_MENU_MAX_X = 11.3;
+const VR_MENU_MIN_Z = -4.6;
+const VR_MENU_MAX_Z = 8.0;
 
 type MenuDevice = "desktop" | "mobile" | "vr";
 
@@ -58,31 +66,121 @@ async function showVRChaletMenu(
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.04, 0.035, 0.025, 1);
 
-    const camera = new TargetCamera("vr-menu-player-camera", new Vector3(2.5, 1.7, -4.8), scene);
+    const menuPlayer = createVRMenuPlayer();
+    const camera = new TargetCamera("vr-menu-player-camera", getVRMenuEyesPosition(menuPlayer), scene);
     camera.setTarget(new Vector3(-5, 2.3, 1.2));
     scene.activeCamera = camera;
 
     const light = new HemisphericLight("vr-menu-light", new Vector3(0.2, 1, 0.25), scene);
     light.intensity = 1.1;
 
-    const floor = createVRChaletMap(scene);
+    createVRChaletMap(scene);
     createVRWallMenu(scene, () => {
+        pressedKeys.clear();
         engine.stopRenderLoop();
         scene.dispose();
         onPlay();
     });
 
-    try {
-        await scene.createDefaultXRExperienceAsync({
-            floorMeshes: [floor],
-        });
-    } catch (error) {
-        console.warn("WebXR non disponible pour le menu VR", error);
-    }
+    const webXRControls = await initializeWebXRGameControls(scene, menuPlayer);
 
     engine.runRenderLoop(() => {
+        const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
+
+        webXRControls.syncBeforePhysics(deltaTime);
+        updateVRMenuPlayerFromControls(menuPlayer, deltaTime);
+
+        if (!webXRControls.isActive()) {
+            updateVRMenuCamera(camera, menuPlayer);
+        }
+
+        webXRControls.syncAfterPhysics();
         scene.render();
     });
+}
+
+function createVRMenuPlayer(): PlayerPhysics {
+    return {
+        position: VR_MENU_SPAWN.clone(),
+        velocity: Vector3.Zero(),
+        yaw: Math.PI,
+        pitch: -0.08,
+        grounded: true,
+        inventory: [],
+        selectedSlot: 0,
+    };
+}
+
+function updateVRMenuPlayerFromControls(player: PlayerPhysics, deltaTime: number): void {
+    const moveDirection = getVRMenuMoveDirection(player);
+
+    if (moveDirection.lengthSquared() > 0) {
+        player.position.addInPlace(moveDirection.scale(MOVE_SPEED * deltaTime));
+        player.position.x = clamp(player.position.x, VR_MENU_MIN_X, VR_MENU_MAX_X);
+        player.position.z = clamp(player.position.z, VR_MENU_MIN_Z, VR_MENU_MAX_Z);
+    }
+
+    player.position.y = VR_MENU_SPAWN.y;
+    player.velocity.set(0, 0, 0);
+    player.grounded = true;
+}
+
+function getVRMenuMoveDirection(player: PlayerPhysics): Vector3 {
+    const forward = new Vector3(
+        Math.sin(player.yaw),
+        0,
+        Math.cos(player.yaw),
+    );
+
+    const right = new Vector3(
+        Math.cos(player.yaw),
+        0,
+        -Math.sin(player.yaw),
+    );
+
+    const moveDirection = Vector3.Zero();
+
+    if (pressedKeys.has("KeyW") || pressedKeys.has("KeyZ") || pressedKeys.has("ArrowUp")) {
+        moveDirection.addInPlace(forward);
+    }
+
+    if (pressedKeys.has("KeyS") || pressedKeys.has("ArrowDown")) {
+        moveDirection.subtractInPlace(forward);
+    }
+
+    if (pressedKeys.has("KeyD") || pressedKeys.has("ArrowRight")) {
+        moveDirection.addInPlace(right);
+    }
+
+    if (pressedKeys.has("KeyA") || pressedKeys.has("KeyQ") || pressedKeys.has("ArrowLeft")) {
+        moveDirection.subtractInPlace(right);
+    }
+
+    if (moveDirection.lengthSquared() > 0) {
+        moveDirection.normalize();
+    }
+
+    return moveDirection;
+}
+
+function updateVRMenuCamera(camera: TargetCamera, player: PlayerPhysics): void {
+    const eyesPosition = getVRMenuEyesPosition(player);
+    const lookDirection = new Vector3(
+        Math.sin(player.yaw) * Math.cos(player.pitch),
+        Math.sin(player.pitch),
+        Math.cos(player.yaw) * Math.cos(player.pitch),
+    );
+
+    camera.position.copyFrom(eyesPosition);
+    camera.setTarget(eyesPosition.add(lookDirection));
+}
+
+function getVRMenuEyesPosition(player: PlayerPhysics): Vector3 {
+    return player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
 }
 
 function createVRChaletMap(scene: Scene) {
