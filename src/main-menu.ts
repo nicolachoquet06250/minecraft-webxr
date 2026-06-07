@@ -16,9 +16,16 @@ import {
     StackPanel,
     TextBlock,
 } from "@babylonjs/gui";
-import { isMobileMode } from "./mobile-controls";
+import { EYE_HEIGHT, MOVE_SPEED, pressedKeys } from "./constants";
+import { isMobileMode, isVRMode } from "./mobile-controls";
+import type { PlayerPhysics } from "./types";
+import { initializeWebXRGameControls, type WebXRGameControls } from "./vr-mode";
 
-const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
+const VR_MENU_SPAWN = new Vector3(2.5, 0, -4.8);
+const VR_MENU_MIN_X = -4.35;
+const VR_MENU_MAX_X = 11.35;
+const VR_MENU_MIN_Z = -4.6;
+const VR_MENU_MAX_Z = 8.0;
 
 type MenuDevice = "desktop" | "mobile" | "vr";
 
@@ -32,7 +39,7 @@ export async function showMainMenu({ engine, canvas, onPlay }: MainMenuOptions):
     const device = await detectMenuDevice();
 
     if (device === "vr") {
-        showVRMenu(engine, onPlay);
+        showVRChaletMenu(engine, onPlay);
         return;
     }
 
@@ -40,7 +47,7 @@ export async function showMainMenu({ engine, canvas, onPlay }: MainMenuOptions):
 }
 
 async function detectMenuDevice(): Promise<MenuDevice> {
-    if (VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent)) {
+    if (isVRMode()) {
         return "vr";
     }
 
@@ -49,6 +56,344 @@ async function detectMenuDevice(): Promise<MenuDevice> {
     }
 
     return "desktop";
+}
+
+function showVRChaletMenu(
+    engine: import("@babylonjs/core").Engine,
+    onPlay: () => void,
+): void {
+    const scene = new Scene(engine);
+    scene.clearColor = new Color4(0.04, 0.035, 0.025, 1);
+
+    const menuPlayer = createVRMenuPlayer();
+    const camera = new TargetCamera("vr-menu-player-camera", getVRMenuEyesPosition(menuPlayer), scene);
+    camera.setTarget(new Vector3(VR_MENU_SPAWN.x, EYE_HEIGHT, 1.8));
+    scene.activeCamera = camera;
+
+    const light = new HemisphericLight("vr-menu-light", new Vector3(0.2, 1, 0.25), scene);
+    light.intensity = 1.15;
+
+    const floor = createVRChaletMap(scene);
+    createVRWallMenu(scene, () => {
+        pressedKeys.clear();
+        engine.stopRenderLoop();
+        scene.dispose();
+        onPlay();
+    });
+
+    let webXRControls: WebXRGameControls | null = null;
+
+    initializeWebXRGameControls(scene, menuPlayer)
+        .then((controls) => {
+            webXRControls = controls;
+        })
+        .catch(async (error) => {
+            console.warn("Contrôles WebXR indisponibles dans le menu chalet", error);
+
+            try {
+                await scene.createDefaultXRExperienceAsync({
+                    floorMeshes: [floor],
+                });
+            } catch (xrError) {
+                console.warn("WebXR indisponible dans le menu chalet", xrError);
+            }
+        });
+
+    engine.runRenderLoop(() => {
+        const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
+
+        webXRControls?.syncBeforePhysics(deltaTime);
+        updateVRMenuPlayerFromControls(menuPlayer, deltaTime);
+
+        if (!webXRControls?.isActive()) {
+            updateVRMenuCamera(camera, menuPlayer);
+        }
+
+        webXRControls?.syncAfterPhysics();
+        scene.render();
+    });
+}
+
+function createVRMenuPlayer(): PlayerPhysics {
+    return {
+        position: VR_MENU_SPAWN.clone(),
+        velocity: Vector3.Zero(),
+        yaw: 0,
+        pitch: -0.08,
+        grounded: true,
+        inventory: [],
+        selectedSlot: 0,
+    };
+}
+
+function updateVRMenuPlayerFromControls(player: PlayerPhysics, deltaTime: number): void {
+    const moveDirection = getVRMenuMoveDirection(player);
+
+    if (moveDirection.lengthSquared() > 0) {
+        player.position.addInPlace(moveDirection.scale(MOVE_SPEED * deltaTime));
+        player.position.x = clamp(player.position.x, VR_MENU_MIN_X, VR_MENU_MAX_X);
+        player.position.z = clamp(player.position.z, VR_MENU_MIN_Z, VR_MENU_MAX_Z);
+    }
+
+    player.position.y = VR_MENU_SPAWN.y;
+    player.velocity.set(0, 0, 0);
+    player.grounded = true;
+}
+
+function getVRMenuMoveDirection(player: PlayerPhysics): Vector3 {
+    const forward = new Vector3(
+        Math.sin(player.yaw),
+        0,
+        Math.cos(player.yaw),
+    );
+
+    const right = new Vector3(
+        Math.cos(player.yaw),
+        0,
+        -Math.sin(player.yaw),
+    );
+
+    const moveDirection = Vector3.Zero();
+
+    if (pressedKeys.has("KeyW") || pressedKeys.has("KeyZ") || pressedKeys.has("ArrowUp")) {
+        moveDirection.addInPlace(forward);
+    }
+
+    if (pressedKeys.has("KeyS") || pressedKeys.has("ArrowDown")) {
+        moveDirection.subtractInPlace(forward);
+    }
+
+    if (pressedKeys.has("KeyD") || pressedKeys.has("ArrowRight")) {
+        moveDirection.addInPlace(right);
+    }
+
+    if (pressedKeys.has("KeyA") || pressedKeys.has("KeyQ") || pressedKeys.has("ArrowLeft")) {
+        moveDirection.subtractInPlace(right);
+    }
+
+    if (moveDirection.lengthSquared() > 0) {
+        moveDirection.normalize();
+    }
+
+    return moveDirection;
+}
+
+function updateVRMenuCamera(camera: TargetCamera, player: PlayerPhysics): void {
+    const eyesPosition = getVRMenuEyesPosition(player);
+    const lookDirection = new Vector3(
+        Math.sin(player.yaw) * Math.cos(player.pitch),
+        Math.sin(player.pitch),
+        Math.cos(player.yaw) * Math.cos(player.pitch),
+    );
+
+    camera.position.copyFrom(eyesPosition);
+    camera.setTarget(eyesPosition.add(lookDirection));
+}
+
+function getVRMenuEyesPosition(player: PlayerPhysics): Vector3 {
+    return player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
+}
+
+function createVRChaletMap(scene: Scene) {
+    const floorMaterial = createMaterial(scene, "vr-menu-birch-floor", new Color3(0.78, 0.68, 0.42));
+    const floorLineMaterial = createMaterial(scene, "vr-menu-floor-lines", new Color3(0.55, 0.42, 0.22));
+    const wallMaterial = createMaterial(scene, "vr-menu-spruce-wall", new Color3(0.36, 0.22, 0.1));
+    const darkWoodMaterial = createMaterial(scene, "vr-menu-dark-wood", new Color3(0.12, 0.075, 0.035));
+    const blackMaterial = createMaterial(scene, "vr-menu-black-screen", new Color3(0.015, 0.012, 0.01));
+    const whiteMaterial = createMaterial(scene, "vr-menu-white-wool", new Color3(0.88, 0.88, 0.82));
+    const grayMaterial = createMaterial(scene, "vr-menu-gray-wool", new Color3(0.24, 0.24, 0.23));
+    const glassMaterial = createMaterial(scene, "vr-menu-glass", new Color3(0.75, 0.9, 0.98));
+    const bookRedMaterial = createMaterial(scene, "vr-menu-book-red", new Color3(0.65, 0.08, 0.05));
+    const bookGreenMaterial = createMaterial(scene, "vr-menu-book-green", new Color3(0.1, 0.55, 0.1));
+    const bookBlueMaterial = createMaterial(scene, "vr-menu-book-blue", new Color3(0.08, 0.16, 0.65));
+    const mapGreenMaterial = createMaterial(scene, "vr-menu-map-green", new Color3(0.05, 0.55, 0.08));
+    const mapBlueMaterial = createMaterial(scene, "vr-menu-map-blue", new Color3(0.03, 0.2, 0.75));
+    const torchMaterial = createMaterial(scene, "vr-menu-torch", new Color3(1, 0.24, 0.02));
+    const cyanMaterial = createMaterial(scene, "vr-menu-cyan", new Color3(0, 0.75, 0.8));
+
+    const floor = MeshBuilder.CreateBox("vr-menu-room-floor", { width: 17, depth: 14, height: 0.18 }, scene);
+    floor.position.set(3.5, -0.09, 1.8);
+    floor.material = floorMaterial;
+
+    for (let x = -4; x <= 11; x += 1.5) {
+        const plank = MeshBuilder.CreateBox(`vr-menu-floor-plank-${x}`, { width: 0.05, depth: 14, height: 0.02 }, scene);
+        plank.position.set(x, 0.02, 1.8);
+        plank.material = floorLineMaterial;
+    }
+
+    const ceiling = MeshBuilder.CreateBox("vr-menu-ceiling", { width: 17, depth: 14, height: 0.18 }, scene);
+    ceiling.position.set(3.5, 4.65, 1.8);
+    ceiling.material = floorMaterial;
+
+    for (let z = -4; z <= 7; z += 2.5) {
+        const beam = MeshBuilder.CreateBox(`vr-menu-ceiling-beam-${z}`, { width: 17.2, depth: 0.26, height: 0.24 }, scene);
+        beam.position.set(3.5, 4.48, z);
+        beam.material = darkWoodMaterial;
+    }
+
+    const backWall = MeshBuilder.CreateBox("vr-menu-back-wall", { width: 17, height: 4.7, depth: 0.24 }, scene);
+    backWall.position.set(3.5, 2.25, 8.8);
+    backWall.material = wallMaterial;
+
+    const leftWall = MeshBuilder.CreateBox("vr-menu-left-wall", { width: 0.24, height: 4.7, depth: 14 }, scene);
+    leftWall.position.set(-5.1, 2.25, 1.8);
+    leftWall.material = wallMaterial;
+
+    const rightWall = MeshBuilder.CreateBox("vr-menu-right-wall", { width: 0.24, height: 4.7, depth: 14 }, scene);
+    rightWall.position.set(12.1, 2.25, 1.8);
+    rightWall.material = wallMaterial;
+
+    const centralPillar = MeshBuilder.CreateBox("vr-menu-central-pillar", { width: 0.5, height: 4.7, depth: 0.5 }, scene);
+    centralPillar.position.set(4.2, 2.25, 6.2);
+    centralPillar.material = darkWoodMaterial;
+
+    const bigScreen = MeshBuilder.CreateBox("vr-menu-big-wall-screen", { width: 5.8, height: 2.6, depth: 0.08 }, scene);
+    bigScreen.position.set(-4.94, 2.55, 1.2);
+    bigScreen.rotation.y = Math.PI / 2;
+    bigScreen.material = blackMaterial;
+
+    const sofaSeat = MeshBuilder.CreateBox("vr-menu-white-sofa-seat", { width: 4.8, depth: 1.2, height: 0.55 }, scene);
+    sofaSeat.position.set(-0.8, 0.35, 0.3);
+    sofaSeat.material = whiteMaterial;
+
+    const sofaBack = MeshBuilder.CreateBox("vr-menu-white-sofa-back", { width: 4.8, depth: 0.28, height: 1.25 }, scene);
+    sofaBack.position.set(-0.8, 0.85, 0.95);
+    sofaBack.material = whiteMaterial;
+
+    for (const x of [-3.35, 1.75]) {
+        const arm = MeshBuilder.CreateBox(`vr-menu-white-sofa-arm-${x}`, { width: 0.35, depth: 1.35, height: 1.1 }, scene);
+        arm.position.set(x, 0.72, 0.35);
+        arm.material = whiteMaterial;
+    }
+
+    const lowTable = MeshBuilder.CreateBox("vr-menu-low-table", { width: 2.4, depth: 1.25, height: 0.42 }, scene);
+    lowTable.position.set(-0.8, 0.25, -1.55);
+    lowTable.material = darkWoodMaterial;
+
+    const rug = MeshBuilder.CreateBox("vr-menu-dark-rug", { width: 3.6, depth: 2.1, height: 0.03 }, scene);
+    rug.position.set(-0.6, 0.05, -3.1);
+    rug.material = grayMaterial;
+
+    for (const [x, z] of [[-4.0, -1.7], [2.3, -1.2], [-3.8, -3.8]] as const) {
+        const base = MeshBuilder.CreateBox(`vr-menu-torch-stick-${x}-${z}`, { width: 0.13, depth: 0.13, height: 0.75 }, scene);
+        base.position.set(x, 0.38, z);
+        base.material = darkWoodMaterial;
+
+        const flame = MeshBuilder.CreateBox(`vr-menu-torch-flame-${x}-${z}`, { width: 0.22, depth: 0.22, height: 0.22 }, scene);
+        flame.position.set(x, 0.86, z);
+        flame.material = torchMaterial;
+    }
+
+    const map = MeshBuilder.CreateBox("vr-menu-wall-map", { width: 0.08, height: 2.8, depth: 2.1 }, scene);
+    map.position.set(11.92, 2.7, 2.3);
+    map.material = mapGreenMaterial;
+
+    for (const [y, z] of [[2.2, 1.6], [2.9, 2.7], [3.5, 2.1]] as const) {
+        const river = MeshBuilder.CreateBox(`vr-menu-map-river-${y}-${z}`, { width: 0.09, height: 0.22, depth: 0.8 }, scene);
+        river.position.set(11.86, y, z);
+        river.material = mapBlueMaterial;
+    }
+
+    const window = MeshBuilder.CreateBox("vr-menu-right-window", { width: 0.1, height: 1.6, depth: 1.5 }, scene);
+    window.position.set(11.85, 2.6, 5.2);
+    window.material = glassMaterial;
+
+    for (let z = 6.3; z <= 8.1; z += 0.55) {
+        for (let y = 1.2; y <= 3.8; y += 0.55) {
+            const book = MeshBuilder.CreateBox(`vr-menu-book-${z}-${y}`, { width: 0.1, height: 0.42, depth: 0.38 }, scene);
+            book.position.set(11.82, y, z);
+            book.material = y % 1.1 < 0.55 ? bookRedMaterial : z % 1.1 < 0.55 ? bookBlueMaterial : bookGreenMaterial;
+        }
+    }
+
+    const enderChest = MeshBuilder.CreateBox("vr-menu-ender-chest", { width: 1.5, depth: 1.15, height: 0.85 }, scene);
+    enderChest.position.set(8.6, 0.45, -2.3);
+    enderChest.material = blackMaterial;
+
+    const enderGlow = MeshBuilder.CreateBox("vr-menu-ender-chest-glow", { width: 0.55, depth: 0.08, height: 0.18 }, scene);
+    enderGlow.position.set(8.6, 0.68, -2.9);
+    enderGlow.material = cyanMaterial;
+
+    for (const [x, y, material] of [
+        [5.4, 3.25, mapGreenMaterial],
+        [6.4, 3.25, glassMaterial],
+        [5.4, 2.25, blackMaterial],
+        [6.4, 2.25, grayMaterial],
+    ] as const) {
+        const frame = MeshBuilder.CreateBox(`vr-menu-item-frame-${x}-${y}`, { width: 0.75, height: 0.75, depth: 0.08 }, scene);
+        frame.position.set(x, y, 6.05);
+        frame.material = floorMaterial;
+
+        const item = MeshBuilder.CreateBox(`vr-menu-item-frame-content-${x}-${y}`, { width: 0.36, height: 0.36, depth: 0.1 }, scene);
+        item.position.set(x, y, 5.98);
+        item.material = material;
+    }
+
+    return floor;
+}
+
+function createVRWallMenu(scene: Scene, onPlay: () => void): void {
+    const panel = MeshBuilder.CreatePlane("vr-wall-menu-panel", { width: 4.6, height: 2.25 }, scene);
+    panel.position.set(-4.86, 2.55, 1.2);
+    panel.rotation.y = -Math.PI / 2;
+    panel.isPickable = true;
+
+    const texture = AdvancedDynamicTexture.CreateForMesh(panel, 1600, 820, false);
+    const root = new Rectangle("vr-wall-menu-root");
+    root.thickness = 8;
+    root.color = "#5b3f24";
+    root.cornerRadius = 28;
+    root.background = "rgba(18, 14, 10, 0.74)";
+    root.paddingLeft = "64px";
+    root.paddingRight = "64px";
+    root.paddingTop = "56px";
+    root.paddingBottom = "56px";
+    texture.addControl(root);
+
+    const stack = new StackPanel("vr-wall-menu-stack");
+    stack.spacing = 22;
+    root.addControl(stack);
+
+    const title = new TextBlock("vr-wall-menu-title", "Minecraft");
+    title.height = "116px";
+    title.color = "white";
+    title.fontFamily = "Georgia, serif";
+    title.fontSize = 76;
+    title.fontWeight = "700";
+    stack.addControl(title);
+
+    const subtitle = new TextBlock("vr-wall-menu-subtitle", "XR Edition");
+    subtitle.height = "42px";
+    subtitle.color = "#d9e8ff";
+    subtitle.fontSize = 34;
+    stack.addControl(subtitle);
+
+    stack.addControl(createVRMenuButton("Un joueur", onPlay));
+    stack.addControl(createVRMenuButton("Options..."));
+    stack.addControl(createVRMenuButton("Quitter le jeu"));
+}
+
+function createVRMenuButton(label: string, onClick?: () => void): Button {
+    const button = Button.CreateSimpleButton(`vr-wall-menu-button-${label}`, label);
+    button.height = "86px";
+    button.width = "720px";
+    button.thickness = 4;
+    button.color = "white";
+    button.background = "rgba(112, 112, 112, 0.92)";
+    button.cornerRadius = 4;
+    button.fontSize = 34;
+    button.fontWeight = "600";
+    button.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+
+    if (onClick) {
+        button.onPointerUpObservable.add(onClick);
+    }
+
+    return button;
 }
 
 function showDomMenu(canvas: HTMLCanvasElement, device: Exclude<MenuDevice, "vr">, onPlay: () => void): void {
@@ -61,7 +406,8 @@ function showDomMenu(canvas: HTMLCanvasElement, device: Exclude<MenuDevice, "vr"
 
     const content = document.createElement("div");
     content.classList.add("minecraft-menu__content");
-    if (device === 'desktop') {
+
+    if (device === "desktop") {
         content.classList.add("minecraft-menu__content--desktop");
     }
 
@@ -151,11 +497,7 @@ function createMobileButtonPanel(onPlay: () => void): HTMLElement {
     const signIn = createMenuButton("Se connecter", undefined, true);
     signIn.classList.add("minecraft-menu__mobile-signin");
 
-    panel.append(
-        actions,
-        signIn,
-    );
-
+    panel.append(actions, signIn);
     return panel;
 }
 
@@ -177,148 +519,6 @@ function createMenuButton(
 
     if (onClick) {
         button.addEventListener("click", onClick, { once: true });
-    }
-
-    return button;
-}
-
-function showVRMenu(
-    engine: import("@babylonjs/core").Engine,
-    onPlay: () => void,
-): void {
-    const scene = new Scene(engine);
-    scene.clearColor = new Color4(0.55, 0.76, 0.98, 1);
-
-    const camera = new TargetCamera("vr-menu-camera", new Vector3(0, 3.1, -10), scene);
-    camera.setTarget(new Vector3(0, 2.4, 0));
-    scene.activeCamera = camera;
-
-    const light = new HemisphericLight("vr-menu-light", new Vector3(0.2, 1, 0.25), scene);
-    light.intensity = 0.95;
-
-    createHorizonLobbyScene(scene);
-    createVRMenuPanel(scene, () => {
-        engine.stopRenderLoop();
-        scene.dispose();
-        onPlay();
-    });
-
-    engine.runRenderLoop(() => {
-        scene.render();
-    });
-}
-
-function createHorizonLobbyScene(scene: Scene): void {
-    const sky = createMaterial(scene, "vr-horizon-sky", new Color3(0.5, 0.78, 1.0));
-    const platformMaterial = createMaterial(scene, "vr-horizon-platform", new Color3(0.82, 0.88, 0.96));
-    const cyan = createMaterial(scene, "vr-horizon-cyan", new Color3(0.05, 0.68, 1.0));
-    const blue = createMaterial(scene, "vr-horizon-blue", new Color3(0.05, 0.17, 0.58));
-    const glass = createMaterial(scene, "vr-horizon-glass", new Color3(0.45, 0.85, 1.0));
-    const dark = createMaterial(scene, "vr-horizon-dark", new Color3(0.03, 0.05, 0.12));
-    const foliage = createMaterial(scene, "vr-horizon-foliage", new Color3(0.9, 0.38, 0.78));
-
-    const ground = MeshBuilder.CreateBox("vr-horizon-platform", { width: 18, depth: 18, height: 0.25 }, scene);
-    ground.position.y = -0.12;
-    ground.material = platformMaterial;
-
-    const runway = MeshBuilder.CreateBox("vr-horizon-runway", { width: 4.2, depth: 15, height: 0.08 }, scene);
-    runway.position.set(0, 0.05, -0.4);
-    runway.material = cyan;
-
-    const screenWall = MeshBuilder.CreateBox("vr-horizon-screen-wall", { width: 7.5, depth: 0.2, height: 3.6 }, scene);
-    screenWall.position.set(0, 2.1, 2.9);
-    screenWall.material = dark;
-
-    const screenGlow = MeshBuilder.CreateBox("vr-horizon-screen-glow", { width: 5.8, depth: 0.08, height: 2.4 }, scene);
-    screenGlow.position.set(0, 2.2, 2.76);
-    screenGlow.material = blue;
-
-    for (const x of [-5.2, 5.2]) {
-        const sideGlass = MeshBuilder.CreateBox(`vr-horizon-window-${x}`, { width: 0.15, depth: 12, height: 2.9 }, scene);
-        sideGlass.position.set(x, 1.7, -1.2);
-        sideGlass.material = glass;
-    }
-
-    for (const [x, z] of [[-3.5, -4.5], [3.5, -4.5], [-3.5, 4.5], [3.5, 4.5]] as const) {
-        const pillar = MeshBuilder.CreateBox(`vr-horizon-light-pillar-${x}-${z}`, { width: 0.38, depth: 0.38, height: 3.4 }, scene);
-        pillar.position.set(x, 1.7, z);
-        pillar.material = cyan;
-    }
-
-    for (const [x, z] of [[-7.2, -3.6], [7.2, -3.6], [-7.2, 4.2], [7.2, 4.2]] as const) {
-        const island = MeshBuilder.CreateBox(`vr-horizon-floating-island-${x}-${z}`, { width: 2.2, depth: 2.2, height: 0.35 }, scene);
-        island.position.set(x, 0.35, z);
-        island.material = sky;
-
-        const tree = MeshBuilder.CreateBox(`vr-horizon-tree-${x}-${z}`, { width: 1.35, depth: 1.35, height: 1.35 }, scene);
-        tree.position.set(x, 1.25, z);
-        tree.material = foliage;
-    }
-
-    for (const z of [-5.2, 5.2]) {
-        const portalTop = MeshBuilder.CreateBox(`vr-horizon-portal-top-${z}`, { width: 5, depth: 0.22, height: 0.25 }, scene);
-        portalTop.position.set(0, 3.55, z);
-        portalTop.material = cyan;
-
-        for (const x of [-2.7, 2.7]) {
-            const portalSide = MeshBuilder.CreateBox(`vr-horizon-portal-side-${x}-${z}`, { width: 0.25, depth: 0.22, height: 3 }, scene);
-            portalSide.position.set(x, 2.05, z);
-            portalSide.material = cyan;
-        }
-    }
-}
-
-function createVRMenuPanel(scene: Scene, onPlay: () => void): void {
-    const texture = AdvancedDynamicTexture.CreateFullscreenUI("vr-main-menu", true, scene);
-    const panel = new Rectangle("vr-menu-panel");
-    panel.width = "520px";
-    panel.height = "430px";
-    panel.cornerRadius = 6;
-    panel.thickness = 3;
-    panel.color = "#1b1b1b";
-    panel.background = "rgba(0, 0, 0, 0.48)";
-    panel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-    panel.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-    panel.top = "40px";
-    texture.addControl(panel);
-
-    const stack = new StackPanel("vr-menu-stack");
-    stack.width = "430px";
-    stack.spacing = 12;
-    panel.addControl(stack);
-
-    const title = new TextBlock("vr-menu-title", "Minecraft");
-    title.height = "76px";
-    title.color = "white";
-    title.fontFamily = "Georgia, serif";
-    title.fontSize = 52;
-    title.fontWeight = "700";
-    stack.addControl(title);
-
-    const edition = new TextBlock("vr-menu-edition", "XR Edition");
-    edition.height = "36px";
-    edition.color = "#f2f2f2";
-    edition.fontSize = 24;
-    stack.addControl(edition);
-
-    stack.addControl(createVRButton("Un joueur", onPlay));
-    stack.addControl(createVRButton("Multijoueur", undefined, true));
-    stack.addControl(createVRButton("Options..."));
-    stack.addControl(createVRButton("Quitter le jeu"));
-}
-
-function createVRButton(label: string, onPlay?: () => void, disabled = false): Button {
-    const button = Button.CreateSimpleButton(`vr-menu-${label}`, label);
-    button.width = "390px";
-    button.height = "52px";
-    button.thickness = 3;
-    button.color = disabled ? "#9c9c9c" : "#ffffff";
-    button.background = disabled ? "#5d5d5d" : "#777777";
-    button.fontSize = 23;
-    button.isEnabled = !disabled;
-
-    if (onPlay) {
-        button.onPointerUpObservable.add(onPlay);
     }
 
     return button;

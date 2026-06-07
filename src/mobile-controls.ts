@@ -13,6 +13,7 @@ import type { PlayerPhysics } from "./types";
 import { placeBlock } from "./textured-world";
 import { startBlockBreaking, cancelBlockBreaking, updateBlockBreaking } from "./block-breaking";
 import { isCraftingOverlayOpen } from "./ui-state";
+import {isForcedVRDebug} from "~/vr-mode.ts";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
@@ -78,7 +79,7 @@ export function isVRMode(): boolean {
   // Les casques autonomes (ex. Meta Quest) exposent souvent un User-Agent Android.
   // On teste donc d'abord la signature du casque, sinon le monde VR ne charge pas
   // son rendu dédié (chalet, position de spawn et contrôles WebXR) sur Quest.
-  return VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent);
+  return VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent) || isForcedVRDebug();
 }
 
 function clamp(value: number, min: number, max: number): number {
