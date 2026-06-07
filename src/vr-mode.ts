@@ -99,9 +99,13 @@ export async function initializeWebXRGameControls(
       if (!active || !xrExperience) return;
 
       const xrCamera = xrExperience.baseExperience.camera;
-      headOffset = xrCamera.position.subtract(getPlayerEyesPosition(player));
+      const previousBodyYaw = bodyYaw;
+      const headOffsetWorld = xrCamera.position.subtract(getPlayerEyesPosition(player));
+      const headOffsetLocal = rotateHorizontalVector(headOffsetWorld, -previousBodyYaw);
+
       bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
       player.yaw = bodyYaw;
+      headOffset = rotateHorizontalVector(headOffsetLocal, bodyYaw);
       emitVRBodyYaw(bodyYaw);
       updateMovementKeysFromLeftController(leftController);
 
@@ -261,6 +265,17 @@ function emitVRBodyYaw(yaw: number): void {
 
 function normalizeAngle(angle: number): number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
+}
+
+function rotateHorizontalVector(vector: Vector3, yaw: number): Vector3 {
+  const sin = Math.sin(yaw);
+  const cos = Math.cos(yaw);
+
+  return new Vector3(
+    vector.x * cos + vector.z * sin,
+    vector.y,
+    -vector.x * sin + vector.z * cos,
+  );
 }
 
 function syncXRCameraPositionToPlayer(
