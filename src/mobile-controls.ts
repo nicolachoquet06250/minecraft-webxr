@@ -63,21 +63,14 @@ export function isMobileMode(): boolean {
   const isCoarse = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  // Pour être en mode mobile, on veut un UserAgent mobile ET (du tactile ou la media query)
-  // Cela évite que les PC portables avec écran tactile soient détectés comme mobiles.
   const isMobile = isMobileUA && (hasTouch || isCoarse);
-
-  // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
-  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+  const isVRHeadset = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
 
   return isMobile && !isVRHeadset;
 }
 
 export function isVRMode(): boolean {
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
-
-  return !isMobileUA && isVRHeadset;
+  return /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -428,7 +421,6 @@ export default function initializeMobileControls(
     resetPlace(null);
   };
 
-  // Craft Button Events
   craftButton.onPointerDownObservable.add((coordinates: any) => {
     if (craftPointerId !== null) {
       return;
@@ -442,7 +434,6 @@ export default function initializeMobileControls(
   craftButton.onPointerUpObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
   craftButton.onPointerOutObservable.add((coordinates: any) => resetCraft(coordinates.pointerId));
 
-  // Break Button Events
   breakButton.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -479,7 +470,6 @@ export default function initializeMobileControls(
     resetBreak(coordinates.pointerId);
   });
 
-  // Place Button Events
   placeButton.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -506,7 +496,6 @@ export default function initializeMobileControls(
   placeButton.onPointerUpObservable.add((coordinates: any) => resetPlace(coordinates.pointerId));
   placeButton.onPointerOutObservable.add((coordinates: any) => resetPlace(coordinates.pointerId));
 
-  // Jump Button Events
   jumpButton.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -528,7 +517,6 @@ export default function initializeMobileControls(
     resetJump(coordinates.pointerId);
   });
 
-  // Move Joystick Events
   moveJoystick.root.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
@@ -560,8 +548,6 @@ export default function initializeMobileControls(
         1,
       );
 
-      // Joystick en croix : on garde uniquement l'axe dominant.
-      // Haut/bas = avancer/reculer, gauche/droite = déplacement en crabe.
       if (Math.abs(rawX) > Math.abs(rawY)) {
         moveState.x = rawX;
         moveState.y = 0;
@@ -590,7 +576,6 @@ export default function initializeMobileControls(
 
   moveJoystick.root.onPointerUpObservable.add((coordinates: any) => endMove(coordinates.pointerId));
 
-  // Look Joystick Events
   lookJoystick.root.onPointerDownObservable.add((coordinates: any) => {
     if (isCraftingOverlayOpen()) {
       resetAllControls();
