@@ -339,7 +339,7 @@ function createVRChaletMap(scene: Scene) {
 function createVRWallMenu(scene: Scene, onPlay: () => void): void {
     const panel = MeshBuilder.CreatePlane("vr-wall-menu-panel", { width: 4.6, height: 2.25 }, scene);
     panel.position.set(-4.86, 2.55, 1.2);
-    panel.rotation.y = Math.PI / 2;
+    panel.rotation.y = -Math.PI / 2;
     panel.isPickable = true;
 
     const texture = AdvancedDynamicTexture.CreateForMesh(panel, 1600, 820, false);
