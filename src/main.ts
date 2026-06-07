@@ -36,8 +36,9 @@ import { updateBlockBreaking } from "./block-breaking";
 import { applyProceduralBlockAtlasMaterial } from "./block-atlas";
 import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
-import initializeMobileControls from "./mobile-controls";
+import initializeMobileControls, { isVRMode } from "./mobile-controls";
 import { initializeWebXRGameControls } from "./vr-mode";
+import { createVRMenuChalet, movePlayerToVRMenuChalet } from "./vr-menu-chalet";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
@@ -267,17 +268,38 @@ if (!spawnChunk) {
   throw new Error("Chunk de spawn introuvable");
 }
 
-const spawn = findDrySpawnPosition(
-  worldChunks,
-  sizeX,
-  sizeY,
-  sizeZ,
-  SPAWN_X,
-  SPAWN_Z,
-  64,
-);
+const vrMenuChalet = isVRMode()
+  ? createVRMenuChalet({
+      scene,
+      worldChunks,
+      sizeX,
+      sizeY,
+      sizeZ,
+      material: lightMaterial,
+    })
+  : null;
+
+const spawn = vrMenuChalet
+  ? {
+      x: vrMenuChalet.spawn.x,
+      y: vrMenuChalet.spawn.y,
+      z: vrMenuChalet.spawn.z,
+    }
+  : findDrySpawnPosition(
+      worldChunks,
+      sizeX,
+      sizeY,
+      sizeZ,
+      SPAWN_X,
+      SPAWN_Z,
+      64,
+    );
 
 const player = generatePlayer(spawn);
+
+if (vrMenuChalet) {
+  movePlayerToVRMenuChalet(player, vrMenuChalet);
+}
 
 // Expose properties for mobile controls
 (player as any)._worldChunks = worldChunks;

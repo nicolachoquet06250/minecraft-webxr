@@ -15,6 +15,8 @@ import { startBlockBreaking, cancelBlockBreaking, updateBlockBreaking } from "./
 import { isCraftingOverlayOpen } from "./ui-state";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
+const MOBILE_USER_AGENT_PATTERN = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 
 const MOVE_JOYSTICK_SIZE = 180;
 const MOVE_JOYSTICK_RADIUS_X = 80;
@@ -61,23 +63,23 @@ type JoystickState = {
 export function isMobileMode(): boolean {
   const hasTouch = navigator.maxTouchPoints > 0;
   const isCoarse = window.matchMedia(MOBILE_MEDIA_QUERY).matches;
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const isMobileUA = MOBILE_USER_AGENT_PATTERN.test(navigator.userAgent);
 
   // Pour être en mode mobile, on veut un UserAgent mobile ET (du tactile ou la media query)
   // Cela évite que les PC portables avec écran tactile soient détectés comme mobiles.
   const isMobile = isMobileUA && (hasTouch || isCoarse);
 
   // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
-  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+  const isVRHeadset = VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent);
 
   return isMobile && !isVRHeadset;
 }
 
 export function isVRMode(): boolean {
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
-
-  return !isMobileUA && isVRHeadset;
+  // Les navigateurs des casques autonomes (Quest/Oculus/Pico) contiennent souvent
+  // aussi "Android" dans leur User-Agent. On ne doit donc pas exclure les UA
+  // mobiles ici, sinon le décor/menu VR ne sera jamais initialisé sur casque.
+  return VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent);
 }
 
 function clamp(value: number, min: number, max: number): number {
