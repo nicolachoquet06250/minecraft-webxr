@@ -196,7 +196,7 @@ function showVRMenu(
     const light = new HemisphericLight("vr-menu-light", new Vector3(0.2, 1, 0.25), scene);
     light.intensity = 0.95;
 
-    createChaletScene(scene);
+    createHorizonLobbyScene(scene);
     createVRMenuPanel(scene, () => {
         engine.stopRenderLoop();
         scene.dispose();
@@ -208,49 +208,63 @@ function showVRMenu(
     });
 }
 
-function createChaletScene(scene: Scene): void {
-    const grass = createMaterial(scene, "vr-menu-grass", new Color3(0.27, 0.58, 0.2));
-    const wood = createMaterial(scene, "vr-menu-wood", new Color3(0.47, 0.26, 0.12));
-    const darkWood = createMaterial(scene, "vr-menu-dark-wood", new Color3(0.22, 0.13, 0.08));
-    const roof = createMaterial(scene, "vr-menu-roof", new Color3(0.34, 0.18, 0.1));
-    const glass = createMaterial(scene, "vr-menu-glass", new Color3(0.45, 0.75, 0.9));
+function createHorizonLobbyScene(scene: Scene): void {
+    const sky = createMaterial(scene, "vr-horizon-sky", new Color3(0.5, 0.78, 1.0));
+    const platformMaterial = createMaterial(scene, "vr-horizon-platform", new Color3(0.82, 0.88, 0.96));
+    const cyan = createMaterial(scene, "vr-horizon-cyan", new Color3(0.05, 0.68, 1.0));
+    const blue = createMaterial(scene, "vr-horizon-blue", new Color3(0.05, 0.17, 0.58));
+    const glass = createMaterial(scene, "vr-horizon-glass", new Color3(0.45, 0.85, 1.0));
+    const dark = createMaterial(scene, "vr-horizon-dark", new Color3(0.03, 0.05, 0.12));
+    const foliage = createMaterial(scene, "vr-horizon-foliage", new Color3(0.9, 0.38, 0.78));
 
-    const ground = MeshBuilder.CreateBox("vr-menu-ground", { width: 18, depth: 18, height: 0.2 }, scene);
-    ground.position.y = -0.1;
-    ground.material = grass;
+    const ground = MeshBuilder.CreateBox("vr-horizon-platform", { width: 18, depth: 18, height: 0.25 }, scene);
+    ground.position.y = -0.12;
+    ground.material = platformMaterial;
 
-    const cabin = MeshBuilder.CreateBox("vr-menu-chalet-body", { width: 5.2, depth: 4, height: 2.8 }, scene);
-    cabin.position.y = 1.4;
-    cabin.material = wood;
+    const runway = MeshBuilder.CreateBox("vr-horizon-runway", { width: 4.2, depth: 15, height: 0.08 }, scene);
+    runway.position.set(0, 0.05, -0.4);
+    runway.material = cyan;
 
-    const roofLeft = MeshBuilder.CreateBox("vr-menu-roof-left", { width: 5.8, depth: 4.6, height: 0.42 }, scene);
-    roofLeft.position.set(-1.35, 3.05, 0);
-    roofLeft.rotation.z = Math.PI / 5;
-    roofLeft.material = roof;
+    const screenWall = MeshBuilder.CreateBox("vr-horizon-screen-wall", { width: 7.5, depth: 0.2, height: 3.6 }, scene);
+    screenWall.position.set(0, 2.1, 2.9);
+    screenWall.material = dark;
 
-    const roofRight = MeshBuilder.CreateBox("vr-menu-roof-right", { width: 5.8, depth: 4.6, height: 0.42 }, scene);
-    roofRight.position.set(1.35, 3.05, 0);
-    roofRight.rotation.z = -Math.PI / 5;
-    roofRight.material = roof;
+    const screenGlow = MeshBuilder.CreateBox("vr-horizon-screen-glow", { width: 5.8, depth: 0.08, height: 2.4 }, scene);
+    screenGlow.position.set(0, 2.2, 2.76);
+    screenGlow.material = blue;
 
-    const door = MeshBuilder.CreateBox("vr-menu-door", { width: 1, height: 1.9, depth: 0.08 }, scene);
-    door.position.set(0, 0.95, -2.04);
-    door.material = darkWood;
-
-    for (const x of [-1.55, 1.55]) {
-        const window = MeshBuilder.CreateBox(`vr-menu-window-${x}`, { width: 0.9, height: 0.75, depth: 0.09 }, scene);
-        window.position.set(x, 1.7, -2.08);
-        window.material = glass;
+    for (const x of [-5.2, 5.2]) {
+        const sideGlass = MeshBuilder.CreateBox(`vr-horizon-window-${x}`, { width: 0.15, depth: 12, height: 2.9 }, scene);
+        sideGlass.position.set(x, 1.7, -1.2);
+        sideGlass.material = glass;
     }
 
-    for (const x of [-3.2, 3.2]) {
-        const trunk = MeshBuilder.CreateBox(`vr-menu-tree-trunk-${x}`, { width: 0.45, height: 1.8, depth: 0.45 }, scene);
-        trunk.position.set(x, 0.9, 2.8);
-        trunk.material = darkWood;
+    for (const [x, z] of [[-3.5, -4.5], [3.5, -4.5], [-3.5, 4.5], [3.5, 4.5]] as const) {
+        const pillar = MeshBuilder.CreateBox(`vr-horizon-light-pillar-${x}-${z}`, { width: 0.38, depth: 0.38, height: 3.4 }, scene);
+        pillar.position.set(x, 1.7, z);
+        pillar.material = cyan;
+    }
 
-        const leaves = MeshBuilder.CreateBox(`vr-menu-tree-leaves-${x}`, { width: 1.6, height: 1.6, depth: 1.6 }, scene);
-        leaves.position.set(x, 2.25, 2.8);
-        leaves.material = grass;
+    for (const [x, z] of [[-7.2, -3.6], [7.2, -3.6], [-7.2, 4.2], [7.2, 4.2]] as const) {
+        const island = MeshBuilder.CreateBox(`vr-horizon-floating-island-${x}-${z}`, { width: 2.2, depth: 2.2, height: 0.35 }, scene);
+        island.position.set(x, 0.35, z);
+        island.material = sky;
+
+        const tree = MeshBuilder.CreateBox(`vr-horizon-tree-${x}-${z}`, { width: 1.35, depth: 1.35, height: 1.35 }, scene);
+        tree.position.set(x, 1.25, z);
+        tree.material = foliage;
+    }
+
+    for (const z of [-5.2, 5.2]) {
+        const portalTop = MeshBuilder.CreateBox(`vr-horizon-portal-top-${z}`, { width: 5, depth: 0.22, height: 0.25 }, scene);
+        portalTop.position.set(0, 3.55, z);
+        portalTop.material = cyan;
+
+        for (const x of [-2.7, 2.7]) {
+            const portalSide = MeshBuilder.CreateBox(`vr-horizon-portal-side-${x}-${z}`, { width: 0.25, depth: 0.22, height: 3 }, scene);
+            portalSide.position.set(x, 2.05, z);
+            portalSide.material = cyan;
+        }
     }
 }
 
