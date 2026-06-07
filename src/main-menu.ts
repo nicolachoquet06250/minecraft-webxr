@@ -19,11 +19,11 @@ import {
 import { EYE_HEIGHT, MOVE_SPEED, pressedKeys } from "./constants";
 import { isMobileMode, isVRMode } from "./mobile-controls";
 import type { PlayerPhysics } from "./types";
-import { initializeWebXRGameControls } from "./vr-mode";
+import { initializeWebXRGameControls, type WebXRGameControls } from "./vr-mode";
 
 const VR_MENU_SPAWN = new Vector3(2.5, 0, -4.8);
-const VR_MENU_MIN_X = -4.4;
-const VR_MENU_MAX_X = 11.3;
+const VR_MENU_MIN_X = -4.35;
+const VR_MENU_MAX_X = 11.35;
 const VR_MENU_MIN_Z = -4.6;
 const VR_MENU_MAX_Z = 8.0;
 
@@ -39,7 +39,7 @@ export async function showMainMenu({ engine, canvas, onPlay }: MainMenuOptions):
     const device = await detectMenuDevice();
 
     if (device === "vr") {
-        await showVRChaletMenu(engine, onPlay);
+        showVRChaletMenu(engine, onPlay);
         return;
     }
 
@@ -58,10 +58,10 @@ async function detectMenuDevice(): Promise<MenuDevice> {
     return "desktop";
 }
 
-async function showVRChaletMenu(
+function showVRChaletMenu(
     engine: import("@babylonjs/core").Engine,
     onPlay: () => void,
-): Promise<void> {
+): void {
     const scene = new Scene(engine);
     scene.clearColor = new Color4(0.04, 0.035, 0.025, 1);
 
@@ -71,9 +71,9 @@ async function showVRChaletMenu(
     scene.activeCamera = camera;
 
     const light = new HemisphericLight("vr-menu-light", new Vector3(0.2, 1, 0.25), scene);
-    light.intensity = 1.1;
+    light.intensity = 1.15;
 
-    createVRChaletMap(scene);
+    const floor = createVRChaletMap(scene);
     createVRWallMenu(scene, () => {
         pressedKeys.clear();
         engine.stopRenderLoop();
@@ -81,19 +81,35 @@ async function showVRChaletMenu(
         onPlay();
     });
 
-    const webXRControls = await initializeWebXRGameControls(scene, menuPlayer);
+    let webXRControls: WebXRGameControls | null = null;
+
+    initializeWebXRGameControls(scene, menuPlayer)
+        .then((controls) => {
+            webXRControls = controls;
+        })
+        .catch(async (error) => {
+            console.warn("Contrôles WebXR indisponibles dans le menu chalet", error);
+
+            try {
+                await scene.createDefaultXRExperienceAsync({
+                    floorMeshes: [floor],
+                });
+            } catch (xrError) {
+                console.warn("WebXR indisponible dans le menu chalet", xrError);
+            }
+        });
 
     engine.runRenderLoop(() => {
         const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
 
-        webXRControls.syncBeforePhysics(deltaTime);
+        webXRControls?.syncBeforePhysics(deltaTime);
         updateVRMenuPlayerFromControls(menuPlayer, deltaTime);
 
-        if (!webXRControls.isActive()) {
+        if (!webXRControls?.isActive()) {
             updateVRMenuCamera(camera, menuPlayer);
         }
 
-        webXRControls.syncAfterPhysics();
+        webXRControls?.syncAfterPhysics();
         scene.render();
     });
 }
