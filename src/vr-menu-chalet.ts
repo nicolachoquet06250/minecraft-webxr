@@ -4,17 +4,17 @@ import {type Mesh, MeshBuilder, Quaternion, type Scene, type StandardMaterial, V
 import {BlockId, type PlayerPhysics, type WorldChunks} from "./types";
 import {AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock} from "@babylonjs/gui";
 
-const CHALET_CENTER_X = 10;
-const CHALET_CENTER_Z = 10;
-const CHALET_MIN_X = 0;
-const CHALET_MAX_X = 20;
-const CHALET_MIN_Z = 0;
-const CHALET_MAX_Z = 18;
-const CHALET_SCREEN_Z = CHALET_MIN_Z + 0.07;
-const CHALET_SCREEN_Y_OFFSET = 3.05;
-const CHALET_SPAWN_X = 8.5;
-const CHALET_SPAWN_Z = 12.5;
-const CHALET_YAW_TO_SCREEN = Math.PI;
+const HORIZON_CENTER_X = 8;
+const HORIZON_CENTER_Z = 8;
+const HORIZON_MIN_X = -6;
+const HORIZON_MAX_X = 22;
+const HORIZON_MIN_Z = -4;
+const HORIZON_MAX_Z = 20;
+const HORIZON_SCREEN_Z = HORIZON_MIN_Z + 0.06;
+const HORIZON_SCREEN_Y_OFFSET = 3.25;
+const HORIZON_SPAWN_X = 8.5;
+const HORIZON_SPAWN_Z = 13.5;
+const HORIZON_YAW_TO_SCREEN = Math.PI;
 
 export type VRMenuChalet = {
     readonly spawn: Vector3;
@@ -62,7 +62,7 @@ export function movePlayerToVRMenuChalet(player: PlayerPhysics, chalet: VRMenuCh
     player.position.copyFrom(chalet.spawn);
     player.velocity.set(0, 0, 0);
     player.yaw = chalet.yaw;
-    player.pitch = -0.08;
+    player.pitch = 0;
     player.grounded = true;
 }
 
@@ -73,9 +73,9 @@ function carveHorizonSpace(
     sizeZ: number,
     floorY: number,
 ): void {
-    for (let x = CHALET_MIN_X - 3; x <= CHALET_MAX_X + 3; x++) {
-        for (let z = CHALET_MIN_Z - 3; z <= CHALET_MAX_Z + 3; z++) {
-            for (let y = floorY - 1; y <= floorY + 9; y++) {
+    for (let x = HORIZON_MIN_X - 3; x <= HORIZON_MAX_X + 3; x++) {
+        for (let z = HORIZON_MIN_Z - 3; z <= HORIZON_MAX_Z + 3; z++) {
+            for (let y = floorY; y <= floorY + 14; y++) {
                 setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z, BlockId.Air);
             }
         }
@@ -89,53 +89,45 @@ function buildHorizonHubShell(
     sizeZ: number,
     floorY: number,
 ): void {
-    // Volume fermé : on reproduit un intérieur de maison Minecraft, pas une façade extérieure.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY, CHALET_MIN_Z, CHALET_MAX_X, floorY, CHALET_MAX_Z, BlockId.BirchPlanks);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY + 5, CHALET_MIN_Z, CHALET_MAX_X, floorY + 5, CHALET_MAX_Z, BlockId.BirchPlanks);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, floorY, HORIZON_MIN_Z, HORIZON_MAX_X, floorY, HORIZON_MAX_Z, BlockId.WhiteWool);
 
-    // Murs en planches sombres, visibles tout autour du joueur.
-    for (let y = floorY + 1; y <= floorY + 4; y++) {
-        fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, y, CHALET_MIN_Z, CHALET_MAX_X, y, CHALET_MIN_Z, BlockId.SprucePlanks);
-        fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, y, CHALET_MAX_Z, CHALET_MAX_X, y, CHALET_MAX_Z, BlockId.SprucePlanks);
-        fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, y, CHALET_MIN_Z, CHALET_MIN_X, y, CHALET_MAX_Z, BlockId.SprucePlanks);
-        fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, y, CHALET_MIN_Z, CHALET_MAX_X, y, CHALET_MAX_Z, BlockId.SprucePlanks);
+    for (let x = HORIZON_MIN_X + 1; x < HORIZON_MAX_X; x++) {
+        for (let z = HORIZON_MIN_Z + 1; z < HORIZON_MAX_Z; z++) {
+            const isRunway = x >= 6 && x <= 10;
+            const isAccentBand = z % 5 === 0 || x === HORIZON_CENTER_X;
+            const block = isRunway
+                ? BlockId.LightBlueWool
+                : isAccentBand
+                    ? BlockId.CyanWool
+                    : BlockId.LightGrayWool;
+            setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, floorY, z, block);
+        }
     }
 
-    // Piliers et poutres, comme les angles boisés visibles sur la référence.
-    for (const [x, z] of [
-        [CHALET_MIN_X, CHALET_MIN_Z],
-        [CHALET_MAX_X, CHALET_MIN_Z],
-        [CHALET_MIN_X, CHALET_MAX_Z],
-        [CHALET_MAX_X, CHALET_MAX_Z],
-        [12, CHALET_MIN_Z],
-        [12, 9],
-    ] as const) {
-        fillBox(worldChunks, sizeX, sizeY, sizeZ, x, floorY + 1, z, x, floorY + 5, z, BlockId.DarkOakLog);
+    // Mur avant : scène sombre et grand écran flottant façon hub Horizon.
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 1, floorY + 1, HORIZON_MIN_Z, 15, floorY + 6, HORIZON_MIN_Z, BlockId.BlackWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 4, floorY + 2, HORIZON_MIN_Z, 12, floorY + 5, HORIZON_MIN_Z, BlockId.BlueWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 5, floorY + 3, HORIZON_MIN_Z, 11, floorY + 4, HORIZON_MIN_Z, BlockId.LightBlueWool);
+
+    // Murs latéraux bas + grandes baies vitrées pour que le changement soit visible en VR.
+    for (let y = floorY + 1; y <= floorY + 5; y++) {
+        for (let z = HORIZON_MIN_Z; z <= HORIZON_MAX_Z; z++) {
+            const block = y <= floorY + 2 || z % 6 === 0 ? BlockId.WhiteWool : BlockId.Glass;
+            setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, y, z, block);
+            setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MAX_X, y, z, block);
+        }
     }
 
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY + 4, CHALET_MIN_Z, CHALET_MAX_X, floorY + 4, CHALET_MIN_Z, BlockId.DarkOakLog);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY + 4, CHALET_MAX_Z, CHALET_MAX_X, floorY + 4, CHALET_MAX_Z, BlockId.DarkOakLog);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY + 4, CHALET_MIN_Z, CHALET_MIN_X, floorY + 4, CHALET_MAX_Z, BlockId.DarkOakLog);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, floorY + 4, CHALET_MIN_Z, CHALET_MAX_X, floorY + 4, CHALET_MAX_Z, BlockId.DarkOakLog);
+    // Arrière ouvert sur une arche bleue, au lieu de l'ancien petit chalet en bois.
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, floorY + 1, HORIZON_MAX_Z, HORIZON_MAX_X, floorY + 2, HORIZON_MAX_Z, BlockId.WhiteWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, floorY + 3, HORIZON_MAX_Z, HORIZON_MAX_X, floorY + 5, HORIZON_MAX_Z, BlockId.Glass);
 
-    for (const z of [3, 7, 11, 15]) {
-        fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY + 5, z, CHALET_MAX_X, floorY + 5, z, BlockId.DarkOakLog);
-    }
-
-    // Fenêtre haute à gauche de la scène.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MIN_X, floorY + 2, 3, CHALET_MIN_X, floorY + 3, 7, BlockId.Glass);
-
-    // Fenêtre du mur droit/fond comme sur la référence.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 15, floorY + 2, CHALET_MAX_Z, 17, floorY + 3, CHALET_MAX_Z, BlockId.Glass);
-
-    // Paroi centrale à droite qui crée le décroché visible dans l'image modèle.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 12, floorY + 1, CHALET_MIN_Z, 12, floorY + 4, 9, BlockId.SprucePlanks);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 12, floorY + 1, 9, 14, floorY + 4, 9, BlockId.SprucePlanks);
-
-    // Porte double approximée sous les cadres, sur la paroi de droite.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 12, floorY + 1, 6, 12, floorY + 2, 7, BlockId.Air);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 12, floorY + 1, 6, BlockId.OakPlanks);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 12, floorY + 1, 7, BlockId.OakPlanks);
+    // Plafond partiel en anneaux pour garder une sensation ouverte.
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, floorY + 7, HORIZON_MIN_Z, HORIZON_MAX_X, floorY + 7, HORIZON_MIN_Z, BlockId.CyanWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, floorY + 7, HORIZON_MAX_Z, HORIZON_MAX_X, floorY + 7, HORIZON_MAX_Z, BlockId.CyanWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MIN_X, floorY + 7, HORIZON_MIN_Z, HORIZON_MIN_X, floorY + 7, HORIZON_MAX_Z, BlockId.CyanWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, HORIZON_MAX_X, floorY + 7, HORIZON_MIN_Z, HORIZON_MAX_X, floorY + 7, HORIZON_MAX_Z, BlockId.CyanWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 2, floorY + 7, 6, 14, floorY + 7, 8, BlockId.Glass);
 }
 
 function buildHorizonLobbyDetails(
@@ -145,87 +137,67 @@ function buildHorizonLobbyDetails(
     sizeZ: number,
     floorY: number,
 ): void {
-    // Grand tableau/écran sur le mur gauche de face, dans l'esprit du grand cadre de la capture.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 2, floorY + 2, CHALET_MIN_Z, 10, floorY + 4, CHALET_MIN_Z, BlockId.BlackWool);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 1, floorY + 1, CHALET_MIN_Z, 11, floorY + 1, CHALET_MIN_Z, BlockId.DarkOakPlanks);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 1, floorY + 2, CHALET_MIN_Z, 1, floorY + 4, CHALET_MIN_Z, BlockId.DarkOakPlanks);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 11, floorY + 2, CHALET_MIN_Z, 11, floorY + 4, CHALET_MIN_Z, BlockId.DarkOakPlanks);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 1, floorY + 5, CHALET_MIN_Z, 11, floorY + 5, CHALET_MIN_Z, BlockId.DarkOakPlanks);
+    buildPortalRing(worldChunks, sizeX, sizeY, sizeZ, 8, floorY + 1, 18);
+    buildPortalRing(worldChunks, sizeX, sizeY, sizeZ, -2, floorY + 1, 8);
+    buildPortalRing(worldChunks, sizeX, sizeY, sizeZ, 18, floorY + 1, 8);
 
-    // Bandeau/signe sous l'écran.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 3, floorY + 1, CHALET_MIN_Z + 1, 9, floorY + 1, CHALET_MIN_Z + 1, BlockId.SprucePlanks);
+    // Gradins/canapé incurvés face au panneau principal.
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 4, floorY + 1, 11, 12, floorY + 1, 11, BlockId.WhiteWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 5, floorY + 1, 12, 11, floorY + 1, 12, BlockId.LightBlueWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, 6, floorY + 2, 13, 10, floorY + 2, 13, BlockId.WhiteWool);
 
-    // Canapé blanc au centre, dos au joueur et face au grand écran.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 4, floorY + 1, 9, 9, floorY + 1, 10, BlockId.WhiteWool);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 4, floorY + 2, 10, 9, floorY + 2, 10, BlockId.WhiteWool);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 3, floorY + 1, 9, 3, floorY + 2, 10, BlockId.WhiteWool);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 10, floorY + 1, 9, 10, floorY + 2, 10, BlockId.WhiteWool);
+    // Socles lumineux et repères de profondeur autour du joueur.
+    for (const [x, z] of [[2, 4], [14, 4], [2, 14], [14, 14]] as const) {
+        fillBox(worldChunks, sizeX, sizeY, sizeZ, x, floorY + 1, z, x, floorY + 3, z, BlockId.Glowstone);
+        setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, floorY + 4, z, BlockId.CyanWool);
+    }
 
-    // Table basse sombre et tapis sombre devant le canapé.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 5, floorY + 1, 6, 8, floorY + 1, 7, BlockId.DarkOakPlanks);
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 5, floorY + 1, 12, 9, floorY + 1, 14, BlockId.GrayWool);
-
-    // Torches au sol, placées comme les points lumineux visibles dans le salon modèle.
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 2, floorY + 1, 5, BlockId.Torch);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 10, floorY + 1, 5, BlockId.Torch);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 4, floorY + 1, 13, BlockId.Torch);
-
-    // Cadres au mur central droit.
-    for (const [x, y, block] of [
-        [13, floorY + 3, BlockId.GreenWool],
-        [14, floorY + 3, BlockId.LightGrayWool],
-        [13, floorY + 2, BlockId.BlackWool],
-        [14, floorY + 2, BlockId.GrayWool],
-    ] as const) {
-        setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, 9, BlockId.BirchPlanks);
-        setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, 8, block);
+    // Petites îles décoratives visibles à travers les baies, pour rompre avec l'ancien rendu plat.
+    for (const [x, z] of [[-4, 2], [20, 2], [-4, 16], [20, 16]] as const) {
+        fillBox(worldChunks, sizeX, sizeY, sizeZ, x - 1, floorY, z - 1, x + 1, floorY, z + 1, BlockId.GrassBlock);
+        fillBox(worldChunks, sizeX, sizeY, sizeZ, x, floorY + 1, z, x, floorY + 3, z, BlockId.BirchLog);
+        fillBox(worldChunks, sizeX, sizeY, sizeZ, x - 1, floorY + 4, z - 1, x + 1, floorY + 5, z + 1, BlockId.CherryLeaves);
     }
 }
 
-    // Table sombre sous les cadres.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 13, floorY + 1, 7, 14, floorY + 1, 8, BlockId.DarkOakPlanks);
-
-    // Grande carte verte/bleue sur le mur droit, approximée en blocs plats.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, floorY + 1, 7, CHALET_MAX_X, floorY + 4, 12, BlockId.GreenWool);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, floorY + 2, 8, BlockId.BlueWool);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, floorY + 3, 10, BlockId.BlueWool);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, floorY + 1, 11, BlockId.BlueWool);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, CHALET_MAX_X, floorY + 4, 9, BlockId.WhiteWool);
-
-    // Bibliothèque et zone enchantement à droite/fond.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 17, floorY + 1, 13, 19, floorY + 4, 17, BlockId.Bookshelf);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 16, floorY + 1, 15, BlockId.CraftingTable);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 16, floorY + 1, 16, BlockId.Furnace);
-
-    // Ender chest approximé à droite devant le joueur.
-    fillBox(worldChunks, sizeX, sizeY, sizeZ, 15, floorY + 1, 10, 17, floorY + 1, 12, BlockId.BlackWool);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 15, floorY + 2, 10, BlockId.CyanWool);
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 17, floorY + 2, 12, BlockId.CyanWool);
-
-    // Coffre simple sur le côté gauche/fond.
-    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, 2, floorY + 1, 15, BlockId.Chest);
+function buildPortalRing(
+    worldChunks: WorldChunks,
+    sizeX: number,
+    sizeY: number,
+    sizeZ: number,
+    centerX: number,
+    baseY: number,
+    z: number,
+): void {
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, centerX - 3, baseY, z, centerX + 3, baseY, z, BlockId.BlueWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, centerX - 3, baseY + 5, z, centerX + 3, baseY + 5, z, BlockId.BlueWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, centerX - 4, baseY + 1, z, centerX - 4, baseY + 4, z, BlockId.CyanWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, centerX + 4, baseY + 1, z, centerX + 4, baseY + 4, z, BlockId.CyanWool);
+    fillBox(worldChunks, sizeX, sizeY, sizeZ, centerX - 2, baseY + 1, z, centerX + 2, baseY + 4, z, BlockId.Glass);
+    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, centerX, baseY + 2, z, BlockId.Glowstone);
+    setWorldBlock(worldChunks, sizeX, sizeY, sizeZ, centerX, baseY + 3, z, BlockId.Glowstone);
 }
 
 function createMenuPanel(scene: Scene, floorY: number): Mesh {
     const panel = MeshBuilder.CreatePlane(
-        "vr-menu-screen-panel",
-        { width: 4.6, height: 2.25 },
+        "vr-horizon-screen-panel",
+        { width: 6.3, height: 3.05 },
         scene,
     );
-    panel.position.set(6.5, floorY + HORIZON_SCREEN_Y_OFFSET, HORIZON_SCREEN_Z);
+    panel.position.set(8, floorY + HORIZON_SCREEN_Y_OFFSET, HORIZON_SCREEN_Z);
     panel.rotationQuaternion = Quaternion.FromEulerAngles(0, 0, 0);
     panel.isPickable = true;
 
-    const ui = AdvancedDynamicTexture.CreateForMesh(panel, 1600, 820, false);
-    const root = new Rectangle("vr-menu-root");
-    root.thickness = 8;
-    root.color = "#5b3f24";
-    root.cornerRadius = 28;
-    root.background = "rgba(18, 14, 10, 0.72)";
-    root.paddingLeft = "64px";
-    root.paddingRight = "64px";
-    root.paddingTop = "56px";
-    root.paddingBottom = "56px";
+    const ui = AdvancedDynamicTexture.CreateForMesh(panel, 1800, 900, false);
+    const root = new Rectangle("vr-horizon-menu-root");
+    root.thickness = 10;
+    root.color = "#72e5ff";
+    root.cornerRadius = 36;
+    root.background = "rgba(4, 12, 34, 0.88)";
+    root.paddingLeft = "70px";
+    root.paddingRight = "70px";
+    root.paddingTop = "58px";
+    root.paddingBottom = "58px";
     ui.addControl(root);
 
     const stack = new StackPanel("vr-horizon-menu-stack");
@@ -318,8 +290,8 @@ function rebuildTouchedChunkMeshes(
     sizeZ: number,
     material: StandardMaterial,
 ): void {
-    for (let chunkX = Math.floor((CHALET_MIN_X - 3) / sizeX); chunkX <= Math.floor((CHALET_MAX_X + 3) / sizeX); chunkX++) {
-        for (let chunkZ = Math.floor((CHALET_MIN_Z - 3) / sizeZ); chunkZ <= Math.floor((CHALET_MAX_Z + 3) / sizeZ); chunkZ++) {
+    for (let chunkX = Math.floor((HORIZON_MIN_X - 3) / sizeX); chunkX <= Math.floor((HORIZON_MAX_X + 3) / sizeX); chunkX++) {
+        for (let chunkZ = Math.floor((HORIZON_MIN_Z - 3) / sizeZ); chunkZ <= Math.floor((HORIZON_MAX_Z + 3) / sizeZ); chunkZ++) {
             const chunk = worldChunks.get(getChunkKey(chunkX, chunkZ));
 
             if (!chunk) continue;
