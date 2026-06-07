@@ -15,6 +15,7 @@ import { startBlockBreaking, cancelBlockBreaking, updateBlockBreaking } from "./
 import { isCraftingOverlayOpen } from "./ui-state";
 
 const MOBILE_MEDIA_QUERY = "(hover: none) and (pointer: coarse)";
+const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 
 const MOVE_JOYSTICK_SIZE = 180;
 const MOVE_JOYSTICK_RADIUS_X = 80;
@@ -68,16 +69,16 @@ export function isMobileMode(): boolean {
   const isMobile = isMobileUA && (hasTouch || isCoarse);
 
   // On exclut les casques VR (ex: Oculus/Meta Quest) de la détection mobile pour garder le bouton VR
-  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
+  const isVRHeadset = VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent);
 
   return isMobile && !isVRHeadset;
 }
 
 export function isVRMode(): boolean {
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isVRHeadset = /Oculus|Quest|Pico|Vive|Hololens/i.test(navigator.userAgent);
-
-  return !isMobileUA && isVRHeadset;
+  // Les casques autonomes (ex. Meta Quest) exposent souvent un User-Agent Android.
+  // On teste donc d'abord la signature du casque, sinon le monde VR ne charge pas
+  // son rendu dédié (chalet, position de spawn et contrôles WebXR) sur Quest.
+  return VR_HEADSET_USER_AGENT_PATTERN.test(navigator.userAgent);
 }
 
 function clamp(value: number, min: number, max: number): number {
