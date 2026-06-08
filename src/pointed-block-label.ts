@@ -123,7 +123,7 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
   container.background = "rgba(0, 0, 0, 0.46)";
   container.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
   container.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-  container.top = isMobile ? "-2px" : "-4px";
+  container.top = isMobile ? "-80px" : "-90px";
   container.isPointerBlocker = false;
   container.isVisible = false;
 
