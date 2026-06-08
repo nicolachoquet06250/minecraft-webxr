@@ -14,4 +14,4 @@ crate-type = ["cdylib", "rlib"]
 # Caused by: crate-type must be cdylib to compile to WebAssembly. Add the following to your Cargo.toml file:
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = true
+wasm-opt = false
