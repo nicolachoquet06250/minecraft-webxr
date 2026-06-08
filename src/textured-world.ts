@@ -1,4 +1,4 @@
-import { Mesh, MeshBuilder, Ray, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
+import { Mesh, Ray, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, PLAYER_HEIGHT, PLAYER_RADIUS, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
 import { getBlockDefinition } from "./blocks";
@@ -63,8 +63,8 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
     material,
   } = params;
 
-  const solid: MeshBuffers = createMeshBuffers();
-  const water: MeshBuffers = createMeshBuffers();
+  const solid = createMeshBuffers();
+  const water = createMeshBuffers();
   const worldOffsetX = chunkX * sizeX;
   const worldOffsetZ = chunkZ * sizeZ;
 
@@ -227,6 +227,33 @@ function addTexturedFace(params: AddTexturedFaceParams): void {
   buffers.uvs.push(...uv);
 }
 
+function addDroppedTexturedFace(buffers: MeshBuffers, face: FaceDefinition, block: BlockId): void {
+  const vertexIndex = buffers.positions.length / 3;
+  const color = getBlockFaceColor(block, face.normal);
+  const uv = getFaceTextureUv(block, face);
+
+  for (const vertex of face.vertices) {
+    buffers.positions.push(
+      (vertex[0] - 0.5) * DROP_SIZE,
+      (vertex[1] - 0.5) * DROP_SIZE,
+      (vertex[2] - 0.5) * DROP_SIZE,
+    );
+    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.colors.push(color.r, color.g, color.b, color.a);
+  }
+
+  buffers.indices.push(
+    vertexIndex,
+    vertexIndex + 1,
+    vertexIndex + 2,
+    vertexIndex,
+    vertexIndex + 2,
+    vertexIndex + 3,
+  );
+
+  buffers.uvs.push(...uv);
+}
+
 function getFaceTextureUv(block: BlockId, face: FaceDefinition): readonly number[] {
   return getBlockFaceTextureUv(block, getFaceName(face)) ?? getFallbackTextureUv();
 }
@@ -253,19 +280,35 @@ function applyBuffersToMesh(mesh: Mesh, buffers: MeshBuffers): void {
   vertexData.applyToMesh(mesh);
 }
 
-export function dropBlock(scene: Scene, blockId: BlockId, position: Vector3, droppedItems: DroppedItem[]): void {
+function createDroppedBlockMesh(scene: Scene, blockId: BlockId, material: StandardMaterial): Mesh {
+  const mesh = new Mesh(`dropped-block-${blockId}`, scene);
+  const buffers = createMeshBuffers();
+
+  for (const face of FACES) {
+    addDroppedTexturedFace(buffers, face, blockId);
+  }
+
+  applyBuffersToMesh(mesh, buffers);
+  mesh.hasVertexAlpha = true;
+  mesh.material = material;
+
+  return mesh;
+}
+
+export function dropBlock(
+  scene: Scene,
+  blockId: BlockId,
+  position: Vector3,
+  material: StandardMaterial,
+  droppedItems: DroppedItem[],
+): void {
   const root = new TransformNode("dropped-block-root", scene);
   root.position.copyFrom(position);
 
   if (blockId === BlockId.Poppy) {
     void attachPoppyModelToParent(scene, root, `dropped-poppy-${Date.now()}-${Math.random()}`);
   } else {
-    const mesh = MeshBuilder.CreateBox(
-      `dropped-block-${blockId}`,
-      { size: DROP_SIZE },
-      scene,
-    );
-
+    const mesh = createDroppedBlockMesh(scene, blockId, material);
     mesh.parent = root;
   }
 
@@ -286,10 +329,10 @@ export function spawnTexturedDrop(
   y: number,
   z: number,
   blockId: BlockId,
-  _material: StandardMaterial,
+  material: StandardMaterial,
   droppedItems: DroppedItem[],
 ): void {
-  dropBlock(scene, blockId, new Vector3(x + 0.5, y + 0.5, z + 0.5), droppedItems);
+  dropBlock(scene, blockId, new Vector3(x + 0.5, y + 0.5, z + 0.5), material, droppedItems);
 }
 
 export function breakBlock(params: BreakBlockParams): void {
@@ -310,7 +353,7 @@ export function breakBlock(params: BreakBlockParams): void {
   const localZ = worldToLocalCoordinate(target.z, sizeZ);
   setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ, BlockId.Air);
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
-  dropBlock(scene, target.block, new Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5), droppedItems);
+  dropBlock(scene, target.block, new Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5), material, droppedItems);
 }
 
 export function placeBlock(params: BreakBlockParams): void {
