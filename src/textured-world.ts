@@ -78,23 +78,22 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
         const worldX = worldOffsetX + x;
         const worldY = y;
         const worldZ = worldOffsetZ + z;
-        const visualHeight = getBlockVisualHeight(block);
 
         if (block === BlockId.Water) {
-          const topNeighbor = getBlock(blocks, sizeX, sizeY, sizeZ, x, y + 1, z);
-
-          if (topNeighbor === BlockId.Air) {
-            addDoubleSidedFlatFace({
-              buffers: water,
-              x: worldX,
-              y: worldY,
-              z: worldZ,
-              face: FACES[0],
-              block,
-              visualHeight,
-            });
-          }
-
+          addWaterGeometryForBlock({
+            buffers: water,
+            blocks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            x,
+            y,
+            z,
+            worldX,
+            worldY,
+            worldZ,
+            block,
+          });
           continue;
         }
 
@@ -109,41 +108,28 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
             z + face.normal[2],
           );
 
-          if (!isTransparentForMeshing(neighbor)) continue;
-
-          addTexturedOrFlatFace({
-            buffers: solid,
-            x: worldX,
-            y: worldY,
-            z: worldZ,
-            face,
-            block,
-            visualHeight,
-          });
+          if (isTransparentForMeshing(neighbor)) {
+            addTexturedFace({
+              buffers: solid,
+              x: worldX,
+              y: worldY,
+              z: worldZ,
+              face,
+              block,
+            });
+          }
         }
       }
     }
   }
 
   const mesh = new Mesh(name, scene);
-  const vertexData = new VertexData();
-  vertexData.positions = solid.positions;
-  vertexData.indices = solid.indices;
-  vertexData.normals = solid.normals;
-  vertexData.colors = solid.colors;
-  vertexData.uvs = solid.uvs;
-  vertexData.applyToMesh(mesh);
+  applyBuffersToMesh(mesh, solid);
   mesh.material = material;
 
   if (water.positions.length > 0) {
     const waterMesh = new Mesh(`${name}-water`, scene);
-    const waterVertexData = new VertexData();
-    waterVertexData.positions = water.positions;
-    waterVertexData.indices = water.indices;
-    waterVertexData.normals = water.normals;
-    waterVertexData.colors = water.colors;
-    waterVertexData.uvs = water.uvs;
-    waterVertexData.applyToMesh(waterMesh);
+    applyBuffersToMesh(waterMesh, water);
     waterMesh.hasVertexAlpha = true;
     waterMesh.material = material;
     waterMesh.parent = mesh;
@@ -152,140 +138,105 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   return mesh;
 }
 
-function createMeshBuffers(): MeshBuffers {
-  return { positions: [], indices: [], normals: [], colors: [], uvs: [] };
+type AddWaterGeometryParams = {
+  buffers: MeshBuffers;
+  blocks: Uint8Array;
+  sizeX: number;
+  sizeY: number;
+  sizeZ: number;
+  x: number;
+  y: number;
+  z: number;
+  worldX: number;
+  worldY: number;
+  worldZ: number;
+  block: BlockId;
+};
+
+function addWaterGeometryForBlock(params: AddWaterGeometryParams): void {
+  const { buffers, blocks, sizeX, sizeY, sizeZ, x, y, z, worldX, worldY, worldZ, block } = params;
+
+  for (const face of FACES) {
+    const neighbor = getBlock(
+      blocks,
+      sizeX,
+      sizeY,
+      sizeZ,
+      x + face.normal[0],
+      y + face.normal[1],
+      z + face.normal[2],
+    );
+
+    if (neighbor === BlockId.Water) {
+      continue;
+    }
+
+    if (isTransparentForMeshing(neighbor)) {
+      addTexturedFace({
+        buffers,
+        x: worldX,
+        y: worldY,
+        z: worldZ,
+        face,
+        block,
+      });
+    }
+  }
 }
 
-function getBlockVisualHeight(block: BlockId): number {
-  const height = getBlockDefinition(block)?.visualHeight ?? 1;
+function createMeshBuffers(): MeshBuffers {
+  return {
+    positions: [],
+    indices: [],
+    normals: [],
+    colors: [],
+    uvs: [],
+  };
+}
 
-  if (!Number.isFinite(height)) {
-    return 1;
+type AddTexturedFaceParams = {
+  buffers: MeshBuffers;
+  x: number;
+  y: number;
+  z: number;
+  face: FaceDefinition;
+  block: BlockId;
+};
+
+function addTexturedFace(params: AddTexturedFaceParams): void {
+  const { buffers, x, y, z, face, block } = params;
+  const vertexIndex = buffers.positions.length / 3;
+  const color = getBlockFaceColor(block, face.normal);
+  const uv = getFaceTextureUv(block, face.name);
+
+  for (const vertex of face.vertices) {
+    buffers.positions.push(x + vertex[0], y + vertex[1], z + vertex[2]);
+    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.colors.push(color.r, color.g, color.b, color.a);
   }
 
-  return Math.min(1, Math.max(0.05, height));
-}
+  buffers.indices.push(
+    vertexIndex,
+    vertexIndex + 1,
+    vertexIndex + 2,
+    vertexIndex,
+    vertexIndex + 2,
+    vertexIndex + 3,
+  );
 
-function isTreeBlock(block: BlockId): boolean {
-  return (
-    block === BlockId.OakLog ||
-    block === BlockId.SpruceLog ||
-    block === BlockId.BirchLog ||
-    block === BlockId.JungleLog ||
-    block === BlockId.AcaciaLog ||
-    block === BlockId.DarkOakLog ||
-    block === BlockId.MangroveLog ||
-    block === BlockId.CherryLog ||
-    block === BlockId.OakLeaves ||
-    block === BlockId.SpruceLeaves ||
-    block === BlockId.BirchLeaves ||
-    block === BlockId.JungleLeaves ||
-    block === BlockId.AcaciaLeaves ||
-    block === BlockId.DarkOakLeaves ||
-    block === BlockId.MangroveLeaves ||
-    block === BlockId.CherryLeaves
+  buffers.uvs.push(
+    uv.u0, uv.v1,
+    uv.u1, uv.v1,
+    uv.u1, uv.v0,
+    uv.u0, uv.v0,
   );
 }
 
-function getFaceLightingNormal(block: BlockId, normal: [number, number, number]): [number, number, number] {
-  if (normal[1] === -1 && isTreeBlock(block)) {
-    return [0, 1, 0];
-  }
-
-  return normal;
+function getFaceTextureUv(block: BlockId, faceName: BlockFaceName): { u0: number; v0: number; u1: number; v1: number } {
+  return getBlockFaceTextureUv(block, faceName) ?? getFallbackTextureUv(block);
 }
 
-function addTexturedOrFlatFace(params: {
-  buffers: MeshBuffers;
-  x: number;
-  y: number;
-  z: number;
-  face: FaceDefinition;
-  block: BlockId;
-  visualHeight?: number;
-}): void {
-  const faceName = getFaceName(params.face.normal);
-  const textureUvs = getBlockFaceTextureUv(params.block, faceName);
-
-  addFlatFace(params, textureUvs);
-}
-
-function addDoubleSidedFlatFace(params: {
-  buffers: MeshBuffers;
-  x: number;
-  y: number;
-  z: number;
-  face: FaceDefinition;
-  block: BlockId;
-  visualHeight?: number;
-}): void {
-  addFlatFace(params, getBlockFaceTextureUv(params.block, getFaceName(params.face.normal)));
-  addFlatFace(params, getBlockFaceTextureUv(params.block, getFaceName(params.face.normal)), true);
-}
-
-function addFlatFace(
-  params: {
-    buffers: MeshBuffers;
-    x: number;
-    y: number;
-    z: number;
-    face: FaceDefinition;
-    block: BlockId;
-    visualHeight?: number;
-  },
-  textureUvs: readonly number[] | null = null,
-  reverseWinding = false,
-): void {
-  const { buffers, x, y, z, face, block, visualHeight = 1 } = params;
-  const vertexIndex = buffers.positions.length / 3;
-  const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
-  const lightingNormal = getFaceLightingNormal(block, face.normal);
-
-  for (const vertex of face.vertices) {
-    buffers.positions.push(
-      x + vertex[0],
-      y + getVertexVisualY(vertex[1], visualHeight),
-      z + vertex[2],
-    );
-    buffers.normals.push(lightingNormal[0], lightingNormal[1], lightingNormal[2]);
-    buffers.colors.push(color.r, color.g, color.b, reverseWinding ? color.a * 0.5 : color.a);
-  }
-
-  buffers.uvs.push(...(textureUvs ?? getFallbackTextureUv()));
-
-  if (reverseWinding) {
-    buffers.indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 1, vertexIndex, vertexIndex + 3, vertexIndex + 2);
-    return;
-  }
-
-  buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
-}
-
-function getVertexVisualY(vertexY: number, visualHeight: number): number {
-  return vertexY === 1 ? visualHeight : vertexY;
-}
-
-export function spawnTexturedDrop(
-  scene: Scene,
-  worldX: number,
-  worldY: number,
-  worldZ: number,
-  blockId: BlockId,
-  material: StandardMaterial,
-  droppedItems: DroppedItem[],
-): void {
-  if (blockId === BlockId.Poppy) {
-    spawnPoppyDrop(scene, worldX, worldY, worldZ, droppedItems);
-    return;
-  }
-
-  const buffers = createMeshBuffers();
-
-  for (const face of FACES) {
-    addDroppedBlockFace(buffers, blockId, face);
-  }
-
-  const mesh = new Mesh(`drop-${blockId}-${Date.now()}`, scene);
+function applyBuffersToMesh(mesh: Mesh, buffers: MeshBuffers): void {
   const vertexData = new VertexData();
   vertexData.positions = buffers.positions;
   vertexData.indices = buffers.indices;
@@ -293,146 +244,61 @@ export function spawnTexturedDrop(
   vertexData.colors = buffers.colors;
   vertexData.uvs = buffers.uvs;
   vertexData.applyToMesh(mesh);
-
-  mesh.position = new Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
-  mesh.material = material;
-  mesh.hasVertexAlpha = true;
-
-  droppedItems.push({
-    mesh,
-    blockId,
-    createdAt: Date.now(),
-    velocity: new Vector3(0, 0, 0),
-  });
 }
 
-function spawnPoppyDrop(scene: Scene, worldX: number, worldY: number, worldZ: number, droppedItems: DroppedItem[]): void {
-  const root = new TransformNode(`drop-poppy-${Date.now()}`, scene);
-  root.position = new Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
-  root.scaling.setAll(DROP_SIZE);
+export function dropBlock(scene: Scene, blockId: BlockId, position: Vector3, droppedItems: DroppedItem[]): void {
+  const root = new TransformNode("dropped-block-root", scene);
+  root.position.copyFrom(position);
 
-  void attachPoppyModelToParent(scene, root, `drop-poppy-model-${Date.now()}`);
-
-  droppedItems.push({
-    mesh: root,
-    blockId: BlockId.Poppy,
-    createdAt: Date.now(),
-    velocity: new Vector3(0, 0, 0),
-  });
-}
-
-function addDroppedBlockFace(buffers: MeshBuffers, block: BlockId, face: FaceDefinition): void {
-  const faceName = getFaceName(face.normal);
-  const textureUvs = getBlockFaceTextureUv(block, faceName);
-  const vertexIndex = buffers.positions.length / 3;
-  const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
-  const lightingNormal = getFaceLightingNormal(block, face.normal);
-
-  for (const vertex of face.vertices) {
-    buffers.positions.push(
-      (vertex[0] - 0.5) * DROP_SIZE,
-      (vertex[1] - 0.5) * DROP_SIZE,
-      (vertex[2] - 0.5) * DROP_SIZE,
+  if (blockId === BlockId.Poppy) {
+    attachPoppyModelToParent(scene, root);
+  } else {
+    const mesh = MeshBuilder.CreateBox(
+      `dropped-block-${blockId}`,
+      { size: DROP_SIZE },
+      scene,
     );
-    buffers.normals.push(lightingNormal[0], lightingNormal[1], lightingNormal[2]);
-    buffers.colors.push(color.r, color.g, color.b, color.a);
+
+    mesh.parent = root;
   }
 
-  buffers.uvs.push(...(textureUvs ?? getFallbackTextureUv()));
-  buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
-}
+  root.scaling.setAll(0.85);
+  root.rotation.y = Math.random() * Math.PI * 2;
 
-function getFaceName(normal: [number, number, number]): BlockFaceName {
-  if (normal[1] === 1) return "top";
-  if (normal[1] === -1) return "bottom";
-  if (normal[2] === 1) return "front";
-  if (normal[2] === -1) return "back";
-  if (normal[0] === 1) return "right";
-  return "left";
-}
-
-export function ensureChunksAroundPlayer(params: {
-  scene: Scene;
-  worldChunks: WorldChunks;
-  wasm: Pick<VoxelWasmModule, "generate_chunk">;
-  material: StandardMaterial;
-  player: PlayerPhysics;
-  sizeX: number;
-  sizeY: number;
-  sizeZ: number;
-  radius?: number;
-}): void {
-  const { scene, worldChunks, wasm, material, player, sizeX, sizeY, sizeZ, radius = RENDER_CHUNK_RADIUS } = params;
-  const centerChunkX = getCurrentChunkCoordinate(player.position.x, sizeX);
-  const centerChunkZ = getCurrentChunkCoordinate(player.position.z, sizeZ);
-  const requiredChunkKeys = new Set<string>();
-
-  for (let offsetZ = -radius; offsetZ <= radius; offsetZ++) {
-    for (let offsetX = -radius; offsetX <= radius; offsetX++) {
-      const chunkX = centerChunkX + offsetX;
-      const chunkZ = centerChunkZ + offsetZ;
-      const key = getChunkKey(chunkX, chunkZ);
-      requiredChunkKeys.add(key);
-
-      if (worldChunks.has(key)) continue;
-
-      const blocks = wasm.generate_chunk(chunkX, chunkZ, SEED);
-      const mesh = createChunkMesh({ scene, name: `chunk-${chunkX}-${chunkZ}`, blocks, sizeX, sizeY, sizeZ, chunkX, chunkZ, material });
-      worldChunks.set(key, { chunkX, chunkZ, blocks, mesh });
-    }
-  }
-
-  for (const [key, chunk] of worldChunks.entries()) {
-    if (requiredChunkKeys.has(key)) continue;
-
-    chunk.mesh.dispose();
-    worldChunks.delete(key);
-  }
+  droppedItems.push({
+    blockId,
+    mesh: root,
+    velocity: new Vector3((Math.random() - 0.5) * 1.5, 3.5, (Math.random() - 0.5) * 1.5),
+    createdAt: Date.now(),
+  });
 }
 
 export function breakBlock(params: BreakBlockParams): void {
   const { scene, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
   const target = findFirstSolidBlockFromInteractionRay(params);
 
-  if (!target) return;
+  if (!target) {
+    return;
+  }
 
   const chunk = getChunkFromWorldPosition(worldChunks, sizeX, sizeZ, target.x, target.z);
-  if (!chunk) return;
+
+  if (!chunk) {
+    return;
+  }
 
   const localX = worldToLocalCoordinate(target.x, sizeX);
   const localZ = worldToLocalCoordinate(target.z, sizeZ);
-  const brokenBlock = getBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ);
-  let newBlock = BlockId.Air;
-  const neighbors = [
-    [target.x + 1, target.y, target.z],
-    [target.x - 1, target.y, target.z],
-    [target.x, target.y + 1, target.z],
-    [target.x, target.y - 1, target.z],
-    [target.x, target.y, target.z + 1],
-    [target.x, target.y, target.z - 1],
-  ];
-
-  for (const [nx, ny, nz] of neighbors) {
-    if (getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, nx, ny, nz) === BlockId.Water) {
-      newBlock = BlockId.Water;
-      break;
-    }
-  }
-
-  setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ, newBlock);
-
-  if (brokenBlock !== BlockId.Air) {
-    spawnTexturedDrop(scene, target.x, target.y, target.z, brokenBlock, material, droppedItems);
-  }
-
+  setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ, BlockId.Air);
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
+  dropBlock(scene, target.block, new Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5), droppedItems);
 }
 
 export function placeBlock(params: BreakBlockParams): void {
   const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material } = params;
   const selectedItem = player.inventory[player.selectedSlot];
 
-  if (!selectedItem || selectedItem.count <= 0) {
+  if (!selectedItem) {
     return;
   }
 
@@ -526,6 +392,11 @@ export function updateDroppedItems(
 
     if (now - item.createdAt >= DROP_PICKUP_DELAY_MS && Vector3.Distance(mesh.position, player.position) <= DROP_PICKUP_DISTANCE) {
       addToInventory(player, item.blockId);
+
+      if ((player as any)._updateInventoryUI) {
+        (player as any)._updateInventoryUI();
+      }
+
       mesh.dispose();
       droppedItems.splice(index, 1);
     }
@@ -570,7 +441,7 @@ function findLastReplaceableBlockBeforeSolidFromInteractionRay(params: BreakBloc
   const ray = getInteractionRay(params);
   const direction = ray.direction.normalize();
   const reach = getInteractionRayReach(ray);
-  let placeTarget: WorldBlockPosition | null = null;
+  let lastReplaceable: WorldBlockPosition | null = null;
 
   for (let distance = BLOCK_INTERACTION_STEP; distance <= reach; distance += BLOCK_INTERACTION_STEP) {
     const point = ray.origin.add(direction.scale(distance));
@@ -580,44 +451,36 @@ function findLastReplaceableBlockBeforeSolidFromInteractionRay(params: BreakBloc
     const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
 
     if (block === BlockId.Air || block === BlockId.Water) {
-      placeTarget = { x, y, z };
+      lastReplaceable = { x, y, z };
       continue;
     }
 
-    break;
+    return lastReplaceable;
   }
 
-  return placeTarget;
+  return null;
 }
 
 function getInteractionRayReach(ray: Ray): number {
-  return Number.isFinite(ray.length) && ray.length > 0
-    ? Math.min(ray.length, BLOCK_INTERACTION_REACH)
-    : BLOCK_INTERACTION_REACH;
+  return Number.isFinite(ray.length) && ray.length > 0 ? ray.length : BLOCK_INTERACTION_REACH;
 }
 
-function canPlaceSolidBlockAt(player: PlayerPhysics, blockX: number, blockY: number, blockZ: number): boolean {
-  const playerMinX = player.position.x - PLAYER_RADIUS;
-  const playerMaxX = player.position.x + PLAYER_RADIUS;
-  const playerMinY = player.position.y;
-  const playerMaxY = player.position.y + PLAYER_HEIGHT;
+function canPlaceSolidBlockAt(player: PlayerPhysics, x: number, y: number, z: number): boolean {
+  const minX = player.position.x - PLAYER_RADIUS;
+  const maxX = player.position.x + PLAYER_RADIUS;
+  const minY = player.position.y;
+  const maxY = player.position.y + PLAYER_HEIGHT;
+  const minZ = player.position.z - PLAYER_RADIUS;
+  const maxZ = player.position.z + PLAYER_RADIUS;
 
-  const blockMinX = blockX;
-  const blockMaxX = blockX + 1;
-  const blockMinY = blockY;
-  const blockMaxY = blockY + 1;
-  const blockMinZ = blockZ;
-  const blockMaxZ = blockZ + 1;
-
-  const overlaps =
-    playerMinX < blockMaxX &&
-    playerMaxX > blockMinX &&
-    playerMinY < blockMaxY &&
-    playerMaxY > blockMinY &&
-    player.position.z - PLAYER_RADIUS < blockMaxZ &&
-    player.position.z + PLAYER_RADIUS > blockMinZ;
-
-  return !overlaps;
+  return !(
+    x + 1 > minX &&
+    x < maxX &&
+    y + 1 > minY &&
+    y < maxY &&
+    z + 1 > minZ &&
+    z < maxZ
+  );
 }
 
 function rebuildAffectedChunks(
@@ -631,19 +494,106 @@ function rebuildAffectedChunks(
   localX: number,
   localZ: number,
 ): void {
-  const affectedChunks = new Set<string>([getChunkKey(chunk.chunkX, chunk.chunkZ)]);
+  rebuildChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk);
 
-  if (localX === 0) affectedChunks.add(getChunkKey(chunk.chunkX - 1, chunk.chunkZ));
-  if (localX === sizeX - 1) affectedChunks.add(getChunkKey(chunk.chunkX + 1, chunk.chunkZ));
-  if (localZ === 0) affectedChunks.add(getChunkKey(chunk.chunkX, chunk.chunkZ - 1));
-  if (localZ === sizeZ - 1) affectedChunks.add(getChunkKey(chunk.chunkX, chunk.chunkZ + 1));
+  if (localX === 0) {
+    rebuildNeighborChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk.chunkX - 1, chunk.chunkZ);
+  } else if (localX === sizeX - 1) {
+    rebuildNeighborChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk.chunkX + 1, chunk.chunkZ);
+  }
 
-  for (const key of affectedChunks) {
-    const affectedChunk = worldChunks.get(key);
-    if (!affectedChunk) continue;
+  if (localZ === 0) {
+    rebuildNeighborChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk.chunkX, chunk.chunkZ - 1);
+  } else if (localZ === sizeZ - 1) {
+    rebuildNeighborChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk.chunkX, chunk.chunkZ + 1);
+  }
+}
 
-    const oldMesh = affectedChunk.mesh;
-    affectedChunk.mesh = createChunkMesh({ scene, name: `chunk-${affectedChunk.chunkX}-${affectedChunk.chunkZ}`, blocks: affectedChunk.blocks, sizeX, sizeY, sizeZ, chunkX: affectedChunk.chunkX, chunkZ: affectedChunk.chunkZ, material });
-    oldMesh.dispose();
+function rebuildNeighborChunk(
+  scene: Scene,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  material: StandardMaterial,
+  chunkX: number,
+  chunkZ: number,
+): void {
+  const chunk = worldChunks.get(getChunkKey(chunkX, chunkZ));
+
+  if (chunk) {
+    rebuildChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk);
+  }
+}
+
+function rebuildChunk(
+  scene: Scene,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  material: StandardMaterial,
+  chunk: WorldChunk,
+): void {
+  chunk.mesh.dispose();
+
+  const mesh = createChunkMesh({
+    scene,
+    name: `chunk-${chunk.chunkX}-${chunk.chunkZ}`,
+    blocks: chunk.blocks,
+    sizeX,
+    sizeY,
+    sizeZ,
+    chunkX: chunk.chunkX,
+    chunkZ: chunk.chunkZ,
+    material,
+  });
+
+  chunk.mesh = mesh;
+}
+
+export function ensureChunksAroundPlayer(params: {
+  scene: Scene;
+  worldChunks: WorldChunks;
+  wasm: Pick<VoxelWasmModule, "generate_chunk">;
+  material: StandardMaterial;
+  player: PlayerPhysics;
+  sizeX: number;
+  sizeY: number;
+  sizeZ: number;
+}): void {
+  const centerChunkX = getCurrentChunkCoordinate(params.player.position.x, params.sizeX);
+  const centerChunkZ = getCurrentChunkCoordinate(params.player.position.z, params.sizeZ);
+
+  for (let dz = -RENDER_CHUNK_RADIUS; dz <= RENDER_CHUNK_RADIUS; dz++) {
+    for (let dx = -RENDER_CHUNK_RADIUS; dx <= RENDER_CHUNK_RADIUS; dx++) {
+      const chunkX = centerChunkX + dx;
+      const chunkZ = centerChunkZ + dz;
+      const key = getChunkKey(chunkX, chunkZ);
+
+      if (params.worldChunks.has(key)) {
+        continue;
+      }
+
+      const blocks = params.wasm.generate_chunk(chunkX, chunkZ, SEED);
+      const mesh = createChunkMesh({
+        scene: params.scene,
+        name: `chunk-${chunkX}-${chunkZ}`,
+        blocks,
+        sizeX: params.sizeX,
+        sizeY: params.sizeY,
+        sizeZ: params.sizeZ,
+        chunkX,
+        chunkZ,
+        material: params.material,
+      });
+
+      params.worldChunks.set(key, {
+        chunkX,
+        chunkZ,
+        blocks,
+        mesh,
+      });
+    }
   }
 }
