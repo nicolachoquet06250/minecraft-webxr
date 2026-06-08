@@ -1,4 +1,4 @@
-import { Color3, Matrix, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
+import { Color3, Matrix, Mesh, MeshBuilder, Ray, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
 import { isMobileMode } from "./mobile-controls";
@@ -9,14 +9,20 @@ const INVENTORY_SLOT_COUNT = 9;
 const VR_HOTBAR_DISTANCE = 1.25;
 const VR_HOTBAR_VERTICAL_OFFSET = -0.64;
 const VR_HOTBAR_WIDTH = 1.0;
-const VR_HOTBAR_HEIGHT = 0.17;
-const VR_HOTBAR_TEXTURE_WIDTH = 900;
-const VR_HOTBAR_TEXTURE_HEIGHT = 170;
+const VR_HOTBAR_HEIGHT = 0.11;
+const VR_HOTBAR_TEXTURE_WIDTH = 810;
+const VR_HOTBAR_TEXTURE_HEIGHT = 90;
+const VR_HOTBAR_SLOT_SIZE = 90;
 const VR_TRIGGER_SELECTION_COOLDOWN_MS = 180;
 
 type InventoryBarControls = {
   readonly updateUI: () => void;
   readonly updateSelectedSlot: (nextSelectedIndex: number) => void;
+};
+
+export type VRInventoryBarControls = {
+  readonly panel: Mesh;
+  readonly isRayPointingAtInventory: (ray: Ray | null) => boolean;
 };
 
 export function initializeInventoryBar(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
@@ -64,7 +70,7 @@ export function initializeVRInventoryBar(
   scene: Scene,
   player: PlayerPhysics,
   webXRControls: WebXRGameControls,
-): Mesh {
+): VRInventoryBarControls {
   const panel = MeshBuilder.CreatePlane(
     "vr-inventory-hotbar-panel",
     { width: VR_HOTBAR_WIDTH, height: VR_HOTBAR_HEIGHT },
@@ -98,7 +104,7 @@ export function initializeVRInventoryBar(
   const controls = createInventoryBarControls({
     ui,
     player,
-    slotSize: 86,
+    slotSize: VR_HOTBAR_SLOT_SIZE,
     top: "0px",
     showShortcuts: false,
   });
@@ -118,9 +124,8 @@ export function initializeVRInventoryBar(
       return;
     }
 
-    positionVRInventoryOnCamera(panel, activeCamera);
-    positionVRInventoryOnCamera(pickPlane, activeCamera);
-    pickPlane.position.z += 0.003;
+    positionVRInventoryOnCamera(panel, activeCamera, 0);
+    positionVRInventoryOnCamera(pickPlane, activeCamera, 0.003);
     panel.setEnabled(true);
     pickPlane.setEnabled(true);
 
@@ -137,49 +142,78 @@ export function initializeVRInventoryBar(
     lastSelectedSlot = pointedSlot ?? lastSelectedSlot;
   });
 
-  return panel;
+  return {
+    panel,
+    isRayPointingAtInventory: (ray) => isRayIntersectingInventory(ray, pickPlane),
+  };
 }
 
-function positionVRInventoryOnCamera(mesh: Mesh, camera: NonNullable<Scene["activeCamera"]>): void {
+function positionVRInventoryOnCamera(mesh: Mesh, camera: NonNullable<Scene["activeCamera"]>, zOffset: number): void {
   if (mesh.parent !== camera) {
     mesh.parent = camera;
   }
 
-  mesh.position.set(0, VR_HOTBAR_VERTICAL_OFFSET, VR_HOTBAR_DISTANCE);
+  mesh.position.set(0, VR_HOTBAR_VERTICAL_OFFSET, VR_HOTBAR_DISTANCE + zOffset);
   mesh.rotation.set(0, 0, 0);
 }
 
 function findPointedVRSlot(webXRControls: WebXRGameControls, pickPlane: Mesh): number | null {
   for (const handedness of ["right", "left"] as const satisfies XRHandedness[]) {
     const ray = webXRControls.getControllerRay(handedness);
+    const slot = getInventorySlotFromRay(ray, pickPlane);
 
-    if (!ray) continue;
-
-    const hit = ray.intersectsMesh(pickPlane, false);
-
-    if (!hit.hit || !hit.pickedPoint) {
-      continue;
-    }
-
-    const localPoint = Vector3.TransformCoordinates(
-      hit.pickedPoint,
-      Matrix.Invert(pickPlane.getWorldMatrix()),
-    );
-    const localX = localPoint.x + VR_HOTBAR_WIDTH / 2;
-
-    if (localX < 0 || localX > VR_HOTBAR_WIDTH) {
-      continue;
-    }
-
-    const slotWidth = VR_HOTBAR_WIDTH / INVENTORY_SLOT_COUNT;
-    const index = Math.floor(localX / slotWidth);
-
-    if (index >= 0 && index < INVENTORY_SLOT_COUNT) {
-      return index;
+    if (slot !== null) {
+      return slot;
     }
   }
 
   return null;
+}
+
+function isRayIntersectingInventory(ray: Ray | null, pickPlane: Mesh): boolean {
+  if (!ray || !pickPlane.isEnabled()) {
+    return false;
+  }
+
+  const hit = ray.intersectsMesh(pickPlane, false);
+
+  return Boolean(hit.hit && hit.pickedPoint && getInventorySlotFromPickedPoint(hit.pickedPoint, pickPlane) !== null);
+}
+
+function getInventorySlotFromRay(ray: Ray | null, pickPlane: Mesh): number | null {
+  if (!ray) return null;
+
+  const hit = ray.intersectsMesh(pickPlane, false);
+
+  if (!hit.hit || !hit.pickedPoint) {
+    return null;
+  }
+
+  return getInventorySlotFromPickedPoint(hit.pickedPoint, pickPlane);
+}
+
+function getInventorySlotFromPickedPoint(pickedPoint: Vector3, pickPlane: Mesh): number | null {
+  const localPoint = Vector3.TransformCoordinates(
+    pickedPoint,
+    Matrix.Invert(pickPlane.getWorldMatrix()),
+  );
+
+  const halfWidth = VR_HOTBAR_WIDTH / 2;
+  const halfHeight = VR_HOTBAR_HEIGHT / 2;
+
+  if (
+    localPoint.x < -halfWidth ||
+    localPoint.x > halfWidth ||
+    localPoint.y < -halfHeight ||
+    localPoint.y > halfHeight
+  ) {
+    return null;
+  }
+
+  const normalizedX = (localPoint.x + halfWidth) / VR_HOTBAR_WIDTH;
+  const index = Math.floor(normalizedX * INVENTORY_SLOT_COUNT);
+
+  return Math.min(INVENTORY_SLOT_COUNT - 1, Math.max(0, index));
 }
 
 function isAnyVRTriggerPressed(webXRControls: WebXRGameControls): boolean {
