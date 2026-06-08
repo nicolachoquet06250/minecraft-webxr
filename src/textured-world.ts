@@ -193,7 +193,8 @@ function getFaceLightingNormal(block: BlockId, normal: [number, number, number])
   }
 
   return normal;
-}\n
+}
+
 function addTexturedOrFlatFace(params: {
   buffers: MeshBuffers;
   x: number;
