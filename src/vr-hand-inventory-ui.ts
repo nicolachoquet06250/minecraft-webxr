@@ -9,6 +9,9 @@ const VR_HAND_HOTBAR_WIDTH = 1.2;
 const VR_HAND_HOTBAR_HEIGHT = 0.22;
 const VR_HAND_HOTBAR_VERTICAL_OFFSET = 0.34;
 const VR_HAND_HOTBAR_FORWARD_OFFSET = 0.12;
+const VR_FALLBACK_DISTANCE = 1.15;
+const VR_FALLBACK_LEFT_OFFSET = -0.45;
+const VR_FALLBACK_VERTICAL_OFFSET = -0.2;
 
 type VRHandInventoryControls = {
   readonly updateUI: () => void;
@@ -24,6 +27,7 @@ export function initializeVRHandInventoryBar(
     {
       width: VR_HAND_HOTBAR_WIDTH,
       height: VR_HAND_HOTBAR_HEIGHT,
+      sideOrientation: Mesh.DOUBLESIDE,
     },
     scene,
   );
@@ -115,33 +119,41 @@ export function initializeVRHandInventoryBar(
       return;
     }
 
-    const leftControllerPosition = webXRControls.getControllerPosition("left");
-
-    if (!leftControllerPosition) {
-      panel.setEnabled(false);
-      return;
-    }
-
     const activeCamera = scene.activeCamera;
     const cameraPosition = activeCamera?.globalPosition ?? activeCamera?.position;
 
-    if (!cameraPosition) {
+    if (!activeCamera || !cameraPosition) {
       panel.setEnabled(false);
       return;
     }
 
-    const toCamera = cameraPosition.subtract(leftControllerPosition);
-    toCamera.y = 0;
+    const leftControllerPosition = webXRControls.getControllerPosition("left");
 
-    if (toCamera.lengthSquared() === 0) {
-      toCamera.copyFromFloats(0, 0, -1);
+    if (leftControllerPosition) {
+      const toCamera = cameraPosition.subtract(leftControllerPosition);
+      toCamera.y = 0;
+
+      if (toCamera.lengthSquared() === 0) {
+        toCamera.copyFromFloats(0, 0, -1);
+      }
+
+      toCamera.normalize();
+      panel.position.copyFrom(
+        leftControllerPosition
+          .add(new Vector3(0, VR_HAND_HOTBAR_VERTICAL_OFFSET, 0))
+          .add(toCamera.scale(VR_HAND_HOTBAR_FORWARD_OFFSET)),
+      );
+      panel.setEnabled(true);
+      return;
     }
 
-    toCamera.normalize();
+    const cameraForward = activeCamera.getDirection(Vector3.Forward()).normalize();
+    const cameraRight = activeCamera.getDirection(Vector3.Right()).normalize();
     panel.position.copyFrom(
-      leftControllerPosition
-        .add(new Vector3(0, VR_HAND_HOTBAR_VERTICAL_OFFSET, 0))
-        .add(toCamera.scale(VR_HAND_HOTBAR_FORWARD_OFFSET)),
+      cameraPosition
+        .add(cameraForward.scale(VR_FALLBACK_DISTANCE))
+        .add(cameraRight.scale(VR_FALLBACK_LEFT_OFFSET))
+        .add(new Vector3(0, VR_FALLBACK_VERTICAL_OFFSET, 0)),
     );
     panel.setEnabled(true);
   });
