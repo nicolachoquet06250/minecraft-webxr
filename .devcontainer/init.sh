@@ -1,5 +1,9 @@
 echo "Initialisation du Codespace..."
 
+echo "Installation de git lfs"
+sudo apt install -y git-lfs
+git lfs install
+
 echo "Installation des dépendances Node..."
 npm install
 
