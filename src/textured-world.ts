@@ -156,6 +156,35 @@ function getBlockVisualHeight(block: BlockId): number {
   return Math.min(1, Math.max(0.05, height));
 }
 
+function isTreeBlock(block: BlockId): boolean {
+  return (
+    block === BlockId.OakLog ||
+    block === BlockId.SpruceLog ||
+    block === BlockId.BirchLog ||
+    block === BlockId.JungleLog ||
+    block === BlockId.AcaciaLog ||
+    block === BlockId.DarkOakLog ||
+    block === BlockId.MangroveLog ||
+    block === BlockId.CherryLog ||
+    block === BlockId.OakLeaves ||
+    block === BlockId.SpruceLeaves ||
+    block === BlockId.BirchLeaves ||
+    block === BlockId.JungleLeaves ||
+    block === BlockId.AcaciaLeaves ||
+    block === BlockId.DarkOakLeaves ||
+    block === BlockId.MangroveLeaves ||
+    block === BlockId.CherryLeaves
+  );
+}
+
+function getFaceLightingNormal(block: BlockId, normal: [number, number, number]): [number, number, number] {
+  if (normal[1] === -1 && isTreeBlock(block)) {
+    return [0, 1, 0];
+  }
+
+  return normal;
+}
+
 function addTexturedOrFlatFace(params: {
   buffers: MeshBuffers;
   x: number;
@@ -200,6 +229,7 @@ function addFlatFace(
   const { buffers, x, y, z, face, block, visualHeight = 1 } = params;
   const vertexIndex = buffers.positions.length / 3;
   const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
+  const lightingNormal = getFaceLightingNormal(block, face.normal);
 
   for (const vertex of face.vertices) {
     buffers.positions.push(
@@ -207,7 +237,7 @@ function addFlatFace(
       y + getVertexVisualY(vertex[1], visualHeight),
       z + vertex[2],
     );
-    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.normals.push(lightingNormal[0], lightingNormal[1], lightingNormal[2]);
     buffers.colors.push(color.r, color.g, color.b, reverseWinding ? color.a * 0.5 : color.a);
   }
 
@@ -266,6 +296,7 @@ function addDroppedBlockFace(buffers: MeshBuffers, block: BlockId, face: FaceDef
   const textureUvs = getBlockFaceTextureUv(block, faceName);
   const vertexIndex = buffers.positions.length / 3;
   const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
+  const lightingNormal = getFaceLightingNormal(block, face.normal);
 
   for (const vertex of face.vertices) {
     buffers.positions.push(
@@ -273,7 +304,7 @@ function addDroppedBlockFace(buffers: MeshBuffers, block: BlockId, face: FaceDef
       (vertex[1] - 0.5) * DROP_SIZE,
       (vertex[2] - 0.5) * DROP_SIZE,
     );
-    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.normals.push(lightingNormal[0], lightingNormal[1], lightingNormal[2]);
     buffers.colors.push(color.r, color.g, color.b, color.a);
   }
 
