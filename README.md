@@ -81,6 +81,10 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 -   `wasm/` : Code source Rust (génération de chunks, logique bas niveau).
 -   `public/` : Assets statiques.
 
+## 📚 Anexes
+
+Logiciel de modélisation des models 3D voxels: [voxigen](https://voxigen.io/fr/modeler)
+
 ## 📄 Licence
 
 Ce projet est sous licence [MIT](LICENSE).

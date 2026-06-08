@@ -1,8 +1,9 @@
-import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
+import { Mesh, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, PLAYER_HEIGHT, PLAYER_RADIUS, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
 import { getBlockDefinition } from "./blocks";
 import type { BlockFaceName } from "./blocks";
+import { attachPoppyModelToParent } from "./poppy-models";
 import {
   addToInventory,
   getBlock,
@@ -156,6 +157,35 @@ function getBlockVisualHeight(block: BlockId): number {
   return Math.min(1, Math.max(0.05, height));
 }
 
+function isTreeBlock(block: BlockId): boolean {
+  return (
+    block === BlockId.OakLog ||
+    block === BlockId.SpruceLog ||
+    block === BlockId.BirchLog ||
+    block === BlockId.JungleLog ||
+    block === BlockId.AcaciaLog ||
+    block === BlockId.DarkOakLog ||
+    block === BlockId.MangroveLog ||
+    block === BlockId.CherryLog ||
+    block === BlockId.OakLeaves ||
+    block === BlockId.SpruceLeaves ||
+    block === BlockId.BirchLeaves ||
+    block === BlockId.JungleLeaves ||
+    block === BlockId.AcaciaLeaves ||
+    block === BlockId.DarkOakLeaves ||
+    block === BlockId.MangroveLeaves ||
+    block === BlockId.CherryLeaves
+  );
+}
+
+function getFaceLightingNormal(block: BlockId, normal: [number, number, number]): [number, number, number] {
+  if (normal[1] === -1 && isTreeBlock(block)) {
+    return [0, 1, 0];
+  }
+
+  return normal;
+}
+
 function addTexturedOrFlatFace(params: {
   buffers: MeshBuffers;
   x: number;
@@ -200,6 +230,7 @@ function addFlatFace(
   const { buffers, x, y, z, face, block, visualHeight = 1 } = params;
   const vertexIndex = buffers.positions.length / 3;
   const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
+  const lightingNormal = getFaceLightingNormal(block, face.normal);
 
   for (const vertex of face.vertices) {
     buffers.positions.push(
@@ -207,7 +238,7 @@ function addFlatFace(
       y + getVertexVisualY(vertex[1], visualHeight),
       z + vertex[2],
     );
-    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.normals.push(lightingNormal[0], lightingNormal[1], lightingNormal[2]);
     buffers.colors.push(color.r, color.g, color.b, reverseWinding ? color.a * 0.5 : color.a);
   }
 
@@ -234,6 +265,11 @@ export function spawnTexturedDrop(
   material: StandardMaterial,
   droppedItems: DroppedItem[],
 ): void {
+  if (blockId === BlockId.Poppy) {
+    spawnPoppyDrop(scene, worldX, worldY, worldZ, droppedItems);
+    return;
+  }
+
   const buffers = createMeshBuffers();
 
   for (const face of FACES) {
@@ -261,11 +297,27 @@ export function spawnTexturedDrop(
   });
 }
 
+function spawnPoppyDrop(scene: Scene, worldX: number, worldY: number, worldZ: number, droppedItems: DroppedItem[]): void {
+  const root = new TransformNode(`drop-poppy-${Date.now()}`, scene);
+  root.position = new Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
+  root.scaling.setAll(DROP_SIZE);
+
+  void attachPoppyModelToParent(scene, root, `drop-poppy-model-${Date.now()}`);
+
+  droppedItems.push({
+    mesh: root,
+    blockId: BlockId.Poppy,
+    createdAt: Date.now(),
+    velocity: new Vector3(0, 0, 0),
+  });
+}
+
 function addDroppedBlockFace(buffers: MeshBuffers, block: BlockId, face: FaceDefinition): void {
   const faceName = getFaceName(face.normal);
   const textureUvs = getBlockFaceTextureUv(block, faceName);
   const vertexIndex = buffers.positions.length / 3;
   const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
+  const lightingNormal = getFaceLightingNormal(block, face.normal);
 
   for (const vertex of face.vertices) {
     buffers.positions.push(
@@ -273,7 +325,7 @@ function addDroppedBlockFace(buffers: MeshBuffers, block: BlockId, face: FaceDef
       (vertex[1] - 0.5) * DROP_SIZE,
       (vertex[2] - 0.5) * DROP_SIZE,
     );
-    buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
+    buffers.normals.push(lightingNormal[0], lightingNormal[1], lightingNormal[2]);
     buffers.colors.push(color.r, color.g, color.b, color.a);
   }
 
@@ -555,7 +607,7 @@ export function updateDroppedItems(
     }
 
     if (Vector3.Distance(player.position, item.mesh.position) < 1.5) {
-      item.mesh.dispose();
+      item.mesh.dispose(false, true);
       droppedItems.splice(i, 1);
       addToInventory(player, item.blockId);
       if ((player as any)._updateInventoryUI) (player as any)._updateInventoryUI();
@@ -563,7 +615,7 @@ export function updateDroppedItems(
     }
 
     if (now - item.createdAt > 60000) {
-      item.mesh.dispose();
+      item.mesh.dispose(false, true);
       droppedItems.splice(i, 1);
     }
   }

@@ -1,4 +1,4 @@
-import { DynamicTexture, Scene, StandardMaterial, Texture } from "@babylonjs/core";
+import { DynamicTexture, Material, Scene, StandardMaterial, Texture } from "@babylonjs/core";
 import { blockDefinitions, getBlockDefinition, type BlockFaceName, type BlockTextureDefinition, type RgbaColor } from "./blocks";
 import type { BlockId } from "./types";
 
@@ -130,4 +130,5 @@ export function applyProceduralBlockAtlasMaterial(scene: Scene, material: Standa
   texture.wrapU = Texture.CLAMP_ADDRESSMODE;
   texture.wrapV = Texture.CLAMP_ADDRESSMODE;
   material.diffuseTexture = texture;
+  material.useAlphaFromDiffuseTexture = false;
 }

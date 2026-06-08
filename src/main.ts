@@ -38,6 +38,7 @@ import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
+import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
 import { showMainMenu } from "./main-menu";
 // @ts-ignore
@@ -75,10 +76,19 @@ const AUTO_JUMP_PROBE_DISTANCE = 0.12;
 const AUTO_JUMP_STEP_HEIGHT = 1.05;
 const AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
 
-async function loadVoxelWasm(): Promise<VoxelWasmModule> {
-  await init(voxelWasmUrl);
+const wasmGlobalState = globalThis as typeof globalThis & {
+  __minecraftVoxelWasmPromise?: Promise<VoxelWasmModule>;
+};
 
-  return wasmModule as unknown as VoxelWasmModule;
+async function loadVoxelWasm(): Promise<VoxelWasmModule> {
+  wasmGlobalState.__minecraftVoxelWasmPromise ??= init(voxelWasmUrl)
+    .then(() => wasmModule as unknown as VoxelWasmModule)
+    .catch((error) => {
+      wasmGlobalState.__minecraftVoxelWasmPromise = undefined;
+      throw error;
+    });
+
+  return wasmGlobalState.__minecraftVoxelWasmPromise;
 }
 
 function debugBlockDistribution(blocks: Uint8Array): void {
@@ -271,6 +281,8 @@ async function startGame(): Promise<void> {
             });
         }
     }
+
+    initializePoppyModels({ scene, worldChunks, sizeX, sizeY, sizeZ });
 
     const spawnChunk = worldChunks.get(getChunkKey(spawnChunkX, spawnChunkZ));
 

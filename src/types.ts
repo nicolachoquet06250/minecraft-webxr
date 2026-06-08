@@ -1,4 +1,4 @@
-import type { Mesh, Scene, StandardMaterial, UniversalCamera, Vector3 } from "@babylonjs/core";
+import type { Mesh, Scene, StandardMaterial, TransformNode, UniversalCamera, Vector3 } from "@babylonjs/core";
 
 export type InventoryItem = {
   blockId: BlockId;
@@ -220,7 +220,7 @@ export type WorldChunk = {
 export type WorldChunks = Map<string, WorldChunk>;
 
 export type DroppedItem = {
-  mesh: Mesh;
+  mesh: Mesh | TransformNode;
   blockId: BlockId;
   createdAt: number;
   velocity: Vector3;
