@@ -1,4 +1,4 @@
-import { DynamicTexture, Material, Scene, StandardMaterial, Texture } from "@babylonjs/core";
+import { DynamicTexture, Scene, StandardMaterial, Texture } from "@babylonjs/core";
 import { blockDefinitions, getBlockDefinition, type BlockFaceName, type BlockTextureDefinition, type RgbaColor } from "./blocks";
 import type { BlockId } from "./types";
 
