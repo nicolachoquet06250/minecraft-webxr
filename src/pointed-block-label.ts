@@ -7,15 +7,15 @@ import { isMobileMode } from "./mobile-controls";
 import { BlockId, type PlayerPhysics, type WorldChunks } from "./types";
 
 const POINTED_BLOCK_REACH = 3;
-const CONTROLLER_BLOCK_REACH = 8;
+const CONTROLLER_BLOCK_REACH = 3;
 const POINTED_BLOCK_STEP = 0.1;
 const HIGHLIGHT_OFFSET = 0.002;
 const FACE_VISIBILITY_EPSILON = 0.01;
 
-const VR_LABEL_WIDTH = 1.45;
-const VR_LABEL_HEIGHT = 0.24;
-const VR_LABEL_DISTANCE = 2.05;
-const VR_LABEL_VERTICAL_OFFSET = -0.42;
+const VR_LABEL_WIDTH = 1.2;
+const VR_LABEL_HEIGHT = 0.2;
+const VR_LABEL_DISTANCE = 1.25;
+const VR_LABEL_VERTICAL_OFFSET = -0.36;
 
 type PointedBlockLabelParams = {
   readonly scene: Scene;
@@ -175,7 +175,7 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
 
   const vrText = new TextBlock("vr-pointed-block-label-text");
   vrText.color = "white";
-  vrText.fontSize = 44;
+  vrText.fontSize = 32;
   vrText.fontWeight = "bold";
   vrText.text = "";
   vrText.shadowBlur = 6;
