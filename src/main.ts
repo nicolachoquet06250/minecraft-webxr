@@ -38,6 +38,7 @@ import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
+import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
 import { showMainMenu } from "./main-menu";
 // @ts-ignore
@@ -280,6 +281,8 @@ async function startGame(): Promise<void> {
             });
         }
     }
+
+    initializePoppyModels({ scene, worldChunks, sizeX, sizeY, sizeZ });
 
     const spawnChunk = worldChunks.get(getChunkKey(spawnChunkX, spawnChunkZ));
 
