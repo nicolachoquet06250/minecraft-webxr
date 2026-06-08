@@ -1,14 +1,14 @@
-import { MeshBuilder, Quaternion, Scene, Vector3 } from "@babylonjs/core";
+import { Mesh, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
 import type { PlayerPhysics } from "./types";
 import type { WebXRGameControls } from "./vr-mode";
 
 const VR_HAND_HOTBAR_SLOT_COUNT = 9;
-const VR_HAND_HOTBAR_WIDTH = 0.9;
-const VR_HAND_HOTBAR_HEIGHT = 0.16;
-const VR_HAND_HOTBAR_VERTICAL_OFFSET = 0.22;
-const VR_HAND_HOTBAR_FORWARD_OFFSET = 0.06;
+const VR_HAND_HOTBAR_WIDTH = 1.2;
+const VR_HAND_HOTBAR_HEIGHT = 0.22;
+const VR_HAND_HOTBAR_VERTICAL_OFFSET = 0.34;
+const VR_HAND_HOTBAR_FORWARD_OFFSET = 0.12;
 
 type VRHandInventoryControls = {
   readonly updateUI: () => void;
@@ -28,17 +28,19 @@ export function initializeVRHandInventoryBar(
     scene,
   );
   panel.isPickable = false;
+  panel.alwaysSelectAsActiveMesh = true;
+  panel.billboardMode = Mesh.BILLBOARDMODE_ALL;
   panel.setEnabled(false);
 
-  const ui = AdvancedDynamicTexture.CreateForMesh(panel, 900, 160, false);
+  const ui = AdvancedDynamicTexture.CreateForMesh(panel, 1200, 220, false);
   const slots: Rectangle[] = [];
   const itemIcons: Rectangle[] = [];
   const countTexts: TextBlock[] = [];
 
   const hotbar = new StackPanel("vr-left-hand-inventory-hotbar");
   hotbar.isVertical = false;
-  hotbar.width = 880;
-  hotbar.height = 150;
+  hotbar.width = 1180;
+  hotbar.height = 210;
   hotbar.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
   hotbar.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
   hotbar.isPointerBlocker = false;
@@ -46,17 +48,17 @@ export function initializeVRHandInventoryBar(
 
   for (let index = 0; index < VR_HAND_HOTBAR_SLOT_COUNT; index++) {
     const slot = new Rectangle(`vr-left-hand-inventory-slot-${index}`);
-    slot.width = "92px";
-    slot.height = "92px";
-    slot.thickness = 3;
+    slot.width = "122px";
+    slot.height = "122px";
+    slot.thickness = 4;
     slot.cornerRadius = 4;
     slot.color = "rgba(160, 160, 160, 0.95)";
-    slot.background = "rgba(30, 30, 30, 0.72)";
+    slot.background = "rgba(30, 30, 30, 0.82)";
     slot.isPointerBlocker = false;
 
     const item = new Rectangle(`vr-left-hand-inventory-item-${index}`);
-    item.width = "58px";
-    item.height = "58px";
+    item.width = "78px";
+    item.height = "78px";
     item.thickness = 1;
     item.color = "rgba(255, 255, 255, 0.35)";
     item.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
@@ -66,11 +68,11 @@ export function initializeVRHandInventoryBar(
 
     const countText = new TextBlock(`vr-left-hand-inventory-count-${index}`);
     countText.color = "white";
-    countText.fontSize = 24;
+    countText.fontSize = 32;
     countText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
     countText.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-    countText.paddingRight = "6px";
-    countText.paddingTop = "4px";
+    countText.paddingRight = "8px";
+    countText.paddingTop = "6px";
     countText.isPointerBlocker = false;
     countText.isVisible = false;
     countText.shadowBlur = 3;
@@ -90,9 +92,9 @@ export function initializeVRHandInventoryBar(
       const inventoryItem = player.inventory[index];
       const isSelected = index === player.selectedSlot;
 
-      slot.thickness = isSelected ? 7 : 3;
+      slot.thickness = isSelected ? 8 : 4;
       slot.color = isSelected ? "white" : "rgba(160, 160, 160, 0.95)";
-      slot.background = isSelected ? "rgba(90, 90, 90, 0.86)" : "rgba(30, 30, 30, 0.72)";
+      slot.background = isSelected ? "rgba(90, 90, 90, 0.92)" : "rgba(30, 30, 30, 0.82)";
       renderItemIconControl(itemIcons[index], inventoryItem?.blockId ?? null);
 
       if (inventoryItem) {
@@ -141,7 +143,6 @@ export function initializeVRHandInventoryBar(
         .add(new Vector3(0, VR_HAND_HOTBAR_VERTICAL_OFFSET, 0))
         .add(toCamera.scale(VR_HAND_HOTBAR_FORWARD_OFFSET)),
     );
-    panel.rotationQuaternion = Quaternion.FromLookDirectionLH(toCamera, Vector3.Up());
     panel.setEnabled(true);
   });
 
