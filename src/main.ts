@@ -75,10 +75,19 @@ const AUTO_JUMP_PROBE_DISTANCE = 0.12;
 const AUTO_JUMP_STEP_HEIGHT = 1.05;
 const AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
 
-async function loadVoxelWasm(): Promise<VoxelWasmModule> {
-  await init(voxelWasmUrl);
+const wasmGlobalState = globalThis as typeof globalThis & {
+  __minecraftVoxelWasmPromise?: Promise<VoxelWasmModule>;
+};
 
-  return wasmModule as unknown as VoxelWasmModule;
+async function loadVoxelWasm(): Promise<VoxelWasmModule> {
+  wasmGlobalState.__minecraftVoxelWasmPromise ??= init(voxelWasmUrl)
+    .then(() => wasmModule as unknown as VoxelWasmModule)
+    .catch((error) => {
+      wasmGlobalState.__minecraftVoxelWasmPromise = undefined;
+      throw error;
+    });
+
+  return wasmGlobalState.__minecraftVoxelWasmPromise;
 }
 
 function debugBlockDistribution(blocks: Uint8Array): void {
