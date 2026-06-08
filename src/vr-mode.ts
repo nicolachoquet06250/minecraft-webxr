@@ -33,21 +33,18 @@ type XRPointerChildLike = {
   name?: string;
   isVisible?: boolean;
   isEnabled?: () => boolean;
-  setEnabled?: (enabled: boolean) => void;
   visibility?: number;
+};
+
+type XRPointerLike = XRPointerChildLike & {
+  getAbsolutePosition?: () => Vector3;
+  getDirection?: (localAxis: Vector3) => Vector3;
   getChildMeshes?: () => XRPointerChildLike[];
   getChildren?: () => XRPointerChildLike[];
 };
 
-type XRNodeLike = XRPointerChildLike & {
-  absolutePosition?: Vector3;
-  getAbsolutePosition?: () => Vector3;
-  getDirection?: (localAxis: Vector3) => Vector3;
-};
-
 type XRControllerLike = {
-  pointer?: XRNodeLike;
-  grip?: XRNodeLike;
+  pointer?: XRPointerLike;
   motionController?: MotionControllerLike;
 };
 
@@ -70,8 +67,6 @@ export type WebXRGameControls = {
   isActive: () => boolean;
   getMoveDirection: () => Vector3;
   getControllerRay: (handedness: XRHandedness) => Ray | null;
-  getControllerPosition: (handedness: XRHandedness) => Vector3 | null;
-  getControllerDirection: (handedness: XRHandedness) => Vector3 | null;
   isTriggerPressed: (handedness: XRHandedness) => boolean;
   enterVR: () => Promise<void>;
   syncBeforePhysics: (deltaTimeSeconds: number) => void;
@@ -129,16 +124,6 @@ export async function initializeWebXRGameControls(
 
       return getControllerRay(handedness === "left" ? leftController : rightController);
     },
-    getControllerPosition: (handedness) => {
-      if (!isXRActive()) return null;
-
-      return getControllerPosition(handedness === "left" ? leftController : rightController);
-    },
-    getControllerDirection: (handedness) => {
-      if (!isXRActive()) return null;
-
-      return getControllerDirection(handedness === "left" ? leftController : rightController);
-    },
     isTriggerPressed: (handedness) => {
       if (!isXRActive()) return false;
 
@@ -163,8 +148,6 @@ export async function initializeWebXRGameControls(
       moveDirection = getMoveDirectionFromLeftController(leftController, getYawFromCamera(xrCamera));
       applyManualJumpFromRightController(player, rightController);
       applyVRMoveDirection(player, moveDirection, deltaTimeSeconds);
-      hideControllerVisuals(leftController);
-      hideControllerVisuals(rightController);
       clearVRMovementKeys();
     },
     syncAfterPhysics: () => {
@@ -201,16 +184,14 @@ export async function initializeWebXRGameControls(
 
       xrExperience.input.onControllerAddedObservable.add((controller) => {
         const handedness = controller.inputSource?.handedness;
-        const xrController = controller as XRControllerLike;
-        hideControllerVisuals(xrController);
 
         if (handedness === "left") {
-          leftController = xrController;
+          leftController = controller as XRControllerLike;
           return;
         }
 
         if (handedness === "right") {
-          rightController = xrController;
+          rightController = controller as XRControllerLike;
         }
       });
 
@@ -244,52 +225,7 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
   return new Ray(origin, direction, CONTROLLER_RAY_LENGTH);
 }
 
-function getControllerPosition(controller: XRControllerLike | null): Vector3 | null {
-  return getNodePosition(controller?.grip) ?? getNodePosition(controller?.pointer);
-}
-
-function getControllerDirection(controller: XRControllerLike | null): Vector3 | null {
-  return getNodeDirection(controller?.grip) ?? getNodeDirection(controller?.pointer);
-}
-
-function getNodePosition(node: XRNodeLike | undefined): Vector3 | null {
-  if (!node) return null;
-
-  if (typeof node.getAbsolutePosition === "function") {
-    return node.getAbsolutePosition().clone();
-  }
-
-  return node.absolutePosition?.clone() ?? null;
-}
-
-function getNodeDirection(node: XRNodeLike | undefined): Vector3 | null {
-  if (typeof node?.getDirection !== "function") return null;
-
-  const direction = node.getDirection(Axis.Z);
-
-  if (direction.lengthSquared() === 0) return null;
-
-  return direction.normalize();
-}
-
-function hideControllerVisuals(controller: XRControllerLike | null): void {
-  hideNodeVisuals(controller?.grip);
-  hideNodeVisuals(controller?.pointer);
-}
-
-function hideNodeVisuals(node: XRPointerChildLike | undefined): void {
-  if (!node) return;
-
-  node.isVisible = false;
-  node.visibility = 0;
-  node.setEnabled?.(false);
-
-  for (const child of [...(node.getChildMeshes?.() ?? []), ...(node.getChildren?.() ?? [])]) {
-    hideNodeVisuals(child);
-  }
-}
-
-function isControllerPointerVisible(pointer: XRNodeLike | undefined): pointer is XRNodeLike {
+function isControllerPointerVisible(pointer: XRPointerLike | undefined): pointer is XRPointerLike {
   if (!isVisibleNode(pointer)) return false;
 
   const childMeshes = pointer.getChildMeshes?.() ?? [];
