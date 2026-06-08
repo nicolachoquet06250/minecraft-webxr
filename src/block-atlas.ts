@@ -131,6 +131,4 @@ export function applyProceduralBlockAtlasMaterial(scene: Scene, material: Standa
   texture.wrapV = Texture.CLAMP_ADDRESSMODE;
   material.diffuseTexture = texture;
   material.useAlphaFromDiffuseTexture = false;
-  material.transparencyMode = Material.MATERIAL_ALPHATEST;
-  material.alphaCutOff = 0.5;
 }
