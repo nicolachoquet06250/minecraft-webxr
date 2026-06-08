@@ -1,4 +1,4 @@
-import { Color3, LinesMesh, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
+import { Color3, LinesMesh, MeshBuilder, Ray, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, TextBlock } from "@babylonjs/gui";
 import { getBlockDefinition, isTransparentForMeshingDefinition } from "./blocks";
 import { EYE_HEIGHT } from "./constants";
@@ -7,9 +7,15 @@ import { isMobileMode } from "./mobile-controls";
 import { BlockId, type PlayerPhysics, type WorldChunks } from "./types";
 
 const POINTED_BLOCK_REACH = 3;
+const CONTROLLER_BLOCK_REACH = 8;
 const POINTED_BLOCK_STEP = 0.1;
 const HIGHLIGHT_OFFSET = 0.002;
 const FACE_VISIBILITY_EPSILON = 0.01;
+
+const VR_LABEL_WIDTH = 1.45;
+const VR_LABEL_HEIGHT = 0.24;
+const VR_LABEL_DISTANCE = 2.05;
+const VR_LABEL_VERTICAL_OFFSET = -0.42;
 
 type PointedBlockLabelParams = {
   readonly scene: Scene;
@@ -19,6 +25,8 @@ type PointedBlockLabelParams = {
   readonly sizeY: number;
   readonly sizeZ: number;
   readonly isVisible: boolean;
+  readonly isVR?: boolean;
+  readonly controllerRays?: readonly (Ray | null)[];
 };
 
 type PointedBlockLabelControls = {
@@ -30,6 +38,10 @@ type TargetBlock = {
   readonly y: number;
   readonly z: number;
   readonly block: BlockId;
+};
+
+type TargetBlockHit = TargetBlock & {
+  readonly distance: number;
 };
 
 type VisibleFaceName = "left" | "right" | "bottom" | "top" | "back" | "front";
@@ -139,9 +151,45 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
   container.addControl(text);
   ui.addControl(container);
 
+  const vrLabelPlane = MeshBuilder.CreatePlane(
+    "vr-pointed-block-label-plane",
+    {
+      width: VR_LABEL_WIDTH,
+      height: VR_LABEL_HEIGHT,
+    },
+    scene,
+  );
+  vrLabelPlane.isPickable = false;
+  vrLabelPlane.isVisible = false;
+  vrLabelPlane.alwaysSelectAsActiveMesh = true;
+
+  const vrUi = AdvancedDynamicTexture.CreateForMesh(vrLabelPlane, 1024, 256, false);
+  const vrContainer = new Rectangle("vr-pointed-block-label-container");
+  vrContainer.width = 0.96;
+  vrContainer.height = 0.82;
+  vrContainer.thickness = 2;
+  vrContainer.cornerRadius = 16;
+  vrContainer.color = "rgba(255, 255, 255, 0.28)";
+  vrContainer.background = "rgba(0, 0, 0, 0.58)";
+  vrContainer.isPointerBlocker = false;
+
+  const vrText = new TextBlock("vr-pointed-block-label-text");
+  vrText.color = "white";
+  vrText.fontSize = 44;
+  vrText.fontWeight = "bold";
+  vrText.text = "";
+  vrText.shadowBlur = 6;
+  vrText.shadowColor = "black";
+  vrText.isPointerBlocker = false;
+
+  vrContainer.addControl(vrText);
+  vrUi.addControl(vrContainer);
+
   const clearTarget = (): void => {
     container.isVisible = false;
     text.text = "";
+    vrLabelPlane.isVisible = false;
+    vrText.text = "";
     highlightedBlock = null;
     highlightedEdgesKey = null;
 
@@ -184,6 +232,22 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
     highlightEdges = createBlockHighlightEdges(scene, target, visibleFaces, highlightColor);
   };
 
+  const updateVRLabelPosition = (): void => {
+    const activeCamera = scene.activeCamera;
+
+    if (!activeCamera) {
+      vrLabelPlane.isVisible = false;
+      return;
+    }
+
+    if (vrLabelPlane.parent !== activeCamera) {
+      vrLabelPlane.parent = activeCamera;
+    }
+
+    vrLabelPlane.position.set(0, VR_LABEL_VERTICAL_OFFSET, VR_LABEL_DISTANCE);
+    vrLabelPlane.rotation.set(0, 0, 0);
+  };
+
   return {
     update(params) {
       if (!params.isVisible) {
@@ -191,26 +255,45 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
         return;
       }
 
-      const target = findPointedBlock(params);
+      const isVR = params.isVR === true;
+      const target = isVR
+        ? findClosestControllerPointedBlock(params)
+        : findPointedBlock(params);
 
       if (!target) {
         clearTarget();
         return;
       }
 
-      const definition = getBlockDefinition(target.block);
+      const label = getBlockLabel(target);
 
-      if (!definition) {
-        const fallbackName = BlockId[target.block] ?? `Block ${target.block}`;
-        text.text = `${fallbackName} / ${fallbackName}`;
+      if (isVR) {
+        container.isVisible = false;
+        text.text = "";
+        vrText.text = label;
+        updateVRLabelPosition();
+        vrLabelPlane.isVisible = true;
       } else {
-        text.text = `${definition.name} / ${definition.frenchName}`;
+        vrLabelPlane.isVisible = false;
+        vrText.text = "";
+        text.text = label;
+        container.isVisible = true;
       }
 
-      container.isVisible = true;
       updateHighlight(params, target);
     },
   };
+}
+
+function getBlockLabel(target: TargetBlock): string {
+  const definition = getBlockDefinition(target.block);
+
+  if (!definition) {
+    const fallbackName = BlockId[target.block] ?? `Block ${target.block}`;
+    return `${fallbackName} / ${fallbackName}`;
+  }
+
+  return `${definition.name} / ${definition.frenchName}`;
 }
 
 function findPointedBlock(params: PointedBlockLabelParams): TargetBlock | null {
@@ -237,6 +320,50 @@ function findPointedBlock(params: PointedBlockLabelParams): TargetBlock | null {
   }
 
   return null;
+}
+
+function findClosestControllerPointedBlock(params: PointedBlockLabelParams): TargetBlock | null {
+  let closestHit: TargetBlockHit | null = null;
+
+  for (const ray of params.controllerRays ?? []) {
+    const hit = ray ? findPointedBlockFromRay(params, ray) : null;
+
+    if (!hit) {
+      continue;
+    }
+
+    if (!closestHit || hit.distance < closestHit.distance) {
+      closestHit = hit;
+    }
+  }
+
+  return closestHit;
+}
+
+function findPointedBlockFromRay(params: PointedBlockLabelParams, ray: Ray): TargetBlockHit | null {
+  const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const direction = ray.direction.normalize();
+  const maxDistance = getRayReach(ray);
+
+  for (let distance = POINTED_BLOCK_STEP; distance <= maxDistance; distance += POINTED_BLOCK_STEP) {
+    const point = ray.origin.add(direction.scale(distance));
+    const x = Math.floor(point.x);
+    const y = Math.floor(point.y);
+    const z = Math.floor(point.z);
+    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
+
+    if (block !== BlockId.Air && block !== BlockId.Water) {
+      return { x, y, z, block, distance };
+    }
+  }
+
+  return null;
+}
+
+function getRayReach(ray: Ray): number {
+  return Number.isFinite(ray.length) && ray.length > 0
+    ? Math.min(ray.length, CONTROLLER_BLOCK_REACH)
+    : CONTROLLER_BLOCK_REACH;
 }
 
 function createBlockHighlightEdges(
