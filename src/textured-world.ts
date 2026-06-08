@@ -155,33 +155,20 @@ type AddWaterGeometryParams = {
 
 function addWaterGeometryForBlock(params: AddWaterGeometryParams): void {
   const { buffers, blocks, sizeX, sizeY, sizeZ, x, y, z, worldX, worldY, worldZ, block } = params;
+  const topNeighbor = getBlock(blocks, sizeX, sizeY, sizeZ, x, y + 1, z);
 
-  for (const face of FACES) {
-    const neighbor = getBlock(
-      blocks,
-      sizeX,
-      sizeY,
-      sizeZ,
-      x + face.normal[0],
-      y + face.normal[1],
-      z + face.normal[2],
-    );
-
-    if (neighbor === BlockId.Water) {
-      continue;
-    }
-
-    if (isTransparentForMeshing(neighbor)) {
-      addTexturedFace({
-        buffers,
-        x: worldX,
-        y: worldY,
-        z: worldZ,
-        face,
-        block,
-      });
-    }
+  if (topNeighbor !== BlockId.Air) {
+    return;
   }
+
+  addTexturedFace({
+    buffers,
+    x: worldX,
+    y: worldY,
+    z: worldZ,
+    face: FACES[0],
+    block,
+  });
 }
 
 function createMeshBuffers(): MeshBuffers {
