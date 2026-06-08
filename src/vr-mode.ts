@@ -1,13 +1,10 @@
 import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import type { Camera } from "@babylonjs/core";
-import { EYE_HEIGHT, JUMP_VELOCITY, pressedKeys } from "./constants";
+import { EYE_HEIGHT, pressedKeys } from "./constants";
 import type { PlayerPhysics } from "./types";
 import { isVRMode } from "./mobile-controls";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
-const MOVE_DEAD_ZONE = 0.18;
-const TURN_DEAD_ZONE = 0.35;
-const VR_SMOOTH_TURN_SPEED = 1.6;
 const CONTROLLER_RAY_LENGTH = 8;
 const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
 
@@ -110,18 +107,11 @@ export async function initializeWebXRGameControls(
       const headOffsetWorld = xrCamera.position.subtract(getPlayerEyesPosition(player));
       const headOffsetLocal = rotateHorizontalVector(headOffsetWorld, -previousBodyYaw);
 
-      bodyYaw = applySmoothTurnFromRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
+      bodyYaw = handleRightJoystick(bodyYaw, rightController, deltaTimeSeconds);
       player.yaw = bodyYaw;
       headOffset = rotateHorizontalVector(headOffsetLocal, bodyYaw);
       emitVRBodyYaw(bodyYaw);
-      updateMovementKeysFromLeftController(leftController);
-
-      if (isJumpPressed(rightController) || isJumpPressed(leftController)) {
-        if (player.grounded) {
-          player.velocity.y = JUMP_VELOCITY;
-          player.grounded = false;
-        }
-      }
+      handleLeftJoystick(leftController);
     },
     syncAfterPhysics: () => {
       if (!active || !xrExperience) return;
@@ -195,29 +185,16 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
   return new Ray(origin, direction, CONTROLLER_RAY_LENGTH);
 }
 
-function applySmoothTurnFromRightJoystick(
+function handleRightJoystick(
   bodyYaw: number,
-  rightController: XRControllerLike | null,
-  deltaTimeSeconds: number,
+  _rightController: XRControllerLike | null,
+  _deltaTimeSeconds: number,
 ): number {
-  const axes = readControllerAxes(rightController);
-
-  if (!axes || Math.abs(axes.x) <= TURN_DEAD_ZONE) return bodyYaw;
-
-  return normalizeAngle(bodyYaw + axes.x * VR_SMOOTH_TURN_SPEED * deltaTimeSeconds);
+  return bodyYaw;
 }
 
-function updateMovementKeysFromLeftController(leftController: XRControllerLike | null): void {
-  const axes = readControllerAxes(leftController);
-
+function handleLeftJoystick(_leftController: XRControllerLike | null): void {
   clearVRMovementKeys();
-
-  if (!axes) return;
-
-  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
-  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
-  if (axes.x < -MOVE_DEAD_ZONE) pressedKeys.add("KeyA");
-  if (axes.x > MOVE_DEAD_ZONE) pressedKeys.add("KeyD");
 }
 
 function clearVRMovementKeys(): void {
@@ -227,38 +204,12 @@ function clearVRMovementKeys(): void {
   pressedKeys.delete("KeyD");
 }
 
-function readControllerAxes(controller: XRControllerLike | null): { x: number; y: number } | null {
-  const thumbstick = controller?.motionController?.getComponent?.("xr-standard-thumbstick")?.axes;
-  const touchpad = controller?.motionController?.getComponent?.("xr-standard-touchpad")?.axes;
-  const axes = thumbstick ?? touchpad;
-
-  if (!axes) return null;
-
-  const x = axes.x ?? 0;
-  const y = axes.y ?? 0;
-
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-  if (Math.abs(x) > 1.2 || Math.abs(y) > 1.2) return null;
-
-  return { x, y };
-}
-
 function isTriggerPressed(controller: XRControllerLike | null): boolean {
   const trigger =
     controller?.motionController?.getComponent?.("xr-standard-trigger") ??
     controller?.motionController?.getComponent?.("trigger");
 
   return Boolean(trigger?.pressed || (trigger?.value ?? 0) > 0.65);
-}
-
-function isJumpPressed(controller: XRControllerLike | null): boolean {
-  const button =
-    controller?.motionController?.getComponent?.("a-button") ??
-    controller?.motionController?.getComponent?.("b-button") ??
-    controller?.motionController?.getComponent?.("x-button") ??
-    controller?.motionController?.getComponent?.("y-button");
-
-  return Boolean(button?.pressed || (button?.value ?? 0) > 0.65);
 }
 
 function alignXRCameraFromNonVR(xrCamera: WebXRCameraLike, nonXRCamera: Camera | null): void {
