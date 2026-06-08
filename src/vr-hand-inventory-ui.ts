@@ -1,4 +1,4 @@
-import { Mesh, MeshBuilder, Quaternion, Scene, Vector3 } from "@babylonjs/core";
+import { MeshBuilder, Quaternion, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
 import type { PlayerPhysics } from "./types";
