@@ -67,6 +67,7 @@ export type WebXRGameControls = {
   isActive: () => boolean;
   getMoveDirection: () => Vector3;
   getControllerRay: (handedness: XRHandedness) => Ray | null;
+  getControllerPosition: (handedness: XRHandedness) => Vector3 | null;
   isTriggerPressed: (handedness: XRHandedness) => boolean;
   enterVR: () => Promise<void>;
   syncBeforePhysics: (deltaTimeSeconds: number) => void;
@@ -119,6 +120,11 @@ export async function initializeWebXRGameControls(
       if (!active) return null;
 
       return getControllerRay(handedness === "left" ? leftController : rightController);
+    },
+    getControllerPosition: (handedness) => {
+      if (!active) return null;
+
+      return getControllerPosition(handedness === "left" ? leftController : rightController);
     },
     isTriggerPressed: (handedness) => {
       if (!active) return false;
@@ -218,6 +224,15 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
   const direction = pointer.getDirection(Axis.Z).normalize();
 
   return new Ray(origin, direction, CONTROLLER_RAY_LENGTH);
+}
+
+function getControllerPosition(controller: XRControllerLike | null): Vector3 | null {
+  const pointer = controller?.pointer;
+
+  if (!isVisibleNode(pointer)) return null;
+  if (!pointer.getAbsolutePosition) return null;
+
+  return pointer.getAbsolutePosition();
 }
 
 function isControllerPointerVisible(pointer: XRPointerLike | undefined): pointer is XRPointerLike {
