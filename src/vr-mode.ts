@@ -28,11 +28,15 @@ type MotionControllerLike = {
   getComponent?: (componentId: string) => MotionControllerComponentLike | undefined;
 };
 
+type XRPointerLike = {
+  getAbsolutePosition?: () => Vector3;
+  getDirection?: (localAxis: Vector3) => Vector3;
+  isVisible?: boolean;
+  isEnabled?: () => boolean;
+};
+
 type XRControllerLike = {
-  pointer?: {
-    getAbsolutePosition?: () => Vector3;
-    getDirection?: (localAxis: Vector3) => Vector3;
-  };
+  pointer?: XRPointerLike;
   motionController?: MotionControllerLike;
 };
 
@@ -199,12 +203,21 @@ export async function initializeWebXRGameControls(
 function getControllerRay(controller: XRControllerLike | null): Ray | null {
   const pointer = controller?.pointer;
 
+  if (!isControllerPointerVisible(pointer)) return null;
   if (!pointer?.getAbsolutePosition || !pointer.getDirection) return null;
 
   const origin = pointer.getAbsolutePosition();
   const direction = pointer.getDirection(Axis.Z).normalize();
 
   return new Ray(origin, direction, CONTROLLER_RAY_LENGTH);
+}
+
+function isControllerPointerVisible(pointer: XRPointerLike | undefined): boolean {
+  if (!pointer) return false;
+  if (pointer.isVisible === false) return false;
+  if (typeof pointer.isEnabled === "function" && !pointer.isEnabled()) return false;
+
+  return true;
 }
 
 function handleRightJoystick(
