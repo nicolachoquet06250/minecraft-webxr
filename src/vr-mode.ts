@@ -1,7 +1,8 @@
 import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import type { Camera } from "@babylonjs/core";
-import { EYE_HEIGHT, pressedKeys } from "./constants";
-import type { PlayerPhysics } from "./types";
+import { EYE_HEIGHT, MOVE_SPEED, pressedKeys } from "./constants";
+import { moveWithCollision } from "./functions";
+import type { PlayerPhysics, WorldChunks } from "./types";
 import { isVRMode } from "./mobile-controls";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
@@ -35,7 +36,15 @@ type XRControllerLike = {
 
 type WebXRCameraLike = {
   position: Vector3;
+  getDirection?: (localAxis: Vector3) => Vector3;
   setTransformationFromNonVRCamera?: (camera?: Camera, resetToBaseReferenceSpace?: boolean) => void;
+};
+
+type PlayerWithWorldContext = PlayerPhysics & {
+  _worldChunks?: WorldChunks;
+  _sizeX?: number;
+  _sizeY?: number;
+  _sizeZ?: number;
 };
 
 export type XRHandedness = "left" | "right";
@@ -86,11 +95,12 @@ export async function initializeWebXRGameControls(
   let active = false;
   let headOffset = Vector3.Zero();
   let bodyYaw = normalizeAngle(player.yaw);
+  let moveDirection = Vector3.Zero();
   const nonXRCamera = scene.activeCamera;
 
   const controls: WebXRGameControls = {
     isActive: () => active,
-    getMoveDirection: () => Vector3.Zero(),
+    getMoveDirection: () => moveDirection.clone(),
     getControllerRay: (handedness) => {
       if (!active) return null;
 
@@ -116,7 +126,9 @@ export async function initializeWebXRGameControls(
       player.yaw = bodyYaw;
       headOffset = rotateHorizontalVector(headOffsetLocal, bodyYaw);
       emitVRBodyYaw(bodyYaw);
-      handleLeftJoystick(leftController);
+      moveDirection = getMoveDirectionFromLeftController(leftController, getYawFromCamera(xrCamera));
+      applyVRMoveDirection(player, moveDirection, deltaTimeSeconds);
+      clearVRMovementKeys();
     },
     syncAfterPhysics: () => {
       if (!active || !xrExperience) return;
@@ -136,6 +148,7 @@ export async function initializeWebXRGameControls(
 
         if (active && xrExperience) {
           clearVRMovementKeys();
+          moveDirection = Vector3.Zero();
           alignXRCameraFromNonVR(xrExperience.baseExperience.camera, nonXRCamera);
           bodyYaw = getYawFromNonVRCamera(nonXRCamera) ?? normalizeAngle(player.yaw);
           player.yaw = bodyYaw;
@@ -146,6 +159,7 @@ export async function initializeWebXRGameControls(
         }
 
         clearVRMovementKeys();
+        moveDirection = Vector3.Zero();
       });
 
       xrExperience.input.onControllerAddedObservable.add((controller) => {
@@ -198,17 +212,64 @@ function handleRightJoystick(
   return bodyYaw;
 }
 
-function handleLeftJoystick(leftController: XRControllerLike | null): void {
+function getMoveDirectionFromLeftController(
+  leftController: XRControllerLike | null,
+  yaw: number,
+): Vector3 {
   const axes = readControllerAxes(leftController);
 
-  clearVRMovementKeys();
+  if (!axes) return Vector3.Zero();
 
-  if (!axes) return;
+  const forward = new Vector3(
+    Math.sin(yaw),
+    0,
+    Math.cos(yaw),
+  );
 
-  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
-  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
-  if (axes.x < -MOVE_DEAD_ZONE) pressedKeys.add("KeyA");
-  if (axes.x > MOVE_DEAD_ZONE) pressedKeys.add("KeyD");
+  const right = new Vector3(
+    Math.cos(yaw),
+    0,
+    -Math.sin(yaw),
+  );
+
+  const direction = Vector3.Zero();
+
+  if (axes.y < -MOVE_DEAD_ZONE) direction.addInPlace(forward);
+  if (axes.y > MOVE_DEAD_ZONE) direction.subtractInPlace(forward);
+  if (axes.x < -MOVE_DEAD_ZONE) direction.subtractInPlace(right);
+  if (axes.x > MOVE_DEAD_ZONE) direction.addInPlace(right);
+
+  if (direction.lengthSquared() > 0) {
+    direction.normalize();
+  }
+
+  return direction;
+}
+
+function applyVRMoveDirection(
+  player: PlayerPhysics,
+  moveDirection: Vector3,
+  deltaTimeSeconds: number,
+): void {
+  if (moveDirection.lengthSquared() === 0) {
+    return;
+  }
+
+  const playerWithWorldContext = player as PlayerWithWorldContext;
+  const { _worldChunks, _sizeX, _sizeY, _sizeZ } = playerWithWorldContext;
+
+  if (!_worldChunks || _sizeX === undefined || _sizeY === undefined || _sizeZ === undefined) {
+    return;
+  }
+
+  moveWithCollision(
+    player,
+    moveDirection.scale(MOVE_SPEED * deltaTimeSeconds),
+    _worldChunks,
+    _sizeX,
+    _sizeY,
+    _sizeZ,
+  );
 }
 
 function clearVRMovementKeys(): void {
@@ -216,6 +277,12 @@ function clearVRMovementKeys(): void {
   pressedKeys.delete("KeyA");
   pressedKeys.delete("KeyS");
   pressedKeys.delete("KeyD");
+  pressedKeys.delete("KeyQ");
+  pressedKeys.delete("KeyZ");
+  pressedKeys.delete("ArrowUp");
+  pressedKeys.delete("ArrowDown");
+  pressedKeys.delete("ArrowLeft");
+  pressedKeys.delete("ArrowRight");
 }
 
 function readControllerAxes(controller: XRControllerLike | null): { x: number; y: number } | null {
@@ -254,6 +321,16 @@ function getYawFromNonVRCamera(camera: Camera | null): number | null {
   if (!camera) return null;
 
   const forward = camera.getDirection(Axis.Z);
+  return normalizeAngle(Math.atan2(forward.x, forward.z));
+}
+
+function getYawFromCamera(camera: WebXRCameraLike): number {
+  const forward = camera.getDirection?.(Axis.Z);
+
+  if (!forward) {
+    return 0;
+  }
+
   return normalizeAngle(Math.atan2(forward.x, forward.z));
 }
 
