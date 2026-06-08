@@ -23,6 +23,10 @@ import { BlockId } from "./types";
 const DROP_SIZE = 0.3;
 const BLOCK_INTERACTION_REACH = 3;
 const BLOCK_INTERACTION_STEP = 0.1;
+const DROP_PICKUP_DELAY_MS = 350;
+const DROP_PICKUP_DISTANCE = 1.15;
+const DROP_GROUND_DAMPING = 0.82;
+const DROP_HORIZONTAL_DAMPING = 0.94;
 
 type MeshBuffers = {
   positions: number[];
@@ -476,6 +480,55 @@ export function placeBlock(params: BreakBlockParams): void {
 
   if ((player as any)._updateInventoryUI) {
     (player as any)._updateInventoryUI();
+  }
+}
+
+export function updateDroppedItems(
+  droppedItems: DroppedItem[],
+  player: PlayerPhysics,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  deltaTime: number,
+): void {
+  const now = Date.now();
+
+  for (let index = droppedItems.length - 1; index >= 0; index--) {
+    const item = droppedItems[index];
+    const mesh = item.mesh;
+
+    item.velocity.y += GRAVITY * deltaTime;
+    mesh.position.addInPlace(item.velocity.scale(deltaTime));
+    mesh.rotation.y += deltaTime * 1.8;
+
+    const blockBelow = getWorldBlock(
+      worldChunks,
+      sizeX,
+      sizeY,
+      sizeZ,
+      Math.floor(mesh.position.x),
+      Math.floor(mesh.position.y - DROP_SIZE / 2),
+      Math.floor(mesh.position.z),
+    );
+
+    if (isSolidBlock(blockBelow) && item.velocity.y < 0) {
+      mesh.position.y = Math.floor(mesh.position.y - DROP_SIZE / 2) + 1 + DROP_SIZE / 2;
+      item.velocity.y = Math.abs(item.velocity.y) * DROP_GROUND_DAMPING;
+
+      if (Math.abs(item.velocity.y) < 0.08) {
+        item.velocity.y = 0;
+      }
+    }
+
+    item.velocity.x *= DROP_HORIZONTAL_DAMPING;
+    item.velocity.z *= DROP_HORIZONTAL_DAMPING;
+
+    if (now - item.createdAt >= DROP_PICKUP_DELAY_MS && Vector3.Distance(mesh.position, player.position) <= DROP_PICKUP_DISTANCE) {
+      addToInventory(player, item.blockId, 1);
+      mesh.dispose();
+      droppedItems.splice(index, 1);
+    }
   }
 }
 
