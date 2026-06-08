@@ -350,7 +350,14 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             sizeX,
             sizeY,
             sizeZ,
-            isVisible: !isWebXRActive,
+            isVisible: true,
+            isVR: isWebXRActive,
+            controllerRays: isWebXRActive
+                ? [
+                    webXRControls.getControllerRay("left"),
+                    webXRControls.getControllerRay("right"),
+                ]
+                : undefined,
         });
         webXRControls.syncBeforePhysics(deltaTime);
 
