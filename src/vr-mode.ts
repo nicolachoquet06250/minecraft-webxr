@@ -37,6 +37,7 @@ type XRPointerChildLike = {
 };
 
 type XRPointerLike = XRPointerChildLike & {
+  absolutePosition?: Vector3;
   getAbsolutePosition?: () => Vector3;
   getDirection?: (localAxis: Vector3) => Vector3;
   getChildMeshes?: () => XRPointerChildLike[];
@@ -229,10 +230,13 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
 function getControllerPosition(controller: XRControllerLike | null): Vector3 | null {
   const pointer = controller?.pointer;
 
-  if (!isVisibleNode(pointer)) return null;
-  if (!pointer.getAbsolutePosition) return null;
+  if (!pointer) return null;
 
-  return pointer.getAbsolutePosition();
+  if (typeof pointer.getAbsolutePosition === "function") {
+    return pointer.getAbsolutePosition();
+  }
+
+  return pointer.absolutePosition?.clone() ?? null;
 }
 
 function isControllerPointerVisible(pointer: XRPointerLike | undefined): pointer is XRPointerLike {
