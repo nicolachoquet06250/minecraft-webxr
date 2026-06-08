@@ -1,7 +1,9 @@
-import { Scene } from "@babylonjs/core";
+import { Scene, TransformNode } from "@babylonjs/core";
 import poppyModelUrl from "./assets/3d/poppy.gltf?url";
-import { initializeBlockModelInstances } from "./block-model-loader";
+import { attachBlockModelToParent, initializeBlockModelInstances } from "./block-model-loader";
 import { BlockId, type WorldChunks } from "./types";
+
+const POPPY_MODEL_BLOCK_SIZE = 0.75;
 
 export function initializePoppyModels(params: {
   scene: Scene;
@@ -15,6 +17,17 @@ export function initializePoppyModels(params: {
     blockId: BlockId.Poppy,
     modelName: "poppy",
     modelUrl: poppyModelUrl,
-    normalizedBlockSize: 0.75,
+    normalizedBlockSize: POPPY_MODEL_BLOCK_SIZE,
+  });
+}
+
+export async function attachPoppyModelToParent(scene: Scene, parent: TransformNode, instanceName: string): Promise<TransformNode> {
+  return attachBlockModelToParent({
+    scene,
+    parent,
+    modelName: "poppy",
+    modelUrl: poppyModelUrl,
+    instanceName,
+    normalizedBlockSize: POPPY_MODEL_BLOCK_SIZE,
   });
 }
