@@ -41,7 +41,6 @@ import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
-import { initializeVRHandInventoryBar } from "./vr-hand-inventory-ui";
 import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 import { createWaterEffect } from "./water-effects";
 // @ts-ignore
@@ -335,7 +334,6 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     initializeCraftingOverlay(scene, player);
 
     const webXRControls = await initializeWebXRGameControls(scene, player);
-    initializeVRHandInventoryBar(scene, player, webXRControls);
     let leftTriggerWasPressed = false;
 
     if (options.enterVR) {
