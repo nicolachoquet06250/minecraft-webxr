@@ -1,4 +1,4 @@
-import { Mesh, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
+import { Mesh, Ray, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, PLAYER_HEIGHT, PLAYER_RADIUS, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
 import { getBlockDefinition } from "./blocks";
@@ -21,6 +21,8 @@ import type { CreateChunkMeshParams, DroppedItem, FaceDefinition, PlayerPhysics,
 import { BlockId } from "./types";
 
 const DROP_SIZE = 0.3;
+const BLOCK_INTERACTION_REACH = 3;
+const BLOCK_INTERACTION_STEP = 0.1;
 
 type MeshBuffers = {
   positions: number[];
@@ -39,7 +41,10 @@ type BreakBlockParams = {
   sizeZ: number;
   material: StandardMaterial;
   droppedItems: DroppedItem[];
+  targetRay?: Ray | null;
 };
+
+type WorldBlockPosition = { x: number; y: number; z: number };
 
 export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   const {
@@ -382,47 +387,25 @@ export function ensureChunksAroundPlayer(params: {
 }
 
 export function breakBlock(params: BreakBlockParams): void {
-  const { scene, player, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
-  const ray = scene.createPickingRay(scene.getEngine().getRenderWidth() / 2, scene.getEngine().getRenderHeight() / 2, null, scene.activeCamera);
-  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
-  const direction = ray.direction.normalize();
-  let targetWorldX = 0;
-  let targetWorldY = 0;
-  let targetWorldZ = 0;
-  let found = false;
+  const { scene, worldChunks, sizeX, sizeY, sizeZ, material, droppedItems } = params;
+  const target = findFirstSolidBlockFromInteractionRay(params);
 
-  for (let d = 0.1; d <= 3; d += 0.1) {
-    const p = start.add(direction.scale(d));
-    const wx = Math.floor(p.x);
-    const wy = Math.floor(p.y);
-    const wz = Math.floor(p.z);
-    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, wx, wy, wz);
+  if (!target) return;
 
-    if (block !== BlockId.Air && block !== BlockId.Water) {
-      targetWorldX = wx;
-      targetWorldY = wy;
-      targetWorldZ = wz;
-      found = true;
-      break;
-    }
-  }
-
-  if (!found) return;
-
-  const chunk = getChunkFromWorldPosition(worldChunks, sizeX, sizeZ, targetWorldX, targetWorldZ);
+  const chunk = getChunkFromWorldPosition(worldChunks, sizeX, sizeZ, target.x, target.z);
   if (!chunk) return;
 
-  const localX = worldToLocalCoordinate(targetWorldX, sizeX);
-  const localZ = worldToLocalCoordinate(targetWorldZ, sizeZ);
-  const brokenBlock = getBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, targetWorldY, localZ);
+  const localX = worldToLocalCoordinate(target.x, sizeX);
+  const localZ = worldToLocalCoordinate(target.z, sizeZ);
+  const brokenBlock = getBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ);
   let newBlock = BlockId.Air;
   const neighbors = [
-    [targetWorldX + 1, targetWorldY, targetWorldZ],
-    [targetWorldX - 1, targetWorldY, targetWorldZ],
-    [targetWorldX, targetWorldY + 1, targetWorldZ],
-    [targetWorldX, targetWorldY - 1, targetWorldZ],
-    [targetWorldX, targetWorldY, targetWorldZ + 1],
-    [targetWorldX, targetWorldY, targetWorldZ - 1],
+    [target.x + 1, target.y, target.z],
+    [target.x - 1, target.y, target.z],
+    [target.x, target.y + 1, target.z],
+    [target.x, target.y - 1, target.z],
+    [target.x, target.y, target.z + 1],
+    [target.x, target.y, target.z - 1],
   ];
 
   for (const [nx, ny, nz] of neighbors) {
@@ -432,10 +415,10 @@ export function breakBlock(params: BreakBlockParams): void {
     }
   }
 
-  setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, targetWorldY, localZ, newBlock);
+  setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ, newBlock);
 
   if (brokenBlock !== BlockId.Air) {
-    spawnTexturedDrop(scene, targetWorldX, targetWorldY, targetWorldZ, brokenBlock, material, droppedItems);
+    spawnTexturedDrop(scene, target.x, target.y, target.z, brokenBlock, material, droppedItems);
   }
 
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
@@ -457,25 +440,7 @@ export function placeBlock(params: BreakBlockParams): void {
     return;
   }
 
-  const ray = scene.createPickingRay(scene.getEngine().getRenderWidth() / 2, scene.getEngine().getRenderHeight() / 2, null, scene.activeCamera);
-  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
-  const direction = ray.direction.normalize();
-  let placeTarget: { x: number; y: number; z: number } | null = null;
-
-  for (let distance = 0.1; distance <= 3; distance += 0.1) {
-    const point = start.add(direction.scale(distance));
-    const x = Math.floor(point.x);
-    const y = Math.floor(point.y);
-    const z = Math.floor(point.z);
-    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
-
-    if (block === BlockId.Air || block === BlockId.Water) {
-      placeTarget = { x, y, z };
-      continue;
-    }
-
-    break;
-  }
+  const placeTarget = findLastReplaceableBlockBeforeSolidFromInteractionRay(params);
 
   if (!placeTarget) {
     return;
@@ -514,13 +479,75 @@ export function placeBlock(params: BreakBlockParams): void {
   }
 }
 
+function getInteractionRay(params: BreakBlockParams): Ray {
+  if (params.targetRay) {
+    return params.targetRay;
+  }
+
+  const { scene, player } = params;
+  const ray = scene.createPickingRay(scene.getEngine().getRenderWidth() / 2, scene.getEngine().getRenderHeight() / 2, null, scene.activeCamera);
+  const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+
+  return new Ray(start, ray.direction.normalize(), BLOCK_INTERACTION_REACH);
+}
+
+function findFirstSolidBlockFromInteractionRay(params: BreakBlockParams): (WorldBlockPosition & { block: BlockId }) | null {
+  const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const ray = getInteractionRay(params);
+  const direction = ray.direction.normalize();
+  const reach = getInteractionRayReach(ray);
+
+  for (let distance = BLOCK_INTERACTION_STEP; distance <= reach; distance += BLOCK_INTERACTION_STEP) {
+    const point = ray.origin.add(direction.scale(distance));
+    const x = Math.floor(point.x);
+    const y = Math.floor(point.y);
+    const z = Math.floor(point.z);
+    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
+
+    if (block !== BlockId.Air && block !== BlockId.Water) {
+      return { x, y, z, block };
+    }
+  }
+
+  return null;
+}
+
+function findLastReplaceableBlockBeforeSolidFromInteractionRay(params: BreakBlockParams): WorldBlockPosition | null {
+  const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const ray = getInteractionRay(params);
+  const direction = ray.direction.normalize();
+  const reach = getInteractionRayReach(ray);
+  let placeTarget: WorldBlockPosition | null = null;
+
+  for (let distance = BLOCK_INTERACTION_STEP; distance <= reach; distance += BLOCK_INTERACTION_STEP) {
+    const point = ray.origin.add(direction.scale(distance));
+    const x = Math.floor(point.x);
+    const y = Math.floor(point.y);
+    const z = Math.floor(point.z);
+    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
+
+    if (block === BlockId.Air || block === BlockId.Water) {
+      placeTarget = { x, y, z };
+      continue;
+    }
+
+    break;
+  }
+
+  return placeTarget;
+}
+
+function getInteractionRayReach(ray: Ray): number {
+  return Number.isFinite(ray.length) && ray.length > 0
+    ? Math.min(ray.length, BLOCK_INTERACTION_REACH)
+    : BLOCK_INTERACTION_REACH;
+}
+
 function canPlaceSolidBlockAt(player: PlayerPhysics, blockX: number, blockY: number, blockZ: number): boolean {
   const playerMinX = player.position.x - PLAYER_RADIUS;
   const playerMaxX = player.position.x + PLAYER_RADIUS;
   const playerMinY = player.position.y;
   const playerMaxY = player.position.y + PLAYER_HEIGHT;
-  const playerMinZ = player.position.z - PLAYER_RADIUS;
-  const playerMaxZ = player.position.z + PLAYER_RADIUS;
 
   const blockMinX = blockX;
   const blockMaxX = blockX + 1;
@@ -529,11 +556,15 @@ function canPlaceSolidBlockAt(player: PlayerPhysics, blockX: number, blockY: num
   const blockMinZ = blockZ;
   const blockMaxZ = blockZ + 1;
 
-  const overlapsX = playerMinX < blockMaxX && playerMaxX > blockMinX;
-  const overlapsY = playerMinY < blockMaxY && playerMaxY > blockMinY;
-  const overlapsZ = playerMinZ < blockMaxZ && playerMaxZ > blockMinZ;
+  const overlaps =
+    playerMinX < blockMaxX &&
+    playerMaxX > blockMinX &&
+    playerMinY < blockMaxY &&
+    playerMaxY > blockMinY &&
+    player.position.z - PLAYER_RADIUS < blockMaxZ &&
+    player.position.z + PLAYER_RADIUS > blockMinZ;
 
-  return !(overlapsX && overlapsY && overlapsZ);
+  return !overlaps;
 }
 
 function rebuildAffectedChunks(
@@ -559,64 +590,7 @@ function rebuildAffectedChunks(
     if (!affectedChunk) continue;
 
     const oldMesh = affectedChunk.mesh;
-    affectedChunk.mesh = createChunkMesh({
-      scene,
-      name: `chunk-${affectedChunk.chunkX}-${affectedChunk.chunkZ}`,
-      blocks: affectedChunk.blocks,
-      sizeX,
-      sizeY,
-      sizeZ,
-      chunkX: affectedChunk.chunkX,
-      chunkZ: affectedChunk.chunkZ,
-      material,
-    });
+    affectedChunk.mesh = createChunkMesh({ scene, name: `chunk-${affectedChunk.chunkX}-${affectedChunk.chunkZ}`, blocks: affectedChunk.blocks, sizeX, sizeY, sizeZ, chunkX: affectedChunk.chunkX, chunkZ: affectedChunk.chunkZ, material });
     oldMesh.dispose();
-  }
-}
-
-export function updateDroppedItems(
-  droppedItems: DroppedItem[],
-  player: PlayerPhysics,
-  worldChunks: WorldChunks,
-  sizeX: number,
-  sizeY: number,
-  sizeZ: number,
-  deltaTime: number,
-): void {
-  const now = Date.now();
-
-  for (let i = droppedItems.length - 1; i >= 0; i--) {
-    const item = droppedItems[i];
-    item.velocity.y += GRAVITY * deltaTime;
-    const nextY = item.mesh.position.y + item.velocity.y * deltaTime;
-    const worldX = item.mesh.position.x;
-    const worldZ = item.mesh.position.z;
-    const blockBelow = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, worldX, nextY - 0.15, worldZ);
-
-    if (isSolidBlock(blockBelow)) {
-      item.velocity.y = 0;
-      item.mesh.position.y = Math.floor(nextY - 0.15) + 1 + 0.15;
-    } else {
-      item.mesh.position.y = nextY;
-    }
-
-    item.mesh.rotation.y += 2 * deltaTime;
-
-    if (item.velocity.y === 0) {
-      item.mesh.position.y += Math.sin(now / 200) * 0.001;
-    }
-
-    if (Vector3.Distance(player.position, item.mesh.position) < 1.5) {
-      item.mesh.dispose(false, true);
-      droppedItems.splice(i, 1);
-      addToInventory(player, item.blockId);
-      if ((player as any)._updateInventoryUI) (player as any)._updateInventoryUI();
-      continue;
-    }
-
-    if (now - item.createdAt > 60000) {
-      item.mesh.dispose(false, true);
-      droppedItems.splice(i, 1);
-    }
   }
 }
