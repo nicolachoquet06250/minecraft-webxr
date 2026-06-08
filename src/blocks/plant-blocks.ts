@@ -1,13 +1,129 @@
 import { BlockId } from "../types";
-import type { BlockDefinition } from "./types";
+import type { BlockDefinition, BlockTextureDefinition } from "./types";
+
+const allFaces = (texture: BlockTextureDefinition) => ({
+  top: texture,
+  bottom: texture,
+  front: texture,
+  back: texture,
+  right: texture,
+  left: texture,
+});
+
+const cactusTopTexture: BlockTextureDefinition = {
+  palette: {
+    A: [0.16, 0.45, 0.18, 1],
+    B: [0.22, 0.58, 0.22, 1],
+    C: [0.31, 0.68, 0.28, 1],
+    D: [0.11, 0.32, 0.13, 1],
+    E: [0.65, 0.88, 0.48, 1],
+  },
+  matrix: [
+    "DDDDDDDDDDDDDDDD",
+    "DABBBBBBBBBBBBAD",
+    "DBCCCCCCCCCCCCBD",
+    "DBCCBBBBBBBBCCBD",
+    "DBCBBAAAAAABBCBD",
+    "DBCBABEEEEBABCBBD",
+    "DBCBABECCEABCBBD",
+    "DBCBABECDEABCBBD",
+    "DBCBABECCEABCBBD",
+    "DBCBABEEEEBABCBBD",
+    "DBCBBAAAAAABBCBD",
+    "DBCCBBBBBBBBCCBD",
+    "DBCCCCCCCCCCCCBD",
+    "DABBBBBBBBBBBBAD",
+    "DDDDDDDDDDDDDDDD",
+    "DDDDDDDDDDDDDDDD",
+  ],
+};
+
+const cactusSideTexture: BlockTextureDefinition = {
+  palette: {
+    A: [0.13, 0.38, 0.15, 1],
+    B: [0.18, 0.50, 0.18, 1],
+    C: [0.24, 0.62, 0.22, 1],
+    D: [0.10, 0.30, 0.11, 1],
+    E: [0.62, 0.84, 0.46, 1],
+  },
+  matrix: [
+    "DBBCBBBCCBBBCBBD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCEBBCCBBECBDD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCEBBCCBBECBDD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCEBBCCBBECBDD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCEBBCCBBECBDD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCBBBCCBBBCBBD",
+    "DBBCEBBCCBBECBDD",
+    "DBBCBBBCCBBBCBBD",
+  ],
+};
+
+const sugarCaneTexture: BlockTextureDefinition = {
+  palette: {
+    A: [0.38, 0.66, 0.26, 1],
+    B: [0.48, 0.78, 0.32, 1],
+    C: [0.66, 0.90, 0.44, 1],
+    D: [0.22, 0.46, 0.18, 1],
+    E: [0.73, 0.60, 0.30, 1],
+  },
+  matrix: [
+    "DDABBBCCBBAABBDD",
+    "DABBBCCCBBAABBCD",
+    "ABBBCCCBBAABBCDA",
+    "BBBCCCBBAABBCDAB",
+    "BBCCEBBAABBCDABB",
+    "BCCEEBAABBCDABBC",
+    "CCCBBAABBCDABBCC",
+    "CCBBAABBCDABBCCC",
+    "CBBAABBCDABBCCCB",
+    "BBAABBCDABBCCCBB",
+    "BAABBCDABBCCCBBA",
+    "AABBCEABBCCCBBAA",
+    "ABBCEEABCCCBBAAB",
+    "BBCCDABBCCCBBAAB",
+    "BCCDABBCCCBBAABB",
+    "DCDABBCCCBBAABBD",
+  ],
+};
 
 export const plantBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.Grass, name: "Grass", frenchName: "herbe", color: [0.2, 0.65, 0.18, 0.9], solid: false, transparentForMeshing: true },
   { id: BlockId.TallGrass, name: "Tall Grass", frenchName: "hautes herbes", color: [0.2, 0.65, 0.18, 0.9], solid: false, transparentForMeshing: true },
   { id: BlockId.Fern, name: "Fern", frenchName: "fougère", color: [0.2, 0.65, 0.18, 0.9], solid: false, transparentForMeshing: true },
   { id: BlockId.DeadBush, name: "Dead Bush", frenchName: "buisson mort", color: [0.2, 0.45, 0.16, 1.0], solid: false, transparentForMeshing: true },
-  { id: BlockId.Cactus, name: "Cactus", frenchName: "cactus", color: [0.2, 0.45, 0.16, 1.0], solid: true, transparentForMeshing: true },
-  { id: BlockId.SugarCane, name: "Sugar Cane", frenchName: "canne à sucre", color: [0.45, 0.8, 0.35, 1.0], solid: true, transparentForMeshing: true },
+  {
+    id: BlockId.Cactus,
+    name: "Cactus",
+    frenchName: "cactus",
+    color: [0.2, 0.45, 0.16, 1.0],
+    solid: true,
+    transparentForMeshing: true,
+    textures: {
+      top: cactusTopTexture,
+      bottom: cactusTopTexture,
+      front: cactusSideTexture,
+      back: cactusSideTexture,
+      right: cactusSideTexture,
+      left: cactusSideTexture,
+    },
+  },
+  {
+    id: BlockId.SugarCane,
+    name: "Sugar Cane",
+    frenchName: "canne à sucre",
+    color: [0.45, 0.8, 0.35, 1.0],
+    solid: true,
+    transparentForMeshing: true,
+    textures: allFaces(sugarCaneTexture),
+  },
   { id: BlockId.Dandelion, name: "Dandelion", frenchName: "pissenlit", color: [1.0, 0.9, 0.1, 1.0], solid: false, transparentForMeshing: true },
   { id: BlockId.Poppy, name: "Poppy", frenchName: "coquelicot", color: [0.9, 0.05, 0.05, 1.0], solid: false, transparentForMeshing: true },
   { id: BlockId.BlueOrchid, name: "Blue Orchid", frenchName: "orchidée bleue", color: [0.25, 0.5, 1.0, 1.0], solid: false, transparentForMeshing: true },
