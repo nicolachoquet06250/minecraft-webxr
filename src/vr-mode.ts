@@ -7,7 +7,7 @@ import { isVRMode } from "./mobile-controls";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
 const MOVE_DEAD_ZONE = 0.18;
-const CONTROLLER_RAY_LENGTH = 8;
+const CONTROLLER_RAY_LENGTH = 3;
 const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
 const VR_EYE_HEIGHT = EYE_HEIGHT - 0.42;
 const VR_AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
