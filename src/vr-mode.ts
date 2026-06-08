@@ -9,7 +9,7 @@ const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pic
 const MOVE_DEAD_ZONE = 0.18;
 const CONTROLLER_RAY_LENGTH = 8;
 const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
-const VR_EYE_HEIGHT = EYE_HEIGHT - 0.12;
+const VR_EYE_HEIGHT = EYE_HEIGHT - 0.42;
 const VR_AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
 
 type WebXRNavigator = Navigator & {
@@ -129,6 +129,7 @@ export async function initializeWebXRGameControls(
       headOffset = rotateHorizontalVector(headOffsetLocal, bodyYaw);
       emitVRBodyYaw(bodyYaw);
       moveDirection = getMoveDirectionFromLeftController(leftController, getYawFromCamera(xrCamera));
+      applyManualJumpFromRightController(player, rightController);
       applyVRMoveDirection(player, moveDirection, deltaTimeSeconds);
       clearVRMovementKeys();
     },
@@ -307,6 +308,28 @@ function tryVRAutoJump(params: VRAutoJumpParams): void {
 
   player.velocity.y = JUMP_VELOCITY;
   player.grounded = false;
+}
+
+function applyManualJumpFromRightController(
+  player: PlayerPhysics,
+  rightController: XRControllerLike | null,
+): void {
+  if (!player.grounded || !isAButtonPressed(rightController)) {
+    return;
+  }
+
+  player.velocity.y = JUMP_VELOCITY;
+  player.grounded = false;
+}
+
+function isAButtonPressed(controller: XRControllerLike | null): boolean {
+  const aButton =
+    controller?.motionController?.getComponent?.("a-button") ??
+    controller?.motionController?.getComponent?.("xr-standard-button-a") ??
+    controller?.motionController?.getComponent?.("button-a") ??
+    controller?.motionController?.getComponent?.("a");
+
+  return Boolean(aButton?.pressed || (aButton?.value ?? 0) > 0.65);
 }
 
 function moveVRHorizontallyWithCollision(
