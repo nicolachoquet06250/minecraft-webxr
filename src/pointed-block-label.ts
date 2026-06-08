@@ -1,4 +1,4 @@
-import { Scene, Vector3 } from "@babylonjs/core";
+import { Color3, LinesMesh, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, TextBlock } from "@babylonjs/gui";
 import { getBlockDefinition } from "./blocks";
 import { EYE_HEIGHT } from "./constants";
@@ -8,6 +8,9 @@ import { BlockId, type PlayerPhysics, type WorldChunks } from "./types";
 
 const POINTED_BLOCK_REACH = 3;
 const POINTED_BLOCK_STEP = 0.1;
+const HIGHLIGHT_OFFSET = 0.002;
+
+const HIGHLIGHT_COLOR = new Color3(0, 0, 0);
 
 type PointedBlockLabelParams = {
   readonly scene: Scene;
@@ -24,12 +27,17 @@ type PointedBlockLabelControls = {
 };
 
 type TargetBlock = {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
   readonly block: BlockId;
 };
 
 export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelControls {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("pointed-block-label-ui", true, scene);
   const isMobile = isMobileMode();
+  let highlightedBlock: TargetBlock | null = null;
+  let highlightEdges: LinesMesh | null = null;
 
   if (isMobile) {
     ui.renderAtIdealSize = true;
@@ -62,19 +70,42 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
   container.addControl(text);
   ui.addControl(container);
 
+  const clearTarget = (): void => {
+    container.isVisible = false;
+    text.text = "";
+    highlightedBlock = null;
+
+    if (highlightEdges) {
+      highlightEdges.dispose();
+      highlightEdges = null;
+    }
+  };
+
+  const updateHighlight = (target: TargetBlock): void => {
+    if (highlightedBlock && isSameTarget(highlightedBlock, target)) {
+      return;
+    }
+
+    highlightedBlock = target;
+
+    if (highlightEdges) {
+      highlightEdges.dispose();
+    }
+
+    highlightEdges = createBlockHighlightEdges(scene, target);
+  };
+
   return {
     update(params) {
       if (!params.isVisible) {
-        container.isVisible = false;
-        text.text = "";
+        clearTarget();
         return;
       }
 
       const target = findPointedBlock(params);
 
       if (!target) {
-        container.isVisible = false;
-        text.text = "";
+        clearTarget();
         return;
       }
 
@@ -83,12 +114,12 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
       if (!definition) {
         const fallbackName = BlockId[target.block] ?? `Block ${target.block}`;
         text.text = `${fallbackName} / ${fallbackName}`;
-        container.isVisible = true;
-        return;
+      } else {
+        text.text = `${definition.name} / ${definition.frenchName}`;
       }
 
-      text.text = `${definition.name} / ${definition.frenchName}`;
       container.isVisible = true;
+      updateHighlight(target);
     },
   };
 }
@@ -106,20 +137,65 @@ function findPointedBlock(params: PointedBlockLabelParams): TargetBlock | null {
 
   for (let distance = POINTED_BLOCK_STEP; distance <= POINTED_BLOCK_REACH; distance += POINTED_BLOCK_STEP) {
     const point = start.add(direction.scale(distance));
-    const block = getWorldBlock(
-      worldChunks,
-      sizeX,
-      sizeY,
-      sizeZ,
-      Math.floor(point.x),
-      Math.floor(point.y),
-      Math.floor(point.z),
-    );
+    const x = Math.floor(point.x);
+    const y = Math.floor(point.y);
+    const z = Math.floor(point.z);
+    const block = getWorldBlock(worldChunks, sizeX, sizeY, sizeZ, x, y, z);
 
     if (block !== BlockId.Air && block !== BlockId.Water) {
-      return { block };
+      return { x, y, z, block };
     }
   }
 
   return null;
+}
+
+function createBlockHighlightEdges(scene: Scene, target: TargetBlock): LinesMesh {
+  const minX = target.x - HIGHLIGHT_OFFSET;
+  const minY = target.y - HIGHLIGHT_OFFSET;
+  const minZ = target.z - HIGHLIGHT_OFFSET;
+  const maxX = target.x + 1 + HIGHLIGHT_OFFSET;
+  const maxY = target.y + 1 + HIGHLIGHT_OFFSET;
+  const maxZ = target.z + 1 + HIGHLIGHT_OFFSET;
+
+  const p000 = new Vector3(minX, minY, minZ);
+  const p001 = new Vector3(minX, minY, maxZ);
+  const p010 = new Vector3(minX, maxY, minZ);
+  const p011 = new Vector3(minX, maxY, maxZ);
+  const p100 = new Vector3(maxX, minY, minZ);
+  const p101 = new Vector3(maxX, minY, maxZ);
+  const p110 = new Vector3(maxX, maxY, minZ);
+  const p111 = new Vector3(maxX, maxY, maxZ);
+
+  const lines = MeshBuilder.CreateLineSystem(
+    `pointed-block-highlight-${target.x}-${target.y}-${target.z}`,
+    {
+      lines: [
+        [p000, p100],
+        [p100, p101],
+        [p101, p001],
+        [p001, p000],
+        [p010, p110],
+        [p110, p111],
+        [p111, p011],
+        [p011, p010],
+        [p000, p010],
+        [p100, p110],
+        [p101, p111],
+        [p001, p011],
+      ],
+    },
+    scene,
+  );
+
+  lines.color = HIGHLIGHT_COLOR;
+  lines.isPickable = false;
+  lines.alwaysSelectAsActiveMesh = true;
+  lines.renderingGroupId = 1;
+
+  return lines;
+}
+
+function isSameTarget(a: TargetBlock, b: TargetBlock): boolean {
+  return a.x === b.x && a.y === b.y && a.z === b.z && a.block === b.block;
 }
