@@ -40,7 +40,7 @@ import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
-import { showMainMenu } from "./main-menu";
+import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
@@ -223,7 +223,7 @@ const minecraftCanvas = canvas;
 const engine = new Engine(minecraftCanvas, true);
 let gameStarted = false;
 
-async function startGame(): Promise<void> {
+async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     if (gameStarted) {
         return;
     }
@@ -332,6 +332,10 @@ async function startGame(): Promise<void> {
 
     const webXRControls = await initializeWebXRGameControls(scene, player);
 
+    if (options.enterVR) {
+        void webXRControls.enterVR();
+    }
+
     engine.runRenderLoop(() => {
         const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
         const isWebXRActive = webXRControls.isActive();
@@ -396,7 +400,7 @@ async function startGame(): Promise<void> {
 await showMainMenu({
     engine,
     canvas: minecraftCanvas,
-    onPlay: () => {
-        void startGame();
+    onPlay: (options) => {
+        void startGame(options);
     },
 });
