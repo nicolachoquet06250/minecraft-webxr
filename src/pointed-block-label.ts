@@ -1,4 +1,4 @@
-import { Color3, LinesMesh, Mesh, MeshBuilder, Ray, Scene, Vector3 } from "@babylonjs/core";
+import { Color3, LinesMesh, MeshBuilder, Ray, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, TextBlock } from "@babylonjs/gui";
 import { getBlockDefinition, isTransparentForMeshingDefinition } from "./blocks";
 import { EYE_HEIGHT } from "./constants";
