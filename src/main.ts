@@ -334,7 +334,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     initializeCraftingOverlay(scene, player);
 
     const webXRControls = await initializeWebXRGameControls(scene, player);
-    initializeVRInventoryBar(scene, player, webXRControls);
+    const vrInventoryBar = initializeVRInventoryBar(scene, player, webXRControls);
     let leftTriggerWasPressed = false;
 
     if (options.enterVR) {
@@ -344,8 +344,12 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     engine.runRenderLoop(() => {
         const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
         const isWebXRActive = webXRControls.isActive();
-        const leftControllerRay = isWebXRActive ? webXRControls.getControllerRay("left") : null;
-        const rightControllerRay = isWebXRActive ? webXRControls.getControllerRay("right") : null;
+        const rawLeftControllerRay = isWebXRActive ? webXRControls.getControllerRay("left") : null;
+        const rawRightControllerRay = isWebXRActive ? webXRControls.getControllerRay("right") : null;
+        const leftRayTargetsInventory = isWebXRActive && vrInventoryBar.isRayPointingAtInventory(rawLeftControllerRay);
+        const rightRayTargetsInventory = isWebXRActive && vrInventoryBar.isRayPointingAtInventory(rawRightControllerRay);
+        const leftControllerRay = leftRayTargetsInventory ? null : rawLeftControllerRay;
+        const rightControllerRay = rightRayTargetsInventory ? null : rawRightControllerRay;
 
         crosshairUi.rootContainer.isVisible = !isWebXRActive;
         pointedBlockLabel.update({
