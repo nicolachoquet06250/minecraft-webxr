@@ -19,5 +19,6 @@ export type BlockDefinition = {
   readonly color: RgbaColor;
   readonly solid: boolean;
   readonly transparentForMeshing: boolean;
+  readonly visualHeight?: number;
   readonly textures?: BlockFaceTextureDefinitions;
 };
