@@ -212,7 +212,7 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
   const pointer = controller?.pointer;
 
   if (!isControllerPointerVisible(pointer)) return null;
-  if (!pointer?.getAbsolutePosition || !pointer.getDirection) return null;
+  if (!pointer.getAbsolutePosition || !pointer.getDirection) return null;
 
   const origin = pointer.getAbsolutePosition();
   const direction = pointer.getDirection(Axis.Z).normalize();
@@ -220,7 +220,7 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
   return new Ray(origin, direction, CONTROLLER_RAY_LENGTH);
 }
 
-function isControllerPointerVisible(pointer: XRPointerLike | undefined): boolean {
+function isControllerPointerVisible(pointer: XRPointerLike | undefined): pointer is XRPointerLike {
   if (!isVisibleNode(pointer)) return false;
 
   const childMeshes = pointer.getChildMeshes?.() ?? [];
@@ -242,7 +242,7 @@ function isControllerPointerVisible(pointer: XRPointerLike | undefined): boolean
   return true;
 }
 
-function isVisibleNode(node: XRPointerChildLike | undefined): boolean {
+function isVisibleNode(node: XRPointerChildLike | undefined): node is XRPointerChildLike {
   if (!node) return false;
   if (node.isVisible === false) return false;
   if (typeof node.visibility === "number" && node.visibility <= 0) return false;
