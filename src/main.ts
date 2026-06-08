@@ -28,6 +28,7 @@ import {
 import {
   createChunkMesh,
   ensureChunksAroundPlayer,
+  placeBlock,
   updateDroppedItems,
 } from "./textured-world";
 
@@ -40,6 +41,7 @@ import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
+import { initializeVRHandInventoryBar } from "./vr-hand-inventory-ui";
 import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 import { createWaterEffect } from "./water-effects";
 // @ts-ignore
@@ -333,6 +335,8 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     initializeCraftingOverlay(scene, player);
 
     const webXRControls = await initializeWebXRGameControls(scene, player);
+    initializeVRHandInventoryBar(scene, player, webXRControls);
+    let leftTriggerWasPressed = false;
 
     if (options.enterVR) {
         void webXRControls.enterVR();
@@ -364,6 +368,24 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
         webXRControls.syncBeforePhysics(deltaTime);
 
         if (isWebXRActive) {
+            const leftTriggerPressed = webXRControls.isTriggerPressed("left");
+
+            if (leftTriggerPressed && !leftTriggerWasPressed && leftControllerRay) {
+                placeBlock({
+                    scene,
+                    player,
+                    worldChunks,
+                    sizeX,
+                    sizeY,
+                    sizeZ,
+                    material: lightMaterial,
+                    droppedItems,
+                    targetRay: leftControllerRay,
+                });
+            }
+
+            leftTriggerWasPressed = leftTriggerPressed;
+
             if (webXRControls.isTriggerPressed("right") && rightControllerRay) {
                 startBlockBreaking({
                     scene,
@@ -379,6 +401,8 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             } else {
                 cancelBlockBreaking();
             }
+        } else {
+            leftTriggerWasPressed = false;
         }
 
         const moveDirectionBeforePhysics = getInputMoveDirection(player);
