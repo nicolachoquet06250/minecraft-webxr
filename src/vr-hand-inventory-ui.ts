@@ -1,17 +1,21 @@
-import { Mesh, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
+import { Color3, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
 import type { PlayerPhysics } from "./types";
 import type { WebXRGameControls } from "./vr-mode";
 
 const VR_HAND_HOTBAR_SLOT_COUNT = 9;
-const VR_HAND_HOTBAR_WIDTH = 1.2;
+const VR_HAND_HOTBAR_WIDTH = 1.18;
 const VR_HAND_HOTBAR_HEIGHT = 0.22;
-const VR_HAND_HOTBAR_VERTICAL_OFFSET = 0.34;
-const VR_HAND_HOTBAR_FORWARD_OFFSET = 0.12;
-const VR_FALLBACK_DISTANCE = 1.15;
-const VR_FALLBACK_LEFT_OFFSET = -0.45;
-const VR_FALLBACK_VERTICAL_OFFSET = -0.2;
+const VR_ARM_WIDTH = 0.16;
+const VR_ARM_HEIGHT = 0.16;
+const VR_ARM_LENGTH = 0.48;
+const VR_ARM_VERTICAL_OFFSET = -0.05;
+const VR_ARM_CAMERA_DISTANCE = 0.72;
+const VR_ARM_SIDE_OFFSET = 0.32;
+const VR_ARM_DOWN_OFFSET = -0.42;
+const VR_HOTBAR_LOCAL_Y = 0.28;
+const VR_HOTBAR_LOCAL_Z = -0.1;
 
 type VRHandInventoryControls = {
   readonly updateUI: () => void;
@@ -22,8 +26,15 @@ export function initializeVRHandInventoryBar(
   player: PlayerPhysics,
   webXRControls: WebXRGameControls,
 ): VRHandInventoryControls {
+  const armMaterial = new StandardMaterial("vr-player-arm-material", scene);
+  armMaterial.diffuseColor = new Color3(0.46, 0.28, 0.16);
+  armMaterial.specularColor = Color3.Black();
+
+  const leftArm = createArmMesh(scene, "vr-player-left-arm", armMaterial);
+  const rightArm = createArmMesh(scene, "vr-player-right-arm", armMaterial);
+
   const panel = MeshBuilder.CreatePlane(
-    "vr-left-hand-inventory-panel",
+    "vr-left-arm-inventory-panel",
     {
       width: VR_HAND_HOTBAR_WIDTH,
       height: VR_HAND_HOTBAR_HEIGHT,
@@ -34,14 +45,15 @@ export function initializeVRHandInventoryBar(
   panel.isPickable = false;
   panel.alwaysSelectAsActiveMesh = true;
   panel.billboardMode = Mesh.BILLBOARDMODE_ALL;
-  panel.setEnabled(false);
+  panel.parent = leftArm;
+  panel.position.set(0, VR_HOTBAR_LOCAL_Y, VR_HOTBAR_LOCAL_Z);
 
   const ui = AdvancedDynamicTexture.CreateForMesh(panel, 1200, 220, false);
   const slots: Rectangle[] = [];
   const itemIcons: Rectangle[] = [];
   const countTexts: TextBlock[] = [];
 
-  const hotbar = new StackPanel("vr-left-hand-inventory-hotbar");
+  const hotbar = new StackPanel("vr-left-arm-inventory-hotbar");
   hotbar.isVertical = false;
   hotbar.width = 1180;
   hotbar.height = 210;
@@ -51,7 +63,7 @@ export function initializeVRHandInventoryBar(
   ui.addControl(hotbar);
 
   for (let index = 0; index < VR_HAND_HOTBAR_SLOT_COUNT; index++) {
-    const slot = new Rectangle(`vr-left-hand-inventory-slot-${index}`);
+    const slot = new Rectangle(`vr-left-arm-inventory-slot-${index}`);
     slot.width = "122px";
     slot.height = "122px";
     slot.thickness = 4;
@@ -60,7 +72,7 @@ export function initializeVRHandInventoryBar(
     slot.background = "rgba(30, 30, 30, 0.82)";
     slot.isPointerBlocker = false;
 
-    const item = new Rectangle(`vr-left-hand-inventory-item-${index}`);
+    const item = new Rectangle(`vr-left-arm-inventory-item-${index}`);
     item.width = "78px";
     item.height = "78px";
     item.thickness = 1;
@@ -70,7 +82,7 @@ export function initializeVRHandInventoryBar(
     item.isPointerBlocker = false;
     item.isVisible = false;
 
-    const countText = new TextBlock(`vr-left-hand-inventory-count-${index}`);
+    const countText = new TextBlock(`vr-left-arm-inventory-count-${index}`);
     countText.color = "white";
     countText.fontSize = 32;
     countText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
@@ -114,51 +126,99 @@ export function initializeVRHandInventoryBar(
   updateUI();
 
   scene.onBeforeRenderObservable.add(() => {
-    if (!webXRControls.isActive()) {
-      panel.setEnabled(false);
-      return;
-    }
-
     const activeCamera = scene.activeCamera;
     const cameraPosition = activeCamera?.globalPosition ?? activeCamera?.position;
 
-    if (!activeCamera || !cameraPosition) {
+    if (!webXRControls.isActive() || !activeCamera || !cameraPosition) {
+      leftArm.setEnabled(false);
+      rightArm.setEnabled(false);
       panel.setEnabled(false);
       return;
     }
 
-    const leftControllerPosition = webXRControls.getControllerPosition("left");
+    updateArmTransform({
+      scene,
+      arm: leftArm,
+      cameraPosition,
+      controllerPosition: webXRControls.getControllerPosition("left"),
+      controllerDirection: webXRControls.getControllerRay("left")?.direction ?? null,
+      side: -1,
+    });
+    updateArmTransform({
+      scene,
+      arm: rightArm,
+      cameraPosition,
+      controllerPosition: webXRControls.getControllerPosition("right"),
+      controllerDirection: webXRControls.getControllerRay("right")?.direction ?? null,
+      side: 1,
+    });
 
-    if (leftControllerPosition) {
-      const toCamera = cameraPosition.subtract(leftControllerPosition);
-      toCamera.y = 0;
-
-      if (toCamera.lengthSquared() === 0) {
-        toCamera.copyFromFloats(0, 0, -1);
-      }
-
-      toCamera.normalize();
-      panel.position.copyFrom(
-        leftControllerPosition
-          .add(new Vector3(0, VR_HAND_HOTBAR_VERTICAL_OFFSET, 0))
-          .add(toCamera.scale(VR_HAND_HOTBAR_FORWARD_OFFSET)),
-      );
-      panel.setEnabled(true);
-      return;
-    }
-
-    const cameraForward = activeCamera.getDirection(Vector3.Forward()).normalize();
-    const cameraRight = activeCamera.getDirection(Vector3.Right()).normalize();
-    panel.position.copyFrom(
-      cameraPosition
-        .add(cameraForward.scale(VR_FALLBACK_DISTANCE))
-        .add(cameraRight.scale(VR_FALLBACK_LEFT_OFFSET))
-        .add(new Vector3(0, VR_FALLBACK_VERTICAL_OFFSET, 0)),
-    );
+    leftArm.setEnabled(true);
+    rightArm.setEnabled(true);
     panel.setEnabled(true);
   });
 
   return { updateUI };
+}
+
+function createArmMesh(scene: Scene, name: string, material: StandardMaterial): Mesh {
+  const arm = MeshBuilder.CreateBox(
+    name,
+    {
+      width: VR_ARM_WIDTH,
+      height: VR_ARM_HEIGHT,
+      depth: VR_ARM_LENGTH,
+    },
+    scene,
+  );
+
+  arm.material = material;
+  arm.isPickable = false;
+  arm.alwaysSelectAsActiveMesh = true;
+  arm.setEnabled(false);
+
+  return arm;
+}
+
+type UpdateArmTransformParams = {
+  scene: Scene;
+  arm: Mesh;
+  cameraPosition: Vector3;
+  controllerPosition: Vector3 | null;
+  controllerDirection: Vector3 | null;
+  side: -1 | 1;
+};
+
+function updateArmTransform(params: UpdateArmTransformParams): void {
+  const { scene, arm, cameraPosition, controllerPosition, controllerDirection, side } = params;
+  const activeCamera = scene.activeCamera;
+
+  if (!activeCamera) {
+    return;
+  }
+
+  const fallbackPosition = getFallbackArmPosition(activeCamera, cameraPosition, side);
+  const handPosition = controllerPosition ?? fallbackPosition;
+  const direction = controllerDirection?.clone() ?? cameraPosition.subtract(handPosition);
+
+  if (direction.lengthSquared() === 0) {
+    direction.copyFrom(activeCamera.getDirection(Vector3.Forward()));
+  }
+
+  direction.normalize();
+  arm.position.copyFrom(handPosition.add(direction.scale(VR_ARM_LENGTH / 2)));
+  arm.position.y += VR_ARM_VERTICAL_OFFSET;
+  arm.lookAt(arm.position.add(direction));
+}
+
+function getFallbackArmPosition(activeCamera: NonNullable<Scene["activeCamera"]>, cameraPosition: Vector3, side: -1 | 1): Vector3 {
+  const forward = activeCamera.getDirection(Vector3.Forward()).normalize();
+  const right = activeCamera.getDirection(Vector3.Right()).normalize();
+
+  return cameraPosition
+    .add(forward.scale(VR_ARM_CAMERA_DISTANCE))
+    .add(right.scale(side * VR_ARM_SIDE_OFFSET))
+    .add(new Vector3(0, VR_ARM_DOWN_OFFSET, 0));
 }
 
 function registerInventoryUpdater(player: PlayerPhysics, updateUI: () => void): void {
