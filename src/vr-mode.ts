@@ -1,7 +1,7 @@
 import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import type { Camera } from "@babylonjs/core";
-import { EYE_HEIGHT, MOVE_SPEED, pressedKeys } from "./constants";
-import { moveWithCollision } from "./functions";
+import { EYE_HEIGHT, JUMP_VELOCITY, MOVE_SPEED, pressedKeys } from "./constants";
+import { hasCollisionAt } from "./functions";
 import type { PlayerPhysics, WorldChunks } from "./types";
 import { isVRMode } from "./mobile-controls";
 
@@ -9,6 +9,8 @@ const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pic
 const MOVE_DEAD_ZONE = 0.18;
 const CONTROLLER_RAY_LENGTH = 8;
 const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
+const VR_EYE_HEIGHT = EYE_HEIGHT - 0.12;
+const VR_AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -262,14 +264,74 @@ function applyVRMoveDirection(
     return;
   }
 
-  moveWithCollision(
+  const previousPosition = player.position.clone();
+  const deltaMove = moveDirection.scale(MOVE_SPEED * deltaTimeSeconds);
+
+  moveVRHorizontallyWithCollision(
     player,
-    moveDirection.scale(MOVE_SPEED * deltaTimeSeconds),
+    deltaMove,
     _worldChunks,
     _sizeX,
     _sizeY,
     _sizeZ,
   );
+
+  tryVRAutoJump({
+    player,
+    moveDirection,
+    previousPosition,
+  });
+}
+
+type VRAutoJumpParams = {
+  player: PlayerPhysics;
+  moveDirection: Vector3;
+  previousPosition: Vector3;
+};
+
+function tryVRAutoJump(params: VRAutoJumpParams): void {
+  const { player, moveDirection, previousPosition } = params;
+
+  if (!player.grounded) {
+    return;
+  }
+
+  const actualHorizontalMove = player.position.subtract(previousPosition);
+  actualHorizontalMove.y = 0;
+
+  const progressInInputDirection = Vector3.Dot(actualHorizontalMove, moveDirection);
+
+  if (progressInInputDirection > VR_AUTO_JUMP_MIN_HORIZONTAL_PROGRESS) {
+    return;
+  }
+
+  player.velocity.y = JUMP_VELOCITY;
+  player.grounded = false;
+}
+
+function moveVRHorizontallyWithCollision(
+  player: PlayerPhysics,
+  deltaMove: Vector3,
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+): void {
+  const nextX = player.position.add(new Vector3(deltaMove.x, 0, 0));
+
+  if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextX)) {
+    player.position.x = nextX.x;
+  } else {
+    player.velocity.x = 0;
+  }
+
+  const nextZ = player.position.add(new Vector3(0, 0, deltaMove.z));
+
+  if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextZ)) {
+    player.position.z = nextZ.z;
+  } else {
+    player.velocity.z = 0;
+  }
 }
 
 function clearVRMovementKeys(): void {
@@ -335,7 +397,7 @@ function getYawFromCamera(camera: WebXRCameraLike): number {
 }
 
 function getPlayerEyesPosition(player: PlayerPhysics): Vector3 {
-  return player.position.add(new Vector3(0, EYE_HEIGHT, 0));
+  return player.position.add(new Vector3(0, VR_EYE_HEIGHT, 0));
 }
 
 function emitVRBodyYaw(yaw: number): void {
