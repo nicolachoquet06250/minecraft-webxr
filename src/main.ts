@@ -35,7 +35,7 @@ import initializeEvents from "./events";
 import { updateBlockBreaking } from "./block-breaking";
 import { applyProceduralBlockAtlasMaterial } from "./block-atlas";
 import { initializeCraftingOverlay } from "./crafting-ui";
-import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
+import { initializeInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializePoppyModels } from "./poppy-models";
@@ -331,7 +331,6 @@ async function startGame(): Promise<void> {
     initializeCraftingOverlay(scene, player);
 
     const webXRControls = await initializeWebXRGameControls(scene, player);
-    initializeVRInventoryBar(scene, player, webXRControls);
 
     engine.runRenderLoop(() => {
         const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
