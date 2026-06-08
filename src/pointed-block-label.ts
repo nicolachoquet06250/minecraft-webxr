@@ -10,8 +10,6 @@ const POINTED_BLOCK_REACH = 3;
 const POINTED_BLOCK_STEP = 0.1;
 const HIGHLIGHT_OFFSET = 0.002;
 
-const HIGHLIGHT_COLOR = new Color3(0, 0, 0);
-
 type PointedBlockLabelParams = {
   readonly scene: Scene;
   readonly player: PlayerPhysics;
@@ -33,10 +31,27 @@ type TargetBlock = {
   readonly block: BlockId;
 };
 
+type VisibleFaceName = "left" | "right" | "bottom" | "top" | "back" | "front";
+
+type EdgeName =
+  | "bottom-back"
+  | "bottom-front"
+  | "bottom-left"
+  | "bottom-right"
+  | "top-back"
+  | "top-front"
+  | "top-left"
+  | "top-right"
+  | "back-left"
+  | "back-right"
+  | "front-left"
+  | "front-right";
+
 export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelControls {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("pointed-block-label-ui", true, scene);
   const isMobile = isMobileMode();
   let highlightedBlock: TargetBlock | null = null;
+  let highlightedEdgesKey: string | null = null;
   let highlightEdges: LinesMesh | null = null;
 
   if (isMobile) {
@@ -74,6 +89,7 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
     container.isVisible = false;
     text.text = "";
     highlightedBlock = null;
+    highlightedEdgesKey = null;
 
     if (highlightEdges) {
       highlightEdges.dispose();
@@ -82,17 +98,23 @@ export function initializePointedBlockLabel(scene: Scene): PointedBlockLabelCont
   };
 
   const updateHighlight = (target: TargetBlock): void => {
-    if (highlightedBlock && isSameTarget(highlightedBlock, target)) {
+    const visibleFaces = getVisibleFaces(scene, target);
+    const definition = getBlockDefinition(target.block);
+    const highlightColor = getHighContrastColor(definition?.color ?? [0, 0, 0, 1]);
+    const nextEdgesKey = `${visibleFaces.join("|")}:${highlightColor.toHexString()}`;
+
+    if (highlightedBlock && isSameTarget(highlightedBlock, target) && highlightedEdgesKey === nextEdgesKey) {
       return;
     }
 
     highlightedBlock = target;
+    highlightedEdgesKey = nextEdgesKey;
 
     if (highlightEdges) {
       highlightEdges.dispose();
     }
 
-    highlightEdges = createBlockHighlightEdges(scene, target);
+    highlightEdges = createBlockHighlightEdges(scene, target, visibleFaces, highlightColor);
   };
 
   return {
@@ -150,7 +172,12 @@ function findPointedBlock(params: PointedBlockLabelParams): TargetBlock | null {
   return null;
 }
 
-function createBlockHighlightEdges(scene: Scene, target: TargetBlock): LinesMesh {
+function createBlockHighlightEdges(
+  scene: Scene,
+  target: TargetBlock,
+  visibleFaces: readonly VisibleFaceName[],
+  color: Color3,
+): LinesMesh {
   const minX = target.x - HIGHLIGHT_OFFSET;
   const minY = target.y - HIGHLIGHT_OFFSET;
   const minZ = target.z - HIGHLIGHT_OFFSET;
@@ -158,42 +185,104 @@ function createBlockHighlightEdges(scene: Scene, target: TargetBlock): LinesMesh
   const maxY = target.y + 1 + HIGHLIGHT_OFFSET;
   const maxZ = target.z + 1 + HIGHLIGHT_OFFSET;
 
-  const p000 = new Vector3(minX, minY, minZ);
-  const p001 = new Vector3(minX, minY, maxZ);
-  const p010 = new Vector3(minX, maxY, minZ);
-  const p011 = new Vector3(minX, maxY, maxZ);
-  const p100 = new Vector3(maxX, minY, minZ);
-  const p101 = new Vector3(maxX, minY, maxZ);
-  const p110 = new Vector3(maxX, maxY, minZ);
-  const p111 = new Vector3(maxX, maxY, maxZ);
+  const points: Record<string, Vector3> = {
+    p000: new Vector3(minX, minY, minZ),
+    p001: new Vector3(minX, minY, maxZ),
+    p010: new Vector3(minX, maxY, minZ),
+    p011: new Vector3(minX, maxY, maxZ),
+    p100: new Vector3(maxX, minY, minZ),
+    p101: new Vector3(maxX, minY, maxZ),
+    p110: new Vector3(maxX, maxY, minZ),
+    p111: new Vector3(maxX, maxY, maxZ),
+  };
 
+  const edgePoints: Record<EdgeName, [Vector3, Vector3]> = {
+    "bottom-back": [points.p000, points.p100],
+    "bottom-front": [points.p001, points.p101],
+    "bottom-left": [points.p000, points.p001],
+    "bottom-right": [points.p100, points.p101],
+    "top-back": [points.p010, points.p110],
+    "top-front": [points.p011, points.p111],
+    "top-left": [points.p010, points.p011],
+    "top-right": [points.p110, points.p111],
+    "back-left": [points.p000, points.p010],
+    "back-right": [points.p100, points.p110],
+    "front-left": [points.p001, points.p011],
+    "front-right": [points.p101, points.p111],
+  };
+
+  const visibleEdgeNames = getVisibleEdgeNames(visibleFaces);
   const lines = MeshBuilder.CreateLineSystem(
     `pointed-block-highlight-${target.x}-${target.y}-${target.z}`,
     {
-      lines: [
-        [p000, p100],
-        [p100, p101],
-        [p101, p001],
-        [p001, p000],
-        [p010, p110],
-        [p110, p111],
-        [p111, p011],
-        [p011, p010],
-        [p000, p010],
-        [p100, p110],
-        [p101, p111],
-        [p001, p011],
-      ],
+      lines: visibleEdgeNames.map((edgeName) => edgePoints[edgeName]),
     },
     scene,
   );
 
-  lines.color = HIGHLIGHT_COLOR;
+  lines.color = color;
   lines.isPickable = false;
   lines.alwaysSelectAsActiveMesh = true;
   lines.renderingGroupId = 1;
 
   return lines;
+}
+
+function getVisibleFaces(scene: Scene, target: TargetBlock): VisibleFaceName[] {
+  const cameraPosition = scene.activeCamera?.globalPosition ?? scene.activeCamera?.position;
+  const center = new Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5);
+
+  if (!cameraPosition) {
+    return ["front", "top", "right"];
+  }
+
+  const delta = cameraPosition.subtract(center);
+  const visibleFaces: VisibleFaceName[] = [];
+
+  if (delta.x < 0) visibleFaces.push("left");
+  if (delta.x > 0) visibleFaces.push("right");
+  if (delta.y < 0) visibleFaces.push("bottom");
+  if (delta.y > 0) visibleFaces.push("top");
+  if (delta.z < 0) visibleFaces.push("back");
+  if (delta.z > 0) visibleFaces.push("front");
+
+  return visibleFaces;
+}
+
+function getVisibleEdgeNames(visibleFaces: readonly VisibleFaceName[]): EdgeName[] {
+  const edges = new Set<EdgeName>();
+
+  for (const face of visibleFaces) {
+    for (const edge of getFaceEdges(face)) {
+      edges.add(edge);
+    }
+  }
+
+  return [...edges];
+}
+
+function getFaceEdges(face: VisibleFaceName): readonly EdgeName[] {
+  switch (face) {
+    case "left":
+      return ["bottom-left", "top-left", "back-left", "front-left"];
+    case "right":
+      return ["bottom-right", "top-right", "back-right", "front-right"];
+    case "bottom":
+      return ["bottom-back", "bottom-front", "bottom-left", "bottom-right"];
+    case "top":
+      return ["top-back", "top-front", "top-left", "top-right"];
+    case "back":
+      return ["bottom-back", "top-back", "back-left", "back-right"];
+    case "front":
+      return ["bottom-front", "top-front", "front-left", "front-right"];
+  }
+}
+
+function getHighContrastColor(color: readonly [number, number, number, number]): Color3 {
+  const [r, g, b] = color;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+  return luminance > 0.45 ? new Color3(0.02, 0.02, 0.02) : new Color3(1, 1, 1);
 }
 
 function isSameTarget(a: TargetBlock, b: TargetBlock): boolean {
