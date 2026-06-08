@@ -15,6 +15,7 @@ export type BlockFaceTextureDefinitions = Partial<Record<BlockFaceName, BlockTex
 export type BlockDefinition = {
   readonly id: BlockId;
   readonly name: string;
+  readonly frenchName: string;
   readonly color: RgbaColor;
   readonly solid: boolean;
   readonly transparentForMeshing: boolean;
