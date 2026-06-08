@@ -5,6 +5,7 @@ import type { PlayerPhysics } from "./types";
 import { isVRMode } from "./mobile-controls";
 
 const VR_HEADSET_USER_AGENT_PATTERN = /OculusBrowser|Oculus|Quest|Meta Quest|Pico|Vive|Hololens/i;
+const MOVE_DEAD_ZONE = 0.18;
 const CONTROLLER_RAY_LENGTH = 8;
 const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
 
@@ -197,8 +198,17 @@ function handleRightJoystick(
   return bodyYaw;
 }
 
-function handleLeftJoystick(_leftController: XRControllerLike | null): void {
+function handleLeftJoystick(leftController: XRControllerLike | null): void {
+  const axes = readControllerAxes(leftController);
+
   clearVRMovementKeys();
+
+  if (!axes) return;
+
+  if (axes.y < -MOVE_DEAD_ZONE) pressedKeys.add("KeyW");
+  if (axes.y > MOVE_DEAD_ZONE) pressedKeys.add("KeyS");
+  if (axes.x < -MOVE_DEAD_ZONE) pressedKeys.add("KeyA");
+  if (axes.x > MOVE_DEAD_ZONE) pressedKeys.add("KeyD");
 }
 
 function clearVRMovementKeys(): void {
@@ -206,6 +216,22 @@ function clearVRMovementKeys(): void {
   pressedKeys.delete("KeyA");
   pressedKeys.delete("KeyS");
   pressedKeys.delete("KeyD");
+}
+
+function readControllerAxes(controller: XRControllerLike | null): { x: number; y: number } | null {
+  const thumbstick = controller?.motionController?.getComponent?.("xr-standard-thumbstick")?.axes;
+  const touchpad = controller?.motionController?.getComponent?.("xr-standard-touchpad")?.axes;
+  const axes = thumbstick ?? touchpad;
+
+  if (!axes) return null;
+
+  const x = axes.x ?? 0;
+  const y = axes.y ?? 0;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  if (Math.abs(x) > 1.2 || Math.abs(y) > 1.2) return null;
+
+  return { x, y };
 }
 
 function isTriggerPressed(controller: XRControllerLike | null): boolean {
@@ -241,7 +267,7 @@ function emitVRBodyYaw(yaw: number): void {
   }));
 }
 
-function normalizeAngle(angle: number): number {
+function normalizeAngle(angle: number): void | number {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
