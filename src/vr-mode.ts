@@ -44,6 +44,7 @@ export type WebXRGameControls = {
   getMoveDirection: () => Vector3;
   getControllerRay: (handedness: XRHandedness) => Ray | null;
   isTriggerPressed: (handedness: XRHandedness) => boolean;
+  enterVR: () => Promise<void>;
   syncBeforePhysics: (deltaTimeSeconds: number) => void;
   syncAfterPhysics: () => void;
 };
@@ -98,6 +99,9 @@ export async function initializeWebXRGameControls(
       if (!active) return false;
 
       return isTriggerPressed(handedness === "left" ? leftController : rightController);
+    },
+    enterVR: async () => {
+      await xrExperience?.baseExperience.enterXRAsync("immersive-vr", "local-floor");
     },
     syncBeforePhysics: (deltaTimeSeconds: number) => {
       if (!active || !xrExperience) return;
