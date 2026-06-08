@@ -1,8 +1,9 @@
-import { Mesh, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
+import { Mesh, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, PLAYER_HEIGHT, PLAYER_RADIUS, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
 import { getBlockDefinition } from "./blocks";
 import type { BlockFaceName } from "./blocks";
+import { attachPoppyModelToParent } from "./poppy-models";
 import {
   addToInventory,
   getBlock,
@@ -264,6 +265,11 @@ export function spawnTexturedDrop(
   material: StandardMaterial,
   droppedItems: DroppedItem[],
 ): void {
+  if (blockId === BlockId.Poppy) {
+    spawnPoppyDrop(scene, worldX, worldY, worldZ, droppedItems);
+    return;
+  }
+
   const buffers = createMeshBuffers();
 
   for (const face of FACES) {
@@ -286,6 +292,21 @@ export function spawnTexturedDrop(
   droppedItems.push({
     mesh,
     blockId,
+    createdAt: Date.now(),
+    velocity: new Vector3(0, 0, 0),
+  });
+}
+
+function spawnPoppyDrop(scene: Scene, worldX: number, worldY: number, worldZ: number, droppedItems: DroppedItem[]): void {
+  const root = new TransformNode(`drop-poppy-${Date.now()}`, scene);
+  root.position = new Vector3(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
+  root.scaling.setAll(DROP_SIZE);
+
+  void attachPoppyModelToParent(scene, root, `drop-poppy-model-${Date.now()}`);
+
+  droppedItems.push({
+    mesh: root,
+    blockId: BlockId.Poppy,
     createdAt: Date.now(),
     velocity: new Vector3(0, 0, 0),
   });
@@ -586,7 +607,7 @@ export function updateDroppedItems(
     }
 
     if (Vector3.Distance(player.position, item.mesh.position) < 1.5) {
-      item.mesh.dispose();
+      item.mesh.dispose(false, true);
       droppedItems.splice(i, 1);
       addToInventory(player, item.blockId);
       if ((player as any)._updateInventoryUI) (player as any)._updateInventoryUI();
@@ -594,7 +615,7 @@ export function updateDroppedItems(
     }
 
     if (now - item.createdAt > 60000) {
-      item.mesh.dispose();
+      item.mesh.dispose(false, true);
       droppedItems.splice(i, 1);
     }
   }
