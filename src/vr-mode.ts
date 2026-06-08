@@ -115,29 +115,34 @@ export async function initializeWebXRGameControls(
   let moveDirection = Vector3.Zero();
   const nonXRCamera = scene.activeCamera;
 
+  const isXRActive = (): boolean => {
+    return active || xrExperience?.baseExperience.state === WebXRState.IN_XR;
+  };
+
   const controls: WebXRGameControls = {
-    isActive: () => active,
+    isActive: isXRActive,
     getMoveDirection: () => moveDirection.clone(),
     getControllerRay: (handedness) => {
-      if (!active) return null;
+      if (!isXRActive()) return null;
 
       return getControllerRay(handedness === "left" ? leftController : rightController);
     },
     getControllerPosition: (handedness) => {
-      if (!active) return null;
+      if (!isXRActive()) return null;
 
       return getControllerPosition(handedness === "left" ? leftController : rightController);
     },
     isTriggerPressed: (handedness) => {
-      if (!active) return false;
+      if (!isXRActive()) return false;
 
       return isTriggerPressed(handedness === "left" ? leftController : rightController);
     },
     enterVR: async () => {
       await xrExperience?.baseExperience.enterXRAsync("immersive-vr", "local-floor");
+      active = xrExperience?.baseExperience.state === WebXRState.IN_XR;
     },
     syncBeforePhysics: (deltaTimeSeconds: number) => {
-      if (!active || !xrExperience) return;
+      if (!isXRActive() || !xrExperience) return;
 
       const xrCamera = xrExperience.baseExperience.camera;
       const previousBodyYaw = bodyYaw;
@@ -154,7 +159,7 @@ export async function initializeWebXRGameControls(
       clearVRMovementKeys();
     },
     syncAfterPhysics: () => {
-      if (!active || !xrExperience) return;
+      if (!isXRActive() || !xrExperience) return;
 
       syncXRCameraPositionToPlayer(xrExperience.baseExperience.camera, player, headOffset);
     },
