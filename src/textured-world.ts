@@ -525,7 +525,7 @@ export function updateDroppedItems(
     item.velocity.z *= DROP_HORIZONTAL_DAMPING;
 
     if (now - item.createdAt >= DROP_PICKUP_DELAY_MS && Vector3.Distance(mesh.position, player.position) <= DROP_PICKUP_DISTANCE) {
-      addToInventory(player, item.blockId, 1);
+      addToInventory(player, item.blockId);
       mesh.dispose();
       droppedItems.splice(index, 1);
     }
