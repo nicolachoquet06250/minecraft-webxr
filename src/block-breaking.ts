@@ -2,6 +2,7 @@ import {
   DynamicTexture,
   Effect,
   Mesh,
+  Ray,
   Scene,
   ShaderMaterial,
   StandardMaterial,
@@ -35,6 +36,7 @@ type BlockBreakingParams = {
   sizeZ: number;
   material: StandardMaterial;
   droppedItems: DroppedItem[];
+  targetRay?: Ray | null;
 };
 
 type TargetBlock = {
@@ -143,7 +145,13 @@ function disposeActiveBreaking(): void {
 }
 
 function findTargetBlock(params: BlockBreakingParams): TargetBlock | null {
-  const { scene, player, worldChunks, sizeX, sizeY, sizeZ } = params;
+  const { scene, player } = params;
+  const targetRay = params.targetRay;
+
+  if (targetRay) {
+    return findTargetBlockFromRay(params, targetRay);
+  }
+
   const ray = scene.createPickingRay(
     scene.getEngine().getRenderWidth() / 2,
     scene.getEngine().getRenderHeight() / 2,
@@ -151,10 +159,19 @@ function findTargetBlock(params: BlockBreakingParams): TargetBlock | null {
     scene.activeCamera,
   );
   const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
-  const direction = ray.direction.normalize();
 
-  for (let distance = 0.1; distance <= BREAKING_REACH; distance += 0.1) {
-    const point = start.add(direction.scale(distance));
+  return findTargetBlockFromRay(params, new Ray(start, ray.direction.normalize(), BREAKING_REACH));
+}
+
+function findTargetBlockFromRay(params: BlockBreakingParams, ray: Ray): TargetBlock | null {
+  const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const direction = ray.direction.normalize();
+  const reach = Number.isFinite(ray.length) && ray.length > 0
+    ? Math.min(ray.length, BREAKING_REACH)
+    : BREAKING_REACH;
+
+  for (let distance = 0.1; distance <= reach; distance += 0.1) {
+    const point = ray.origin.add(direction.scale(distance));
     const x = Math.floor(point.x);
     const y = Math.floor(point.y);
     const z = Math.floor(point.z);
@@ -209,7 +226,8 @@ function addOverlayFace(params: {
   face: FaceDefinition;
   target: TargetBlock;
 }): void {
-  const { positions, indices, normals, uvs, face, target } = params;
+  const { positions, normals, uvs, face, target } = params;
+  const indices = params.indices;
   const vertexIndex = positions.length / 3;
   const [nx, ny, nz] = face.normal;
 
