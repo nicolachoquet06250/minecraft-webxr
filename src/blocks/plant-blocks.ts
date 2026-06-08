@@ -94,6 +94,34 @@ const sugarCaneTexture: BlockTextureDefinition = {
   ],
 };
 
+const redFlowerTexture: BlockTextureDefinition = {
+  palette: {
+    Z: [0.01, 0.01, 0.01, 0],
+    R: [0.88, 0.05, 0.05, 1],
+    A: [1.0, 0.18, 0.16, 1],
+    G: [0.12, 0.42, 0.10, 1],
+    B: [0.08, 0.28, 0.08, 1],
+  },
+  matrix: [
+    "ZZZZZZZZZZZZZZZZ",
+    "ZZZZZZZZZZZZZZZZ",
+    "ZZZZZZRRRRZZZZZZ",
+    "ZZZZZRRRRRRZZZZZ",
+    "ZZZZRRRAARRRZZZZ",
+    "ZZZZRRAAAARRZZZZ",
+    "ZZZZZRRARRZZZZZZ",
+    "ZZZZZZGBGZZZZZZZ",
+    "ZZZZZZGBGZZZZZZZ",
+    "ZZZZZGGBGGZZZZZZ",
+    "ZZZZGGBBBGGZZZZZ",
+    "ZZZZZZGBGZZZZZZZ",
+    "ZZZZZZGBGZZZZZZZ",
+    "ZZZZZZGBGZZZZZZZ",
+    "ZZZZZZZZZZZZZZZZ",
+    "ZZZZZZZZZZZZZZZZ",
+  ],
+};
+
 export const plantBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.Grass, name: "Grass", frenchName: "herbe", color: [0.2, 0.65, 0.18, 0.9], solid: false, transparentForMeshing: true },
   { id: BlockId.TallGrass, name: "Tall Grass", frenchName: "hautes herbes", color: [0.2, 0.65, 0.18, 0.9], solid: false, transparentForMeshing: true },
@@ -125,7 +153,7 @@ export const plantBlockDefinitions: BlockDefinition[] = [
     textures: allFaces(sugarCaneTexture),
   },
   { id: BlockId.Dandelion, name: "Dandelion", frenchName: "pissenlit", color: [1.0, 0.9, 0.1, 1.0], solid: false, transparentForMeshing: true },
-  { id: BlockId.Poppy, name: "Poppy", frenchName: "coquelicot", color: [0.9, 0.05, 0.05, 1.0], solid: false, transparentForMeshing: true },
+  { id: BlockId.Poppy, name: "Poppy", frenchName: "coquelicot", color: [0.9, 0.05, 0.05, 1.0], solid: false, transparentForMeshing: true, textures: allFaces(redFlowerTexture), visualHeight: 0.85 },
   { id: BlockId.BlueOrchid, name: "Blue Orchid", frenchName: "orchidée bleue", color: [0.25, 0.5, 1.0, 1.0], solid: false, transparentForMeshing: true },
   { id: BlockId.Allium, name: "Allium", frenchName: "allium", color: [0.65, 0.35, 0.9, 1.0], solid: false, transparentForMeshing: true },
   { id: BlockId.AzureBluet, name: "Azure Bluet", frenchName: "houstonie bleue", color: [0.95, 0.95, 0.9, 1.0], solid: false, transparentForMeshing: true },
