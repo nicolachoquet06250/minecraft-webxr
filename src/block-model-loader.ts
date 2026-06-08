@@ -25,13 +25,14 @@ type BlockModelParams = {
   blockId: BlockId;
   modelName: string;
   modelUrl: string;
+  normalizedBlockSize?: number;
   syncIntervalMs?: number;
 };
 
 const templatePromises = new Map<string, Promise<BlockModelTemplate>>();
 
 export function initializeBlockModelInstances(params: BlockModelParams): void {
-  const { scene, worldChunks, sizeX, sizeY, sizeZ, blockId, modelName, modelUrl, syncIntervalMs = DEFAULT_SYNC_INTERVAL_MS } = params;
+  const { scene, worldChunks, sizeX, sizeY, sizeZ, blockId, modelName, modelUrl, normalizedBlockSize = 1, syncIntervalMs = DEFAULT_SYNC_INTERVAL_MS } = params;
   const instances = new Map<string, BlockModelInstance>();
   let lastSyncAt = 0;
 
@@ -53,6 +54,7 @@ export function initializeBlockModelInstances(params: BlockModelParams): void {
       blockId,
       modelName,
       modelUrl,
+      normalizedBlockSize,
       instances,
     });
   });
@@ -61,9 +63,9 @@ export function initializeBlockModelInstances(params: BlockModelParams): void {
 async function syncBlockModelInstances(params: BlockModelParams & {
   instances: Map<string, BlockModelInstance>;
 }): Promise<void> {
-  const { scene, worldChunks, sizeX, sizeY, sizeZ, blockId, modelName, modelUrl, instances } = params;
+  const { scene, worldChunks, sizeX, sizeY, sizeZ, blockId, modelName, modelUrl, normalizedBlockSize = 1, instances } = params;
   const expectedKeys = new Set<string>();
-  const template = await getBlockModelTemplate(scene, modelName, modelUrl);
+  const template = await getBlockModelTemplate(scene, modelName, modelUrl, normalizedBlockSize);
 
   for (const chunk of worldChunks.values()) {
     const worldOffsetX = chunk.chunkX * sizeX;
@@ -103,8 +105,9 @@ async function syncBlockModelInstances(params: BlockModelParams & {
   }
 }
 
-async function getBlockModelTemplate(scene: Scene, modelName: string, modelUrl: string): Promise<BlockModelTemplate> {
-  const existing = templatePromises.get(modelUrl);
+async function getBlockModelTemplate(scene: Scene, modelName: string, modelUrl: string, normalizedBlockSize: number): Promise<BlockModelTemplate> {
+  const templateKey = `${modelUrl}:${normalizedBlockSize}`;
+  const existing = templatePromises.get(templateKey);
 
   if (existing) {
     return existing;
@@ -123,7 +126,8 @@ async function getBlockModelTemplate(scene: Scene, modelName: string, modelUrl: 
     const bounds = root.getHierarchyBoundingVectors(true);
     const size = bounds.max.subtract(bounds.min);
     const maxSize = Math.max(size.x, size.y, size.z);
-    const scale = maxSize > 0 ? 1 / maxSize : 1;
+    const targetSize = Math.min(1, Math.max(0.01, normalizedBlockSize));
+    const scale = maxSize > 0 ? targetSize / maxSize : 1;
     const centerX = (bounds.min.x + bounds.max.x) / 2;
     const centerZ = (bounds.min.z + bounds.max.z) / 2;
     const offset = new Vector3(-centerX * scale, -bounds.min.y * scale, -centerZ * scale);
@@ -138,7 +142,7 @@ async function getBlockModelTemplate(scene: Scene, modelName: string, modelUrl: 
     };
   });
 
-  templatePromises.set(modelUrl, promise);
+  templatePromises.set(templateKey, promise);
   return promise;
 }
 
