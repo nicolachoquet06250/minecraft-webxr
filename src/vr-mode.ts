@@ -11,6 +11,7 @@ const CONTROLLER_RAY_LENGTH = 3;
 const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
 const VR_EYE_HEIGHT = EYE_HEIGHT - 0.42;
 const VR_AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
+const POINTER_RAY_MESH_NAME_PATTERN = /laser|ray|pointer|selection/i;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -28,11 +29,18 @@ type MotionControllerLike = {
   getComponent?: (componentId: string) => MotionControllerComponentLike | undefined;
 };
 
-type XRPointerLike = {
-  getAbsolutePosition?: () => Vector3;
-  getDirection?: (localAxis: Vector3) => Vector3;
+type XRPointerChildLike = {
+  name?: string;
   isVisible?: boolean;
   isEnabled?: () => boolean;
+  visibility?: number;
+};
+
+type XRPointerLike = XRPointerChildLike & {
+  getAbsolutePosition?: () => Vector3;
+  getDirection?: (localAxis: Vector3) => Vector3;
+  getChildMeshes?: () => XRPointerChildLike[];
+  getChildren?: () => XRPointerChildLike[];
 };
 
 type XRControllerLike = {
@@ -213,9 +221,32 @@ function getControllerRay(controller: XRControllerLike | null): Ray | null {
 }
 
 function isControllerPointerVisible(pointer: XRPointerLike | undefined): boolean {
-  if (!pointer) return false;
-  if (pointer.isVisible === false) return false;
-  if (typeof pointer.isEnabled === "function" && !pointer.isEnabled()) return false;
+  if (!isVisibleNode(pointer)) return false;
+
+  const childMeshes = pointer.getChildMeshes?.() ?? [];
+  const children = pointer.getChildren?.() ?? [];
+  const visibleRayNodes = [...childMeshes, ...children].filter((child) => {
+    const name = child.name ?? "";
+
+    return POINTER_RAY_MESH_NAME_PATTERN.test(name) && isVisibleNode(child);
+  });
+
+  if (visibleRayNodes.length > 0) {
+    return true;
+  }
+
+  if (childMeshes.length > 0 || children.length > 0) {
+    return false;
+  }
+
+  return true;
+}
+
+function isVisibleNode(node: XRPointerChildLike | undefined): boolean {
+  if (!node) return false;
+  if (node.isVisible === false) return false;
+  if (typeof node.visibility === "number" && node.visibility <= 0) return false;
+  if (typeof node.isEnabled === "function" && !node.isEnabled()) return false;
 
   return true;
 }
