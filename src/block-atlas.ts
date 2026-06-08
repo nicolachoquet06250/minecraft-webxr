@@ -130,4 +130,5 @@ export function applyProceduralBlockAtlasMaterial(scene: Scene, material: Standa
   texture.wrapU = Texture.CLAMP_ADDRESSMODE;
   texture.wrapV = Texture.CLAMP_ADDRESSMODE;
   material.diffuseTexture = texture;
+  material.useAlphaFromDiffuseTexture = true;
 }
