@@ -15,5 +15,6 @@ export function initializePoppyModels(params: {
     blockId: BlockId.Poppy,
     modelName: "poppy",
     modelUrl: poppyModelUrl,
+    normalizedBlockSize: 0.75,
   });
 }
