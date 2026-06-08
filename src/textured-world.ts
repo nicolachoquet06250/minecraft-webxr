@@ -1,4 +1,4 @@
-import { Mesh, Ray, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
+import { Mesh, MeshBuilder, Ray, Scene, StandardMaterial, TransformNode, Vector3, VertexData } from "@babylonjs/core";
 import { EYE_HEIGHT, FACES, GRAVITY, PLAYER_HEIGHT, PLAYER_RADIUS, RENDER_CHUNK_RADIUS, SEED } from "./constants";
 import { getBlockFaceTextureUv, getFallbackTextureUv } from "./block-atlas";
 import { getBlockDefinition } from "./blocks";
@@ -52,15 +52,15 @@ type WorldBlockPosition = { x: number; y: number; z: number };
 
 export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
   const {
-      scene,
-      name,
-      blocks,
-      sizeX,
-      sizeY,
-      sizeZ,
-      chunkX,
-      chunkZ,
-      material
+    scene,
+    name,
+    blocks,
+    sizeX,
+    sizeY,
+    sizeZ,
+    chunkX,
+    chunkZ,
+    material,
   } = params;
 
   const solid: MeshBuffers = createMeshBuffers();
@@ -207,7 +207,7 @@ function addTexturedFace(params: AddTexturedFaceParams): void {
   const { buffers, x, y, z, face, block } = params;
   const vertexIndex = buffers.positions.length / 3;
   const color = getBlockFaceColor(block, face.normal);
-  const uv = getFaceTextureUv(block, face.name);
+  const uv = getFaceTextureUv(block, face);
 
   for (const vertex of face.vertices) {
     buffers.positions.push(x + vertex[0], y + vertex[1], z + vertex[2]);
@@ -224,16 +224,23 @@ function addTexturedFace(params: AddTexturedFaceParams): void {
     vertexIndex + 3,
   );
 
-  buffers.uvs.push(
-    uv.u0, uv.v1,
-    uv.u1, uv.v1,
-    uv.u1, uv.v0,
-    uv.u0, uv.v0,
-  );
+  buffers.uvs.push(...uv);
 }
 
-function getFaceTextureUv(block: BlockId, faceName: BlockFaceName): { u0: number; v0: number; u1: number; v1: number } {
-  return getBlockFaceTextureUv(block, faceName) ?? getFallbackTextureUv(block);
+function getFaceTextureUv(block: BlockId, face: FaceDefinition): readonly number[] {
+  return getBlockFaceTextureUv(block, getFaceName(face)) ?? getFallbackTextureUv();
+}
+
+function getFaceName(face: FaceDefinition): BlockFaceName {
+  const [nx, ny, nz] = face.normal;
+
+  if (ny === 1) return "top";
+  if (ny === -1) return "bottom";
+  if (nz === 1) return "front";
+  if (nz === -1) return "back";
+  if (nx === 1) return "right";
+
+  return "left";
 }
 
 function applyBuffersToMesh(mesh: Mesh, buffers: MeshBuffers): void {
@@ -251,7 +258,7 @@ export function dropBlock(scene: Scene, blockId: BlockId, position: Vector3, dro
   root.position.copyFrom(position);
 
   if (blockId === BlockId.Poppy) {
-    attachPoppyModelToParent(scene, root);
+    void attachPoppyModelToParent(scene, root, `dropped-poppy-${Date.now()}-${Math.random()}`);
   } else {
     const mesh = MeshBuilder.CreateBox(
       `dropped-block-${blockId}`,
@@ -271,6 +278,18 @@ export function dropBlock(scene: Scene, blockId: BlockId, position: Vector3, dro
     velocity: new Vector3((Math.random() - 0.5) * 1.5, 3.5, (Math.random() - 0.5) * 1.5),
     createdAt: Date.now(),
   });
+}
+
+export function spawnTexturedDrop(
+  scene: Scene,
+  x: number,
+  y: number,
+  z: number,
+  blockId: BlockId,
+  _material: StandardMaterial,
+  droppedItems: DroppedItem[],
+): void {
+  dropBlock(scene, blockId, new Vector3(x + 0.5, y + 0.5, z + 0.5), droppedItems);
 }
 
 export function breakBlock(params: BreakBlockParams): void {
@@ -305,7 +324,6 @@ export function placeBlock(params: BreakBlockParams): void {
   const blockToPlace = selectedItem.blockId;
   const blockDefinition = getBlockDefinition(blockToPlace);
 
-  // Uniquement les blocs connus peuvent etre poses (pas les items/outils).
   if (!blockDefinition || blockToPlace === BlockId.Air) {
     return;
   }
@@ -494,7 +512,7 @@ function rebuildAffectedChunks(
   localX: number,
   localZ: number,
 ): void {
-  rebuildChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk);
+  rebuildChunk(scene, sizeX, sizeY, sizeZ, material, chunk);
 
   if (localX === 0) {
     rebuildNeighborChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk.chunkX - 1, chunk.chunkZ);
@@ -522,13 +540,12 @@ function rebuildNeighborChunk(
   const chunk = worldChunks.get(getChunkKey(chunkX, chunkZ));
 
   if (chunk) {
-    rebuildChunk(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk);
+    rebuildChunk(scene, sizeX, sizeY, sizeZ, material, chunk);
   }
 }
 
 function rebuildChunk(
   scene: Scene,
-  worldChunks: WorldChunks,
   sizeX: number,
   sizeY: number,
   sizeZ: number,
