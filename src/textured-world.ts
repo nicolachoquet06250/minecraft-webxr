@@ -5,7 +5,6 @@ import { getBlockDefinition } from "./blocks";
 import type { BlockFaceName } from "./blocks";
 import {
   addToInventory,
-  addWaterTopFaceDoubleSided,
   getBlock,
   getBlockFaceColor,
   getChunkFromWorldPosition,
@@ -69,22 +68,21 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
         const worldX = worldOffsetX + x;
         const worldY = y;
         const worldZ = worldOffsetZ + z;
+        const visualHeight = getBlockVisualHeight(block);
 
         if (block === BlockId.Water) {
           const topNeighbor = getBlock(blocks, sizeX, sizeY, sizeZ, x, y + 1, z);
 
           if (topNeighbor === BlockId.Air) {
-            addWaterTopFaceDoubleSided({
-              positions: water.positions,
-              indices: water.indices,
-              normals: water.normals,
-              colors: water.colors,
+            addDoubleSidedFlatFace({
+              buffers: water,
               x: worldX,
               y: worldY,
               z: worldZ,
+              face: FACES[0],
               block,
+              visualHeight,
             });
-            water.uvs.push(...getFallbackTextureUv(), ...getFallbackTextureUv());
           }
 
           continue;
@@ -110,6 +108,7 @@ export function createChunkMesh(params: CreateChunkMeshParams): Mesh {
             z: worldZ,
             face,
             block,
+            visualHeight,
           });
         }
       }
@@ -147,6 +146,16 @@ function createMeshBuffers(): MeshBuffers {
   return { positions: [], indices: [], normals: [], colors: [], uvs: [] };
 }
 
+function getBlockVisualHeight(block: BlockId): number {
+  const height = getBlockDefinition(block)?.visualHeight ?? 1;
+
+  if (!Number.isFinite(height)) {
+    return 1;
+  }
+
+  return Math.min(1, Math.max(0.05, height));
+}
+
 function addTexturedOrFlatFace(params: {
   buffers: MeshBuffers;
   x: number;
@@ -154,11 +163,25 @@ function addTexturedOrFlatFace(params: {
   z: number;
   face: FaceDefinition;
   block: BlockId;
+  visualHeight?: number;
 }): void {
   const faceName = getFaceName(params.face.normal);
   const textureUvs = getBlockFaceTextureUv(params.block, faceName);
 
   addFlatFace(params, textureUvs);
+}
+
+function addDoubleSidedFlatFace(params: {
+  buffers: MeshBuffers;
+  x: number;
+  y: number;
+  z: number;
+  face: FaceDefinition;
+  block: BlockId;
+  visualHeight?: number;
+}): void {
+  addFlatFace(params, getBlockFaceTextureUv(params.block, getFaceName(params.face.normal)));
+  addFlatFace(params, getBlockFaceTextureUv(params.block, getFaceName(params.face.normal)), true);
 }
 
 function addFlatFace(
@@ -169,21 +192,37 @@ function addFlatFace(
     z: number;
     face: FaceDefinition;
     block: BlockId;
+    visualHeight?: number;
   },
   textureUvs: readonly number[] | null = null,
+  reverseWinding = false,
 ): void {
-  const { buffers, x, y, z, face, block } = params;
+  const { buffers, x, y, z, face, block, visualHeight = 1 } = params;
   const vertexIndex = buffers.positions.length / 3;
   const color = textureUvs ? { r: 1, g: 1, b: 1, a: 1 } : getBlockFaceColor(block, face.normal);
 
   for (const vertex of face.vertices) {
-    buffers.positions.push(x + vertex[0], y + vertex[1], z + vertex[2]);
+    buffers.positions.push(
+      x + vertex[0],
+      y + getVertexVisualY(vertex[1], visualHeight),
+      z + vertex[2],
+    );
     buffers.normals.push(face.normal[0], face.normal[1], face.normal[2]);
-    buffers.colors.push(color.r, color.g, color.b, color.a);
+    buffers.colors.push(color.r, color.g, color.b, reverseWinding ? color.a * 0.5 : color.a);
   }
 
   buffers.uvs.push(...(textureUvs ?? getFallbackTextureUv()));
+
+  if (reverseWinding) {
+    buffers.indices.push(vertexIndex, vertexIndex + 2, vertexIndex + 1, vertexIndex, vertexIndex + 3, vertexIndex + 2);
+    return;
+  }
+
   buffers.indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2, vertexIndex, vertexIndex + 2, vertexIndex + 3);
+}
+
+function getVertexVisualY(vertexY: number, visualHeight: number): number {
+  return vertexY === 1 ? visualHeight : vertexY;
 }
 
 export function spawnTexturedDrop(
