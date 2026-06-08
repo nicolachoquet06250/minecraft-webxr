@@ -37,6 +37,7 @@ import { applyProceduralBlockAtlasMaterial } from "./block-atlas";
 import { initializeCraftingOverlay } from "./crafting-ui";
 import { initializeInventoryBar, initializeVRInventoryBar } from "./inventory-ui";
 import initializeMobileControls from "./mobile-controls";
+import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializeWebXRGameControls } from "./vr-mode";
 import { showMainMenu } from "./main-menu";
 // @ts-ignore
@@ -301,6 +302,7 @@ async function startGame(): Promise<void> {
 
     const crosshairUi = initializeCrosshair(scene);
     initializeInventoryBar(scene, player);
+    const pointedBlockLabel = initializePointedBlockLabel(scene);
     initializeEvents(
         engine,
         player,
@@ -321,8 +323,18 @@ async function startGame(): Promise<void> {
 
     engine.runRenderLoop(() => {
         const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
+        const isWebXRActive = webXRControls.isActive();
 
-        crosshairUi.rootContainer.isVisible = !webXRControls.isActive();
+        crosshairUi.rootContainer.isVisible = !isWebXRActive;
+        pointedBlockLabel.update({
+            scene,
+            player,
+            worldChunks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            isVisible: !isWebXRActive,
+        });
         webXRControls.syncBeforePhysics(deltaTime);
 
         const moveDirectionBeforePhysics = getInputMoveDirection(player);
