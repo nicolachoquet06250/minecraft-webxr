@@ -59,7 +59,7 @@ function showDomMenu(
         content.append(createMobileMenuHeader(), createMobileButtonPanel(startGame));
     } else {
         root.append(createDesktopMenuTitle(device));
-        content.append(createDesktopButtonPanel(startGame, device === "vr"));
+        content.append(createDesktopButtonPanel(startGame));
     }
 
     root.append(content);
@@ -82,7 +82,7 @@ function createDesktopMenuTitle(device: "desktop" | "vr"): HTMLElement {
     return header;
 }
 
-function createDesktopButtonPanel(onPlay: () => void, isVR: boolean): HTMLElement {
+function createDesktopButtonPanel(onPlay: () => void): HTMLElement {
     const panel = document.createElement("section");
     panel.className = "minecraft-menu__desktop-panel";
 
@@ -95,10 +95,6 @@ function createDesktopButtonPanel(onPlay: () => void, isVR: boolean): HTMLElemen
         ),
     );
 
-    if (isVR) {
-        panel.append(createVRSettingsPanel());
-    }
-
     return panel;
 }
 
@@ -107,41 +103,6 @@ function createDesktopButtonRow(...buttons: HTMLElement[]): HTMLElement {
     row.className = "minecraft-menu__button-row";
     row.append(...buttons);
     return row;
-}
-
-function createVRSettingsPanel(): HTMLElement {
-    const panel = document.createElement("section");
-    panel.className = "minecraft-menu__vr-settings";
-    panel.setAttribute("aria-label", "Paramètres VR");
-
-    const title = document.createElement("h2");
-    title.className = "minecraft-menu__vr-settings-title";
-    title.textContent = "Paramètres VR";
-
-    panel.append(
-        title,
-        createVRSettingLine("Lancement", "entrée VR automatique"),
-        createVRSettingLine("Bouton", "Ouvrir en VR conservé"),
-        createVRSettingLine("Contrôles", "joysticks désactivés"),
-    );
-
-    return panel;
-}
-
-function createVRSettingLine(label: string, value: string): HTMLElement {
-    const line = document.createElement("p");
-    line.className = "minecraft-menu__vr-setting-line";
-
-    const labelElement = document.createElement("span");
-    labelElement.className = "minecraft-menu__vr-setting-label";
-    labelElement.textContent = label;
-
-    const valueElement = document.createElement("span");
-    valueElement.className = "minecraft-menu__vr-setting-value";
-    valueElement.textContent = value;
-
-    line.append(labelElement, valueElement);
-    return line;
 }
 
 function createMobileMenuHeader(): HTMLElement {

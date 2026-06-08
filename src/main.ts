@@ -41,6 +41,7 @@ import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
 import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
+import { createWaterEffect } from "./water-effects";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
@@ -311,6 +312,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     (player as any)._droppedItems = droppedItems;
 
     const camera = initializeCamera(scene, player);
+    const waterEffect = createWaterEffect(scene);
 
     const crosshairUi = initializeCrosshair(scene);
     initializeInventoryBar(scene, player);
@@ -371,6 +373,16 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             moveDirection: moveDirectionBeforePhysics,
             previousPosition: previousPlayerPosition,
             wasGrounded: wasGroundedBeforePhysics,
+            worldChunks,
+            sizeX,
+            sizeY,
+            sizeZ,
+        });
+
+        waterEffect.update(deltaTime);
+        waterEffect.tryTriggerSplash({
+            player,
+            previousPosition: previousPlayerPosition,
             worldChunks,
             sizeX,
             sizeY,
