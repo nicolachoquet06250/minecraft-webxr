@@ -29,6 +29,15 @@ type BlockModelParams = {
   syncIntervalMs?: number;
 };
 
+type AttachBlockModelParams = {
+  scene: Scene;
+  parent: TransformNode;
+  modelName: string;
+  modelUrl: string;
+  instanceName: string;
+  normalizedBlockSize?: number;
+};
+
 const templatePromises = new Map<string, Promise<BlockModelTemplate>>();
 
 export function initializeBlockModelInstances(params: BlockModelParams): void {
@@ -58,6 +67,16 @@ export function initializeBlockModelInstances(params: BlockModelParams): void {
       instances,
     });
   });
+}
+
+export async function attachBlockModelToParent(params: AttachBlockModelParams): Promise<TransformNode> {
+  const { scene, parent, modelName, modelUrl, instanceName, normalizedBlockSize = 1 } = params;
+  const template = await getBlockModelTemplate(scene, modelName, modelUrl, normalizedBlockSize);
+  const root = instantiateBlockModel(template, scene, instanceName);
+  root.parent = parent;
+  root.position.copyFrom(template.offset);
+
+  return root;
 }
 
 async function syncBlockModelInstances(params: BlockModelParams & {
