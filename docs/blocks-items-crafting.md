@@ -1,4 +1,4 @@
-[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
+[⬅️ Précédent](./world-generation.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
 
 ---
 
@@ -150,4 +150,4 @@ flowchart LR
 
 ---
 
-[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
+[⬅️ Précédent](./world-generation.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)

@@ -1,5 +1,5 @@
 import { Mesh, Scene, Color3, Vector3, VertexData, StandardMaterial, DynamicTexture, MultiMaterial, SubMesh } from "@babylonjs/core";
-import { steveModelTextures, type SteveTextureDefinition } from "./steve-color-matrices";
+import { steveModelTextures, type SteveTextureDefinition } from "./characters/steve-color-matrices.ts";
 
 function createTextureFromMatrix(scene: Scene, name: string, textureData: SteveTextureDefinition): DynamicTexture {
   const { width, height, matrix, palette } = textureData;

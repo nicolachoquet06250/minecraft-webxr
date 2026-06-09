@@ -1,4 +1,4 @@
-[⬅️ Précédent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)
+[⬅️ Précédent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./installation-build.md)
 
 ---
 
@@ -76,6 +76,8 @@ sequenceDiagram
 | `src/blocks/` | Définitions des blocs, noms, couleurs, solidité, textures et hauteur visuelle. |
 | `src/items/` | Définitions des items et icônes d'inventaire. |
 | `src/crafts/` | Recettes de craft sous forme de patterns 3x3. |
+| `src/character-builder/` | Système générique de construction de personnages avec types de corps (masculin/féminin/custom). |
+| `src/characters/` | Personnages spécifiques (Steve masculin, Alex féminin) avec animations et textures. |
 | `src/crafting-ui.ts` | Overlay de craft en Babylon GUI. |
 | `src/inventory-ui.ts` | Inventaire classique et inventaire VR. |
 | `src/mobile-controls.ts` | Contrôles tactiles mobile. |
@@ -125,4 +127,4 @@ Rust ne connaît pas Babylon.js. Il ne fait que produire des identifiants de blo
 
 ---
 
-[⬅️ Précédent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)
+[⬅️ Précédent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./installation-build.md)

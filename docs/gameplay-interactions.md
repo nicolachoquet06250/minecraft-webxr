@@ -1,4 +1,4 @@
-[⬅️ Precedent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./pwa-assets.md)
+[⬅️ Précédent](./rendering-and-effects.md) | [Sommaire](./README.md) | [Suivant ➡️](./character-system.md)
 
 ---
 
@@ -107,4 +107,4 @@ flowchart LR
 
 ---
 
-[⬅️ Precedent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./pwa-assets.md)
+[⬅️ Précédent](./rendering-and-effects.md) | [Sommaire](./README.md) | [Suivant ➡️](./character-system.md)

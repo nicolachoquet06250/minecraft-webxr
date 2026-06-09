@@ -45,10 +45,9 @@ import { initializeVRCraftingOverlay } from "./vr-crafting-ui";
 import { isCraftingOverlayOpen } from "./ui-state";
 import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 import { createWaterEffect } from "./water-effects";
-import { createSteveCharacter } from "./steve-character";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
-import { SteveAnimator } from './steve-animator';
+import {createAlex} from "~/characters";
 
 const registrations = await navigator.serviceWorker.getRegistrations();
 if (registrations.length > 1) {
@@ -309,7 +308,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     const player = generatePlayer(spawn);
 
     // Créer le personnage Steve près du spawn sur une zone plate
-    const steveSpawn = findDrySpawnPosition(
+    const persoSpawn = findDrySpawnPosition(
         worldChunks,
         sizeX,
         sizeY,
@@ -318,15 +317,14 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
         SPAWN_Z,
         10,
     );
-    const stevePosition = new Vector3(steveSpawn.x, steveSpawn.y, steveSpawn.z);
-    const steve = createSteveCharacter(scene, stevePosition);
-    const animator = new SteveAnimator(steve, scene);
+    const persoPosition = new Vector3(persoSpawn.x, persoSpawn.y, persoSpawn.z);
+    const {animator} = createAlex(scene, persoPosition);
 
     animator.play("mine");
 
     setTimeout(() => {
         animator.stop();
-    }, 10000);
+    }, 20000);
 
     // Expose properties for mobile controls
     (player as any)._worldChunks = worldChunks;
