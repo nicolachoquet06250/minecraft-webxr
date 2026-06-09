@@ -1,4 +1,4 @@
-[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./controls.md)
+[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
 
 ---
 
