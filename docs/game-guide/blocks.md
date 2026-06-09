@@ -1,4 +1,4 @@
-[Precedent](./README.md) | [Sommaire](../README.md) | [Suivant](./items.md)
+[⬅️ Precedent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./items.md)
 
 ---
 
@@ -41,4 +41,4 @@ Les pages [Items disponibles](./items.md) et [Crafts possibles](./crafts.md) don
 
 ---
 
-[Precedent](./README.md) | [Sommaire](../README.md) | [Suivant](./items.md)
+[⬅️ Precedent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./items.md)
