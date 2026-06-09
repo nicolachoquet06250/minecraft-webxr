@@ -67,6 +67,25 @@ const leavesMatrix = [
   "BBACDABBCDAEBCDA",
 ];
 
+const planksMatrix = [
+    "ABBBBBBBAAAABBBA",
+    "CCCDDDACDDDDDDCC",
+    "EEEEBFGCBEEEEEEE",
+    "HHFFHHGFFFHHHFFH",
+    "AAAABBBBBAABBBBA",
+    "CCCDDDDCCCCGDDDC",
+    "FEEEEEEEEBCAEBEF",
+    "HHHHHHHHFFFAFFFH",
+    "AAAAAABBBBBBBBAA",
+    "DDDGCDDDDDCCCCDD",
+    "EBCAEBEEEEEEEEEE",
+    "HEEGHHFFFFFFHHHH",
+    "AABBBBBBBAAAAAAA",
+    "CDDDCCCCDADDDDCC",
+    "EEEEEEEBFACBEEEE",
+    "HHHHHHHFFGHHHFFF",
+  ];
+
 const createLogTextures = (
   barkPalette: BlockTextureDefinition["palette"],
   ringPalette: BlockTextureDefinition["palette"],
@@ -94,6 +113,11 @@ const createLogTextures = (
 const createLeavesTexture = (palette: BlockTextureDefinition["palette"]): BlockTextureDefinition => ({
   palette,
   matrix: leavesMatrix,
+});
+
+const createPlanksTexture = (palette: BlockTextureDefinition["palette"]): BlockTextureDefinition => ({
+  palette,
+  matrix: planksMatrix,
 });
 
 const oakLogTextures = createLogTextures(
@@ -304,6 +328,94 @@ const cherryLeavesTexture = createLeavesTexture({
   E: [1.00, 0.76, 0.82, 0.9],
 });
 
+const oakPlanksTexture = createPlanksTexture({
+  A: [0.6745, 0.5216, 0.3569, 1],
+  B: [0.6667, 0.5569, 0.3529, 1],
+  C: [0.7843, 0.6784, 0.4471, 1],
+  D: [0.8235, 0.7176, 0.4824, 1],
+  E: [0.7765, 0.6471, 0.4392, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const sprucePlanksTexture = createPlanksTexture({
+  A: [0.43, 0.31, 0.19, 1],
+  B: [0.50, 0.37, 0.23, 1],
+  C: [0.58, 0.44, 0.28, 1],
+  D: [0.34, 0.24, 0.14, 1],
+  E: [0.25, 0.17, 0.10, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const birchPlanksTexture = createPlanksTexture({
+  A: [0.80, 0.74, 0.52, 1],
+  B: [0.86, 0.80, 0.58, 1],
+  C: [0.92, 0.86, 0.66, 1],
+  D: [0.70, 0.62, 0.42, 1],
+  E: [0.58, 0.49, 0.32, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const junglePlanksTexture = createPlanksTexture({
+  A: [0.71, 0.50, 0.27, 1],
+  B: [0.77, 0.56, 0.31, 1],
+  C: [0.84, 0.63, 0.37, 1],
+  D: [0.60, 0.41, 0.22, 1],
+  E: [0.48, 0.32, 0.17, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const acaciaPlanksTexture = createPlanksTexture({
+  A: [0.71, 0.42, 0.23, 1],
+  B: [0.78, 0.47, 0.27, 1],
+  C: [0.86, 0.55, 0.33, 1],
+  D: [0.60, 0.34, 0.18, 1],
+  E: [0.46, 0.25, 0.13, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const darkOakPlanksTexture = createPlanksTexture({
+  A: [0.30, 0.20, 0.12, 1],
+  B: [0.35, 0.24, 0.14, 1],
+  C: [0.42, 0.30, 0.18, 1],
+  D: [0.23, 0.15, 0.09, 1],
+  E: [0.17, 0.10, 0.06, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const mangrovePlanksTexture = createPlanksTexture({
+  A: [0.45, 0.24, 0.17, 1],
+  B: [0.52, 0.29, 0.20, 1],
+  C: [0.60, 0.36, 0.25, 1],
+  D: [0.36, 0.19, 0.13, 1],
+  E: [0.27, 0.13, 0.09, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+});
+
+const cherryPlanksTexture = createPlanksTexture({
+  A: [0.76, 0.53, 0.49, 1],
+  B: [0.83, 0.60, 0.56, 1],
+  C: [0.90, 0.69, 0.65, 1],
+  D: [0.64, 0.42, 0.38, 1],
+  F: [0.7804, 0.6235, 0.3843, 1],
+  G: [0.6667, 0.549, 0.3569, 1],
+  H: [0.7647, 0.6039, 0.3804, 1],
+  E: [0.50, 0.31, 0.28, 1],
+});
+
 export const treeBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.OakLog, name: "Oak Log", frenchName: "bûche de chêne", color: [0.25, 0.15, 0.05, 1.0], solid: true, transparentForMeshing: false, textures: oakLogTextures },
   { id: BlockId.SpruceLog, name: "Spruce Log", frenchName: "bûche de sapin", color: [0.25, 0.15, 0.05, 1.0], solid: true, transparentForMeshing: false, textures: spruceLogTextures },
@@ -321,12 +433,12 @@ export const treeBlockDefinitions: BlockDefinition[] = [
   { id: BlockId.DarkOakLeaves, name: "Dark Oak Leaves", frenchName: "feuilles de chêne noir", color: [0.16, 0.5, 0.12, 0.9], solid: true, transparentForMeshing: false, textures: allFaces(darkOakLeavesTexture) },
   { id: BlockId.MangroveLeaves, name: "Mangrove Leaves", frenchName: "feuilles de palétuvier", color: [0.16, 0.5, 0.12, 0.9], solid: true, transparentForMeshing: false, textures: allFaces(mangroveLeavesTexture) },
   { id: BlockId.CherryLeaves, name: "Cherry Leaves", frenchName: "feuilles de cerisier", color: [0.16, 0.5, 0.12, 0.9], solid: true, transparentForMeshing: false, textures: allFaces(cherryLeavesTexture) },
-  { id: BlockId.OakPlanks, name: "Oak Planks", frenchName: "planches de chêne", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.SprucePlanks, name: "Spruce Planks", frenchName: "planches de sapin", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.BirchPlanks, name: "Birch Planks", frenchName: "planches de bouleau", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.JunglePlanks, name: "Jungle Planks", frenchName: "planches d'acajou", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.AcaciaPlanks, name: "Acacia Planks", frenchName: "planches d'acacia", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.DarkOakPlanks, name: "Dark Oak Planks", frenchName: "planches de chêne noir", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.MangrovePlanks, name: "Mangrove Planks", frenchName: "planches de palétuvier", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
-  { id: BlockId.CherryPlanks, name: "Cherry Planks", frenchName: "planches de cerisier", color: [0.58, 0.38, 0.18, 1.0], solid: true, transparentForMeshing: false },
+  { id: BlockId.OakPlanks, name: "Oak Planks", frenchName: "planches de chêne", color: [0.70, 0.56, 0.34, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(oakPlanksTexture) },
+  { id: BlockId.SprucePlanks, name: "Spruce Planks", frenchName: "planches de sapin", color: [0.50, 0.37, 0.23, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(sprucePlanksTexture) },
+  { id: BlockId.BirchPlanks, name: "Birch Planks", frenchName: "planches de bouleau", color: [0.86, 0.80, 0.58, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(birchPlanksTexture) },
+  { id: BlockId.JunglePlanks, name: "Jungle Planks", frenchName: "planches d'acajou", color: [0.77, 0.56, 0.31, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(junglePlanksTexture) },
+  { id: BlockId.AcaciaPlanks, name: "Acacia Planks", frenchName: "planches d'acacia", color: [0.78, 0.47, 0.27, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(acaciaPlanksTexture) },
+  { id: BlockId.DarkOakPlanks, name: "Dark Oak Planks", frenchName: "planches de chêne noir", color: [0.35, 0.24, 0.14, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(darkOakPlanksTexture) },
+  { id: BlockId.MangrovePlanks, name: "Mangrove Planks", frenchName: "planches de palétuvier", color: [0.52, 0.29, 0.20, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(mangrovePlanksTexture) },
+  { id: BlockId.CherryPlanks, name: "Cherry Planks", frenchName: "planches de cerisier", color: [0.83, 0.60, 0.56, 1.0], solid: true, transparentForMeshing: false, textures: allFaces(cherryPlanksTexture) },
 ];

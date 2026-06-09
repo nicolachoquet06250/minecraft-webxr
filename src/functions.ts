@@ -1364,8 +1364,8 @@ export function addToInventory(player: PlayerPhysics, blockId: BlockId): void {
     }
   }
 
-  // Si pas de pile existante ou piles pleines, ajouter un nouveau slot si place dispo (max 9 slots pour le moment)
-  if (player.inventory.length < 9) {
+  // Si pas de pile existante ou piles pleines, ajouter un nouveau slot si place dispo (max 36 slots)
+  if (player.inventory.length < 36) {
     player.inventory.push({ blockId, count: 1 });
   } else {
     // Si l'inventaire est plein, on ne fait rien (l'objet est perdu ou reste au sol)
