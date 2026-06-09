@@ -1,4 +1,4 @@
-[⬅️ Precedent](./items.md) | [Sommaire](./README.md)
+[⬅️ Precedent](./items.md) | [Sommaire](./README.md) | [Suivant ➡️](./controls.md)
 
 ---
 
@@ -39,4 +39,4 @@ Les recettes de planches fonctionnent avec une seule buche placee dans n'importe
 
 ---
 
-[⬅️ Precedent](./items.md) | [Sommaire](./README.md)
+[⬅️ Precedent](./items.md) | [Sommaire](./README.md) | [Suivant ➡️](./controls.md)
