@@ -1,4 +1,4 @@
-[Precedent](./controls.md) | [Sommaire](./README.md) | [Suivant](./installation-build.md)
+[⬅️ Precedent](./controls.md) | [Sommaire](./README.md) | [Suivant ➡️](./installation-build.md)
 
 ---
 
@@ -8,4 +8,4 @@ Cette page documente les interactions du jeu Minecraft WebXR.
 
 ---
 
-[Precedent](./controls.md) | [Sommaire](./README.md) | [Suivant](./installation-build.md)
+[⬅️ Precedent](./controls.md) | [Sommaire](./README.md) | [Suivant ➡️](./installation-build.md)
