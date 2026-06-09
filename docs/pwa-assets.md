@@ -1,4 +1,4 @@
-[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
 
 ---
 
@@ -253,4 +253,4 @@ Pour ajouter une image d'item :
 
 ---
 
-[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
