@@ -73,4 +73,4 @@ Rust ne connaît pas Babylon.js. Il ne fait que produire des identifiants de blo
 
 ---
 
-[⬅️ Précédent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./installation-build.md)
+[⬅️ Précédent](./README.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)
