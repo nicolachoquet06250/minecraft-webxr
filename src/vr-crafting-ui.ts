@@ -227,20 +227,27 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
     pickPlane.setEnabled(true);
     setCraftingOverlayOpen(true);
 
-    const forward = activeCamera.getDirection(Axis.Z).normalize();
+    const cameraForward = activeCamera.getDirection(Axis.Z).normalize();
+    const flatForward = new Vector3(cameraForward.x, 0, cameraForward.z);
+
+    if (flatForward.lengthSquared() < 0.0001) {
+      flatForward.copyFromFloats(Math.sin(player.yaw), 0, Math.cos(player.yaw));
+    }
+
+    flatForward.normalize();
+
     const origin = activeCamera.position.clone();
     const targetPosition = origin
-      .add(forward.scale(VR_CRAFT_PANEL_DISTANCE))
+      .add(flatForward.scale(VR_CRAFT_PANEL_DISTANCE))
       .add(new Vector3(0, VR_CRAFT_PANEL_VERTICAL_OFFSET, 0));
+    const panelYaw = Math.atan2(flatForward.x, flatForward.z) + Math.PI;
 
     panel.parent = null;
     pickPlane.parent = null;
     panel.position.copyFrom(targetPosition);
-    panel.lookAt(origin);
-    panel.rotation.y += Math.PI;
+    panel.rotation.set(0, panelYaw, 0);
 
-    const toPanel = panel.position.subtract(origin).normalize();
-    const pickPosition = panel.position.add(toPanel.scale(0.004));
+    const pickPosition = panel.position.add(flatForward.scale(0.004));
     pickPlane.position.copyFrom(pickPosition);
     pickPlane.rotation.copyFrom(panel.rotation);
 
