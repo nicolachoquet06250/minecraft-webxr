@@ -1,4 +1,4 @@
-[⬅️ Précédent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
+[⬅️ Précédent](./pwa-assets.md) | [Sommaire](./README.md) | [Suivant ➡️](./runtime-flow.md)
 
 ---
 
@@ -30,4 +30,4 @@ L'eau est rendue avec une hauteur visuelle spécifique. Les drops réutilisent l
 
 ---
 
-[⬅️ Précédent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
+[⬅️ Précédent](./pwa-assets.md) | [Sommaire](./README.md) | [Suivant ➡️](./runtime-flow.md)
