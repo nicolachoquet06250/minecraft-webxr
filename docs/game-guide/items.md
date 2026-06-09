@@ -14,10 +14,12 @@ Tous les blocs definis sauf `Air` ont un item associe. Les items de blocs ont un
 
 Tous les blocs listes dans [Blocs disponibles et ou les trouver](./blocks.md) existent aussi comme items, sauf `Air`.
 
-## Item special
+## Items avec visuel
 
-- Dirt Grass Pickaxe / pioche en terre et herbe : stack max 1, craft avec 3 blocs d'herbe et 2 blocs de terre.
-- Poppy / coquelicot : utilise une image dediee dans l'inventaire.
+| Visuel | Item | Nom francais | Details |
+|--------|------|--------------|---------|
+| <img src="../items/visuels/tool.png" alt="Dirt Grass Pickaxe" width="40" height="40" /> | Dirt Grass Pickaxe | pioche en terre et herbe | Stack max 1. |
+| <img src="../items/visuels/flower.png" alt="Poppy" width="40" height="40" /> | Poppy | coquelicot | Visuel dedie dans l'inventaire. |
 
 ## Categories
 
