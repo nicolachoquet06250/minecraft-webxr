@@ -1,4 +1,4 @@
-[Precedent](./blocks.md) | [Sommaire](../README.md) | [Suivant](./crafts.md)
+[⬅️ Precedent](./blocks.md) | [Sommaire](./README.md) | [Suivant ➡️](./crafts.md)
 
 ---
 
@@ -33,4 +33,4 @@ Tous les blocs listes dans [Blocs disponibles et ou les trouver](./blocks.md) ex
 
 ---
 
-[Precedent](./blocks.md) | [Sommaire](../README.md) | [Suivant](./crafts.md)
+[⬅️ Precedent](./blocks.md) | [Sommaire](./README.md) | [Suivant ➡️](./crafts.md)
