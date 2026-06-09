@@ -14,9 +14,9 @@ relative_links:
 include:
   - README.md
 
-defaults:
-  - scope:
-      path: ""
-      type: "pages"
-    values:
-      layout: default
+#defaults:
+#  - scope:
+#      path: ""
+#      type: "pages"
+#    values:
+#      layout: default
