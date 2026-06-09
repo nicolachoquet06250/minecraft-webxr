@@ -1,4 +1,4 @@
-[Sommaire](../README.md) | [Suivant](./blocks.md)
+[Sommaire](./README.md) | [Suivant ➡️](./blocks.md)
 
 ---
 
@@ -21,4 +21,4 @@ Ce dossier contient la documentation non technique du jeu.
 
 ---
 
-[Sommaire](../README.md) | [Suivant](./blocks.md)
+[Sommaire](./README.md) | [Suivant ➡️](./blocks.md)
