@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.nicovers06.minecraft_xr.twa",
+      "sha256_cert_fingerprints": [
+        "F6:81:0D:98:91:75:A9:84:48:A3:D2:B0:D1:8A:A1:CE:B6:F4:96:B5:1A:F3:48:15:5A:90:9C:26:89:22:4D:AA"
+      ]
+    }
+  }
+]
