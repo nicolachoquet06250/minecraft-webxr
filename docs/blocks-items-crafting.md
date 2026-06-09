@@ -1,4 +1,4 @@
-[⬅️ Précédent](./world-generation.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./world-generation.md) | [Sommaire](./README.md) | [Suivant ➡️](./controls.md)
 
 ---
 
