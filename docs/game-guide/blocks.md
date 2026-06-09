@@ -27,6 +27,12 @@ Cette page liste les blocs actuellement disponibles dans le jeu avec leur mode d
 |  | Red Sand | sable rouge | Bloc defini dans le jeu, pas encore genere naturellement. |
 |  | Clay | argile | Fonds sous-marins dans les zones enneigees. |
 
+## Plantes
+
+| Visuel | Bloc | Nom francais | Ou le trouver |
+|--------|------|--------------|---------------|
+| <img src="../blocks/visuels/poppy.png" alt="Poppy" width="40" height="40" /> | Poppy | coquelicot | Bloc plant disponible dans les blocs de plantes. |
+
 ## Autres categories
 
 Les autres blocs disponibles sont les liquides, neige et glace, minerais, troncs, feuilles, planches, plantes, fleurs, blocs decoratifs et utilitaires, ainsi que toutes les laines.

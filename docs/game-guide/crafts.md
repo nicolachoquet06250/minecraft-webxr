@@ -35,7 +35,7 @@ Les recettes de planches fonctionnent avec une seule buche placee dans n'importe
 
 | Visuel | Pattern | Details |
 |--------|---------|---------|
-| <img src="../items/visuels/tool.png" alt="Dirt Grass Pickaxe" width="40" height="40" /> | `G G G`<br>`. D .`<br>`. D .` | `G` = Grass Block / bloc d'herbe. `D` = Dirt / terre. Resultat : 1x Dirt Grass Pickaxe / pioche en terre et herbe. |
+| <img src="../items/visuels/pickaxe-grass-dirt.png" alt="Dirt Grass Pickaxe" width="40" height="40" /> | `G G G`<br>`. D .`<br>`. D .` | `G` = Grass Block / bloc d'herbe. `D` = Dirt / terre. Resultat : 1x Dirt Grass Pickaxe / pioche en terre et herbe. |
 
 ---
 

@@ -14,12 +14,11 @@ Tous les blocs definis sauf `Air` ont un item associe. Les items de blocs ont un
 
 Tous les blocs listes dans [Blocs disponibles et ou les trouver](./blocks.md) existent aussi comme items, sauf `Air`.
 
-## Items avec visuel
+## Items avec visuel dedie
 
 | Visuel | Item | Nom francais | Details |
 |--------|------|--------------|---------|
-| <img src="../items/visuels/tool.png" alt="Dirt Grass Pickaxe" width="40" height="40" /> | Dirt Grass Pickaxe | pioche en terre et herbe | Stack max 1. |
-| <img src="../items/visuels/flower.png" alt="Poppy" width="40" height="40" /> | Poppy | coquelicot | Visuel dedie dans l'inventaire. |
+| <img src="../items/visuels/pickaxe-grass-dirt.png" alt="Dirt Grass Pickaxe" width="40" height="40" /> | Dirt Grass Pickaxe | pioche en terre et herbe | Stack max 1. |
 
 ## Categories
 
