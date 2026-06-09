@@ -1,4 +1,4 @@
-[Precedent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant](./pwa-assets.md)
+[Precedent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant](./gameplay-interactions.md)
 
 ---
 
@@ -8,4 +8,4 @@ Cette page documente les controles du jeu par type de device.
 
 ---
 
-[Precedent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant](./pwa-assets.md)
+[Precedent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant](./gameplay-interactions.md)
