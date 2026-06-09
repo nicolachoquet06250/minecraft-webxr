@@ -5,7 +5,7 @@ import mkcert from "vite-plugin-mkcert";
 
 export default defineConfig({
   plugins: [
-    mkcert(),
+    ...(process.env.CODESPACES ? [] : [mkcert()]),
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",

@@ -1,0 +1,21 @@
+{
+  "name": "Minecraft WebXR",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:24-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/rust:latest": {}
+  },
+
+  "postCreateCommand": "bash .devcontainer/init.sh",
+  "postAttachCommand": "npm run dev",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "rust-lang.rust-analyzer"
+      ]
+    }
+  }
+}
