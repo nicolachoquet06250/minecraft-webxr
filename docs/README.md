@@ -13,6 +13,7 @@ Cette documentation décrit l'architecture technique du projet, les principaux m
 7. [Interactions de gameplay](./gameplay-interactions.md)
 8. [Contrôles desktop, mobile et VR](./controls.md)
 9. [PWA, assets et déploiement navigateur](./pwa-assets.md)
+10. [Guide non technique du jeu](./game-guide/README.md)
 
 ## Objectif du projet
 
@@ -42,7 +43,8 @@ Minecraft WebXR est un clone de Minecraft jouable dans le navigateur. Le projet 
 │   ├── vr-mode.ts           # Contrôles WebXR
 │   └── inventory-ui.ts      # Inventaires desktop et VR
 ├── wasm/                    # Crate Rust compilée en WebAssembly
-├── docs/                    # Documentation technique
+├── docs/                    # Documentation technique et guide du jeu
+│   └── game-guide/          # Documentation non technique pour les joueurs
 ├── package.json             # Scripts npm et dépendances frontend
 └── README.md                # Présentation utilisateur du projet
 ```
