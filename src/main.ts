@@ -41,6 +41,8 @@ import initializeMobileControls from "./mobile-controls";
 import { initializePointedBlockLabel } from "./pointed-block-label";
 import { initializePoppyModels } from "./poppy-models";
 import { initializeWebXRGameControls } from "./vr-mode";
+import { initializeVRCraftingOverlay } from "./vr-crafting-ui";
+import { isCraftingOverlayOpen } from "./ui-state";
 import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 import { createWaterEffect } from "./water-effects";
 // @ts-ignore
@@ -335,7 +337,10 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
     const webXRControls = await initializeWebXRGameControls(scene, player);
     const vrInventoryBar = initializeVRInventoryBar(scene, player, webXRControls);
+    const vrCraftingOverlay = initializeVRCraftingOverlay(scene, player);
     let leftTriggerWasPressed = false;
+    let rightTriggerWasPressed = false;
+    let rightBButtonWasPressed = false;
 
     if (options.enterVR) {
         void webXRControls.enterVR();
@@ -344,12 +349,24 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     engine.runRenderLoop(() => {
         const deltaTime = Math.min(engine.getDeltaTime() / 1000, 0.05);
         const isWebXRActive = webXRControls.isActive();
+        vrCraftingOverlay.syncXRState(isWebXRActive);
+
+        const rightBButtonPressed = isWebXRActive && webXRControls.isBButtonPressed("right");
+
+        if (rightBButtonPressed && !rightBButtonWasPressed) {
+          vrCraftingOverlay.toggle();
+        }
+
+        rightBButtonWasPressed = rightBButtonPressed;
+
         const rawLeftControllerRay = isWebXRActive ? webXRControls.getControllerRay("left") : null;
         const rawRightControllerRay = isWebXRActive ? webXRControls.getControllerRay("right") : null;
         const leftRayTargetsInventory = isWebXRActive && vrInventoryBar.isRayPointingAtInventory(rawLeftControllerRay);
         const rightRayTargetsInventory = isWebXRActive && vrInventoryBar.isRayPointingAtInventory(rawRightControllerRay);
-        const leftControllerRay = leftRayTargetsInventory ? null : rawLeftControllerRay;
-        const rightControllerRay = rightRayTargetsInventory ? null : rawRightControllerRay;
+        const leftRayTargetsCrafting = isWebXRActive && vrCraftingOverlay.isRayPointingAtCrafting(rawLeftControllerRay);
+        const rightRayTargetsCrafting = isWebXRActive && vrCraftingOverlay.isRayPointingAtCrafting(rawRightControllerRay);
+        const leftControllerRay = leftRayTargetsInventory || leftRayTargetsCrafting ? null : rawLeftControllerRay;
+        const rightControllerRay = rightRayTargetsInventory || rightRayTargetsCrafting ? null : rawRightControllerRay;
 
         crosshairUi.rootContainer.isVisible = !isWebXRActive;
         pointedBlockLabel.update({
@@ -372,8 +389,16 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
         if (isWebXRActive) {
             const leftTriggerPressed = webXRControls.isTriggerPressed("left");
+          const rightTriggerPressed = webXRControls.isTriggerPressed("right");
+          const craftingOpen = isCraftingOverlayOpen();
 
-            if (leftTriggerPressed && !leftTriggerWasPressed && leftControllerRay) {
+          if (craftingOpen && rightTriggerPressed && !rightTriggerWasPressed && rawRightControllerRay) {
+            vrCraftingOverlay.tryHandlePrimaryAction(rawRightControllerRay);
+          }
+
+          rightTriggerWasPressed = rightTriggerPressed;
+
+          if (!craftingOpen && leftTriggerPressed && !leftTriggerWasPressed && leftControllerRay) {
                 placeBlock({
                     scene,
                     player,
@@ -389,7 +414,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
             leftTriggerWasPressed = leftTriggerPressed;
 
-            if (webXRControls.isTriggerPressed("right") && rightControllerRay) {
+      if (!craftingOpen && rightTriggerPressed && rightControllerRay) {
                 startBlockBreaking({
                     scene,
                     player,
@@ -406,6 +431,8 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             }
         } else {
             leftTriggerWasPressed = false;
+            rightTriggerWasPressed = false;
+            rightBButtonWasPressed = false;
         }
 
         const moveDirectionBeforePhysics = getInputMoveDirection(player);

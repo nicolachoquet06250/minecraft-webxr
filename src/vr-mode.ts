@@ -2,6 +2,7 @@ import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import type { Camera } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, MOVE_SPEED, pressedKeys } from "./constants";
 import { hasCollisionAt } from "./functions";
+import { isCraftingOverlayOpen } from "./ui-state";
 import type { PlayerPhysics, WorldChunks } from "./types";
 import { isVRMode } from "./mobile-controls";
 
@@ -68,6 +69,7 @@ export type WebXRGameControls = {
   getMoveDirection: () => Vector3;
   getControllerRay: (handedness: XRHandedness) => Ray | null;
   isTriggerPressed: (handedness: XRHandedness) => boolean;
+  isBButtonPressed: (handedness: XRHandedness) => boolean;
   enterVR: () => Promise<void>;
   syncBeforePhysics: (deltaTimeSeconds: number) => void;
   syncAfterPhysics: () => void;
@@ -129,12 +131,23 @@ export async function initializeWebXRGameControls(
 
       return isTriggerPressed(handedness === "left" ? leftController : rightController);
     },
+    isBButtonPressed: (handedness) => {
+      if (!isXRActive()) return false;
+
+      return isBButtonPressed(handedness === "left" ? leftController : rightController);
+    },
     enterVR: async () => {
       await xrExperience?.baseExperience.enterXRAsync("immersive-vr", "local-floor");
       active = xrExperience?.baseExperience.state === WebXRState.IN_XR;
     },
     syncBeforePhysics: (deltaTimeSeconds: number) => {
       if (!isXRActive() || !xrExperience) return;
+
+      if (isCraftingOverlayOpen()) {
+        moveDirection = Vector3.Zero();
+        clearVRMovementKeys();
+        return;
+      }
 
       const xrCamera = xrExperience.baseExperience.camera;
       const previousBodyYaw = bodyYaw;
@@ -379,6 +392,16 @@ function isAButtonPressed(controller: XRControllerLike | null): boolean {
     controller?.motionController?.getComponent?.("a");
 
   return Boolean(aButton?.pressed || (aButton?.value ?? 0) > 0.65);
+}
+
+function isBButtonPressed(controller: XRControllerLike | null): boolean {
+  const bButton =
+    controller?.motionController?.getComponent?.("b-button") ??
+    controller?.motionController?.getComponent?.("xr-standard-button-b") ??
+    controller?.motionController?.getComponent?.("button-b") ??
+    controller?.motionController?.getComponent?.("b");
+
+  return Boolean(bButton?.pressed || (bButton?.value ?? 0) > 0.65);
 }
 
 function moveVRHorizontallyWithCollision(
