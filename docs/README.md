@@ -1,4 +1,4 @@
-[Sommaire](./README.md) | [Suivant](./architecture.md)
+[Sommaire](./README.md) | [Suivant ➡️](./architecture.md)
 
 ---
 
@@ -68,4 +68,4 @@ Les fichiers de cette documentation décrivent l'état actuel de l'implémentati
 
 ---
 
-[Sommaire](./README.md) | [Suivant](./architecture.md)
+[Sommaire](./README.md) | [Suivant ➡️](./architecture.md)
