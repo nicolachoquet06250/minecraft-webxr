@@ -75,33 +75,16 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 
 ## 🕹️ Contrôles
 
-### 💻 Desktop
-- **Déplacement** : `Z` `Q` `S` `D`, `W` `A` `S` `D` ou touches fléchées.
-- **Sauter** : `Espace`.
-- **Regarder** : Souris (cliquer pour verrouiller le pointeur).
-- **Détruire un bloc** : Clic gauche maintenu.
-- **Placer un bloc** : Clic droit.
-- **Craft** : `E` pour ouvrir/fermer l'interface de craft, `Échap` pour fermer.
-- **Craft - Drag & Drop** : Clic gauche pour déplacer 1 item, clic droit pour déplacer le stack complet.
-
-### 📱 Mobile
-- **Déplacement** : Joystick virtuel à gauche de l'écran.
-- **Regarder** : Joystick virtuel à droite de l'écran.
-- **Sauter** : Bouton dédié à droite.
-- **Détruire un bloc** : Bouton dédié à droite avec l'icône pioche.
-- **Placer un bloc** : Bouton dédié à gauche.
-- **Craft** : Bouton `Craft` en haut à droite.
-- **Craft - Drag & Drop** : Interactions tactiles sur l'inventaire, la grille de craft et le slot de résultat.
-
-### 🥽 VR (WebXR)
-- **Activation** : Cliquer sur l'icône VR en bas à droite ou lancer le jeu directement en mode VR depuis le menu compatible.
-- **Déplacement** : Joystick / touchpad du contrôleur gauche.
-- **Orientation** : Suivi naturel du casque WebXR.
-- **Sauter** : Bouton `A` du contrôleur droit.
-- **Détruire un bloc** : Trigger droit avec le rayon du contrôleur droit.
-- **Placer un bloc** : Trigger gauche avec le rayon du contrôleur gauche.
-- **Inventaire VR** : Barre d'inventaire dédiée au mode VR, attachée au corps du joueur et sélectionnable avec les rayons des contrôleurs.
-- **Pointeur central** : Masqué en mode VR.
+| 💻 Desktop                                                                                            | 📱 Mobile                                                                                                    | 🥽 VR (WebXR)                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Déplacement** : `Z` `Q` `S` `D` / `W` `A` `S` `D` ou touches fléchées.                               | **Déplacement** : Joystick virtuel à gauche de l'écran.                                                      | **Activation** : Cliquer sur l'icône VR en bas à droite ou lancer le jeu directement en mode VR depuis le menu compatible.               |
+| **Sauter** : `Espace`.                                                                                 | **Regarder** : Joystick virtuel à droite de l'écran.                                                         | **Déplacement** : Joystick / touchpad du contrôleur gauche.                                                                              |
+| **Regarder** : Souris (cliquer pour verrouiller le pointeur).                                          | **Sauter** : Bouton dédié à droite.                                                                          | **Orientation** : Suivi naturel du casque WebXR.                                                                                         |
+| **Détruire un bloc** : Clic gauche maintenu.                                                           | **Détruire un bloc** : Bouton dédié à droite avec l'icône pioche.                                            | **Sauter** : Bouton `A` du contrôleur droit.                                                                                             |
+| **Placer un bloc** : Clic droit.                                                                       | **Placer un bloc** : Bouton dédié à gauche.                                                                  | **Détruire un bloc** : Trigger droit avec le rayon du contrôleur droit.                                                                  |
+| **Craft** : `E` pour ouvrir/fermer l'interface de craft, `Échap` pour fermer.                          | **Craft** : Bouton `Craft` en haut à droite.                                                                 | **Placer un bloc** : Trigger gauche avec le rayon du contrôleur gauche.                                                                  |
+| **Craft - Drag & Drop** : Clic gauche pour déplacer 1 item, clic droit pour déplacer le stack complet. | **Craft - Drag & Drop** : Interactions tactiles sur l'inventaire, la grille de craft et le slot de résultat. | **Inventaire VR** : Barre d'inventaire dédiée au mode VR, attachée au corps du joueur et sélectionnable avec les rayons des contrôleurs. |
+|                                                                                                        |                                                                                                              | **Pointeur central** : Masqué en mode VR.                                                                                                |
 
 ## 📂 Structure du projet
 
