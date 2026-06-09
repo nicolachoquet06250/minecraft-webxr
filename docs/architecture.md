@@ -8,6 +8,24 @@
 
 Minecraft WebXR est organisé autour de deux couches principales.
 
+```mermaid
+flowchart LR
+  Browser[Navigateur]
+  Main[src/main.ts]
+  Babylon[Babylon.js\nEngine + Scene + GUI]
+  Gameplay[Gameplay TypeScript\nchunks, joueur, inventaire, craft]
+  WASM[Rust / WebAssembly\ngenerate_chunk]
+  Assets[Assets publics\ntextures, modèles, icônes]
+
+  Browser --> Main
+  Main --> Babylon
+  Main --> Gameplay
+  Gameplay --> WASM
+  WASM --> Gameplay
+  Gameplay --> Babylon
+  Assets --> Babylon
+```
+
 ### TypeScript / Babylon.js
 
 Cette couche initialise le canvas, le moteur Babylon, la scène, les lumières, la caméra, le joueur, les interfaces et les contrôles. Elle transforme aussi les chunks générés par Rust/WASM en meshes Babylon visibles.
@@ -26,6 +44,24 @@ main.ts
   -> construit les meshes Babylon
   -> initialise joueur + UI + contrôles
   -> lance la boucle de rendu
+```
+
+```mermaid
+sequenceDiagram
+  participant Main as main.ts
+  participant Wasm as Rust/WASM
+  participant World as textured-world.ts
+  participant Babylon as Babylon Scene
+  participant UI as Babylon GUI
+
+  Main->>Wasm: loadVoxelWasm()
+  Main->>Babylon: create Engine + Scene
+  Main->>Wasm: generate_chunk(chunkX, chunkZ, SEED)
+  Wasm-->>Main: Uint8Array de BlockId
+  Main->>World: createChunkMesh(...)
+  World-->>Babylon: Mesh de chunk
+  Main->>UI: init inventory / craft / controls
+  Main->>Babylon: runRenderLoop()
 ```
 
 ## Modules principaux
@@ -60,6 +96,22 @@ Rust generate_chunk(...)
   -> Uint8Array côté TypeScript
   -> createChunkMesh(...)
   -> Mesh Babylon
+```
+
+```mermaid
+flowchart TD
+  Rust[wasm/src/lib.rs]
+  Generate[generate_chunk]
+  Bytes[Vec<u8> / Uint8Array]
+  TS[TypeScript]
+  MeshBuilder[createChunkMesh]
+  Mesh[Mesh Babylon]
+
+  Rust --> Generate
+  Generate --> Bytes
+  Bytes --> TS
+  TS --> MeshBuilder
+  MeshBuilder --> Mesh
 ```
 
 Rust ne connaît pas Babylon.js. Il ne fait que produire des identifiants de blocs.
