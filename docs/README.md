@@ -1,3 +1,7 @@
+[⬅️ Précédent](./game-guide/crafts.md) | [Sommaire](./README.md) | [Suivant ➡️](./architecture.md)
+
+---
+
 # Documentation technique - Minecraft WebXR
 
 Cette documentation décrit l'architecture technique du projet, les principaux modules TypeScript, la partie Rust/WebAssembly, les systèmes de rendu, les interactions de gameplay et les contrôles par type de device.
@@ -61,3 +65,7 @@ Minecraft WebXR est un clone de Minecraft jouable dans le navigateur. Le projet 
 ## Convention de lecture
 
 Les fichiers de cette documentation décrivent l'état actuel de l'implémentation sur la branche `staging`. Lorsqu'un système est expérimental, notamment WebXR, il est documenté comme tel.
+
+---
+
+[⬅️ Précédent](./game-guide/crafts.md) | [Sommaire](./README.md) | [Suivant ➡️](./architecture.md)
