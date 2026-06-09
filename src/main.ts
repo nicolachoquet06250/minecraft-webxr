@@ -435,30 +435,36 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             rightBButtonWasPressed = false;
         }
 
-        const moveDirectionBeforePhysics = getInputMoveDirection(player);
+        const vrCraftingOpen = isWebXRActive && isCraftingOverlayOpen();
+        const moveDirectionBeforePhysics = vrCraftingOpen ? Vector3.Zero() : getInputMoveDirection(player);
         const previousPlayerPosition = player.position.clone();
         const wasGroundedBeforePhysics = player.grounded;
 
-        updatePlayerPhysics({
-            player,
-            camera,
-            worldChunks,
-            sizeX,
-            sizeY,
-            sizeZ,
-            deltaTime,
-        });
+        if (vrCraftingOpen) {
+            player.velocity.copyFromFloats(0, 0, 0);
+            cancelBlockBreaking();
+        } else {
+            updatePlayerPhysics({
+                player,
+                camera,
+                worldChunks,
+                sizeX,
+                sizeY,
+                sizeZ,
+                deltaTime,
+            });
 
-        tryAutoJump({
-            player,
-            moveDirection: moveDirectionBeforePhysics,
-            previousPosition: previousPlayerPosition,
-            wasGrounded: wasGroundedBeforePhysics,
-            worldChunks,
-            sizeX,
-            sizeY,
-            sizeZ,
-        });
+            tryAutoJump({
+                player,
+                moveDirection: moveDirectionBeforePhysics,
+                previousPosition: previousPlayerPosition,
+                wasGrounded: wasGroundedBeforePhysics,
+                worldChunks,
+                sizeX,
+                sizeY,
+                sizeZ,
+            });
+        }
 
         waterEffect.update(deltaTime);
         waterEffect.tryTriggerSplash({
