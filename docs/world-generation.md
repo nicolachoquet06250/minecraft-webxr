@@ -1,4 +1,4 @@
-[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)
+[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md)
 
 ---
 
@@ -45,4 +45,4 @@ Les arbres sont générés en deuxième passe pour gérer le feuillage qui débo
 
 ---
 
-[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)
+[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md)
