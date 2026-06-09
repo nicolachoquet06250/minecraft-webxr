@@ -51,4 +51,4 @@ Pour ajouter un bloc complet : ajouter le `BlockId`, la définition de bloc, l'i
 
 ---
 
-[⬅️ Précédent](./world-generation.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./controls.md)
