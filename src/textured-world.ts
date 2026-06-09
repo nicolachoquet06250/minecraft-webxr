@@ -164,11 +164,15 @@ function addWaterGeometryForBlock(params: AddWaterGeometryParams): void {
   addTexturedFace({
     buffers,
     x: worldX,
-    y: worldY,
+    y: worldY + getBlockVisualHeight(block) - 1,
     z: worldZ,
     face: FACES[0],
     block,
   });
+}
+
+function getBlockVisualHeight(block: BlockId): number {
+  return getBlockDefinition(block)?.visualHeight ?? 1;
 }
 
 function createMeshBuffers(): MeshBuffers {
