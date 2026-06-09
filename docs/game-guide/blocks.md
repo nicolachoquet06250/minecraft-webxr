@@ -4,17 +4,17 @@
 
 # Blocs disponibles et ou les trouver
 
-Cette page liste les blocs actuellement disponibles dans le jeu avec leur mode d'obtention et des visuels SVG stockes dans `public/blocks/visuels/`.
+Cette page liste les blocs actuellement disponibles dans le jeu avec leur mode d'obtention et des visuels SVG stockes dans `docs/blocks/visuels/`.
 
 ## Visuels
 
 | Visuel | Bloc | Nom francais | Ou le trouver |
 |--------|------|--------------|---------------|
-| ![Grass Block](https://minecraft-xr.nicovers06.fr/blocks/visuels/grass-block.svg) | Grass Block | bloc d'herbe | Surface du biome plaines. |
-| ![Dirt](https://minecraft-xr.nicovers06.fr/blocks/visuels/dirt-block.svg) | Dirt | terre | Sous la surface des plaines et de certains biomes enneiges. |
-| ![Stone](https://minecraft-xr.nicovers06.fr/blocks/visuels/stone.svg) | Stone | pierre | Sous-sol classique et fonds sous-marins. |
-| ![Sand](https://minecraft-xr.nicovers06.fr/blocks/visuels/sand.svg) | Sand | sable | Surface et sous-sol du biome desert. |
-| ![Water](https://minecraft-xr.nicovers06.fr/blocks/visuels/water.svg) | Water | eau | Zones sous le niveau de la mer hors biome enneige. |
+| ![Grass Block](../blocks/visuels/grass-block.svg) | Grass Block | bloc d'herbe | Surface du biome plaines. |
+| ![Dirt](../blocks/visuels/dirt-block.svg) | Dirt | terre | Sous la surface des plaines et de certains biomes enneiges. |
+| ![Stone](../blocks/visuels/stone.svg) | Stone | pierre | Sous-sol classique et fonds sous-marins. |
+| ![Sand](../blocks/visuels/sand.svg) | Sand | sable | Surface et sous-sol du biome desert. |
+| ![Water](../blocks/visuels/water.svg) | Water | eau | Zones sous le niveau de la mer hors biome enneige. |
 
 ## Terrain naturel
 
