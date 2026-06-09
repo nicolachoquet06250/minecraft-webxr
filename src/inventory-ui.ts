@@ -2,6 +2,7 @@ import { Color3, Matrix, Mesh, MeshBuilder, Ray, Scene, StandardMaterial, Vector
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
 import { isMobileMode } from "./mobile-controls";
+import { isCraftingOverlayOpen } from "./ui-state";
 import { type PlayerPhysics } from "./types";
 import type { WebXRGameControls, XRHandedness } from "./vr-mode";
 
@@ -118,7 +119,7 @@ export function initializeVRInventoryBar(
   scene.onBeforeRenderObservable.add(() => {
     const activeCamera = scene.activeCamera;
 
-    if (!webXRControls.isActive() || !activeCamera) {
+    if (!webXRControls.isActive() || !activeCamera || isCraftingOverlayOpen()) {
       panel.setEnabled(false);
       pickPlane.setEnabled(false);
       return;
