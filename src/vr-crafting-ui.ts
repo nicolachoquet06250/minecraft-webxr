@@ -11,6 +11,17 @@ type CraftingSlot = InventoryItem | null;
 type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number } | { type: "result" };
 type DragState = { item: InventoryItem; source: DragSource };
 
+type VRCraftingOverlayControls = {
+  readonly panel: Mesh;
+  readonly pickPlane: Mesh;
+  readonly toggle: () => void;
+  readonly close: () => void;
+  readonly isOpen: () => boolean;
+  readonly isRayPointingAtCrafting: (ray: Ray | null) => boolean;
+  readonly tryHandlePrimaryAction: (ray: Ray | null) => boolean;
+  readonly syncXRState: (isXRActive: boolean) => void;
+};
+
 const SLOT_SIZE = 48;
 const CRAFT_GRID_SIZE = 2;
 const EXTENDED_INVENTORY_SLOT_COUNT = 27;
@@ -23,17 +34,6 @@ const VR_CRAFT_PANEL_VERTICAL_OFFSET = -0.08;
 const VR_CRAFT_PANEL_TEXTURE_WIDTH = 1024;
 const VR_CRAFT_PANEL_TEXTURE_HEIGHT = 928;
 const VR_TRIGGER_SELECTION_COOLDOWN_MS = 160;
-
-type VRCraftingOverlayControls = {
-  readonly panel: Mesh;
-  readonly pickPlane: Mesh;
-  readonly toggle: () => void;
-  readonly close: () => void;
-  readonly isOpen: () => boolean;
-  readonly isRayPointingAtCrafting: (ray: Ray | null) => boolean;
-  readonly tryHandlePrimaryAction: (ray: Ray | null) => boolean;
-  readonly syncXRState: (isXRActive: boolean) => void;
-};
 
 export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics): VRCraftingOverlayControls {
   const panel = MeshBuilder.CreatePlane(
@@ -198,14 +198,12 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
 
   for (let index = 0; index < HOTBAR_SLOT_COUNT; index++) {
     const slot = createSlot(`vr-craft-hotbar-slot-${index}`, SLOT_SIZE);
-    const inventoryIndex = index;
     inventorySlotControls.push(slot);
-    inventorySlotIndices.push(inventoryIndex);
+    inventorySlotIndices.push(index);
     hotbarGrid.addControl(slot, 0, index);
   }
 
   backdrop.addControl(dragPreview);
-
   updateAll();
 
   const toggle = (): void => {
@@ -239,6 +237,7 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
     pickPlane.parent = null;
     panel.position.copyFrom(targetPosition);
     panel.lookAt(origin);
+    panel.rotation.y += Math.PI;
 
     const toPanel = panel.position.subtract(origin).normalize();
     const pickPosition = panel.position.add(toPanel.scale(0.004));
@@ -408,16 +407,31 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
   }
 
   function consumeCraftIngredients(): void {
-    for (const slot of craftSlots) if (slot) slot.count--;
+    for (const slot of craftSlots) {
+      if (slot) slot.count--;
+    }
+
     for (let index = 0; index < craftSlots.length; index++) {
-      if (craftSlots[index] && craftSlots[index]!.count <= 0) craftSlots[index] = null;
+      if (craftSlots[index] && craftSlots[index]!.count <= 0) {
+        craftSlots[index] = null;
+      }
     }
   }
 
   function putItemInCraftSlot(index: number, item: InventoryItem, replaceExisting: boolean): boolean {
     const slot = craftSlots[index];
-    if (!slot) { craftSlots[index] = { ...item }; return true; }
-    if (replaceExisting) { putItemInInventory(slot); craftSlots[index] = { ...item }; return true; }
+
+    if (!slot) {
+      craftSlots[index] = { ...item };
+      return true;
+    }
+
+    if (replaceExisting) {
+      putItemInInventory(slot);
+      craftSlots[index] = { ...item };
+      return true;
+    }
+
     if (slot.blockId !== item.blockId) return false;
     slot.count += item.count;
     return true;
@@ -436,7 +450,9 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
   }
 
   function returnAllCraftSlotsToInventory(): void {
-    for (let index = 0; index < craftSlots.length; index++) returnCraftSlotToInventory(index);
+    for (let index = 0; index < craftSlots.length; index++) {
+      returnCraftSlotToInventory(index);
+    }
   }
 
   function updateAll(): void {
@@ -444,11 +460,16 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
     updateCraftSlots();
     updateInventorySlots();
     updateResultSlot();
-    if ((player as any)._updateInventoryUI) (player as any)._updateInventoryUI();
+
+    if ((player as any)._updateInventoryUI) {
+      (player as any)._updateInventoryUI();
+    }
   }
 
   function updateCraftSlots(): void {
-    for (let index = 0; index < craftSlotControls.length; index++) renderSlotContent(craftSlotControls[index], craftSlots[index]);
+    for (let index = 0; index < craftSlotControls.length; index++) {
+      renderSlotContent(craftSlotControls[index], craftSlots[index]);
+    }
   }
 
   function updateInventorySlots(): void {
@@ -534,7 +555,11 @@ function addStackToInventory(player: PlayerPhysics, item: InventoryItem): void {
     remaining -= added;
   }
 
-  if (remaining > 0) for (let count = 0; count < remaining; count++) addToInventory(player, item.blockId);
+  if (remaining > 0) {
+    for (let count = 0; count < remaining; count++) {
+      addToInventory(player, item.blockId);
+    }
+  }
 }
 
 function findControlIndexAt(controls: Rectangle[], pointerX: number, pointerY: number): number {
@@ -544,12 +569,24 @@ function findControlIndexAt(controls: Rectangle[], pointerX: number, pointerY: n
 function containsPointer(control: Rectangle, pointerX: number, pointerY: number): boolean {
   const measure = (control as any)._currentMeasure;
   if (!measure) return false;
-  return pointerX >= measure.left && pointerX <= measure.left + measure.width && pointerY >= measure.top && pointerY <= measure.top + measure.height;
+
+  return (
+    pointerX >= measure.left &&
+    pointerX <= measure.left + measure.width &&
+    pointerY >= measure.top &&
+    pointerY <= measure.top + measure.height
+  );
 }
 
 function findRecipeResult(slots: CraftingSlot[]): InventoryItem | null {
   const expandedSlots = expandCraftSlotsToThreeByThree(slots);
-  for (const recipe of craftingRecipes) if (matchesRecipe(expandedSlots, recipe)) return { ...recipe.result };
+
+  for (const recipe of craftingRecipes) {
+    if (matchesRecipe(expandedSlots, recipe)) {
+      return { ...recipe.result };
+    }
+  }
+
   return null;
 }
 
@@ -569,9 +606,11 @@ function matchesPattern(slots: CraftingSlot[], pattern: CraftingPattern): boolea
   for (let index = 0; index < pattern.length; index++) {
     const expected = pattern[index];
     const actual = slots[index];
+
     if (expected === null && actual !== null) return false;
     if (expected !== null && (!actual || actual.blockId !== expected || actual.count <= 0)) return false;
   }
+
   return true;
 }
 
@@ -581,8 +620,15 @@ function createGrid(name: string, rows: number, columns: number, slotSize: numbe
   grid.height = `${rows * slotSize}px`;
   grid.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
   grid.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-  for (let row = 0; row < rows; row++) grid.addRowDefinition(1 / rows);
-  for (let column = 0; column < columns; column++) grid.addColumnDefinition(1 / columns);
+
+  for (let row = 0; row < rows; row++) {
+    grid.addRowDefinition(1 / rows);
+  }
+
+  for (let column = 0; column < columns; column++) {
+    grid.addColumnDefinition(1 / columns);
+  }
+
   return grid;
 }
 
@@ -594,6 +640,7 @@ function createSlot(name: string, size: number): Rectangle {
   slot.color = "#373737";
   slot.background = "#8f8f8f";
   slot.isPointerBlocker = true;
+
   return slot;
 }
 
@@ -603,11 +650,13 @@ function createDragPreview(): Rectangle {
   preview.isPointerBlocker = false;
   preview.zIndex = 10_010;
   preview.alpha = 0.92;
+
   return preview;
 }
 
 function renderSlotContent(slot: Rectangle, item: InventoryItem | null): void {
   slot.children.slice().forEach((child) => slot.removeControl(child));
+
   const icon = createItemIcon(`${slot.name}-icon`, Math.floor(SLOT_SIZE * 0.62));
   const count = createCountText(`${slot.name}-count`);
   slot.addControl(icon);
@@ -625,6 +674,7 @@ function createItemIcon(name: string, size: number): Rectangle {
   icon.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
   icon.isPointerBlocker = false;
   icon.isVisible = false;
+
   return icon;
 }
 
@@ -641,6 +691,7 @@ function createCountText(name: string): TextBlock {
   text.shadowColor = "black";
   text.isPointerBlocker = false;
   text.isVisible = false;
+
   return text;
 }
 
