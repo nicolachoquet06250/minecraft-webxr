@@ -18,7 +18,13 @@
     <meta name="twitter:card" content="summary">
     <meta property="twitter:title" content="{{ page.title | default: site.title }}">
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"WebPage","description":"Un clone de Minecraft open-source développé avec Babylon.js et Rust (WebAssembly), conçu pour fonctionner dans le navigateur avec un support expérimental pour la Réalité Virtuelle (WebXR) et les contrôles mobiles.","headline":"minecraft-webxr","url":"https://nicolachoquet06250.github.io/minecraft-webxr/blocks-items-crafting.html"}
+    {
+      "@context":"https://schema.org",
+      "@type":"WebPage",
+      "description":"{{ site.description }}",
+      "headline":"{{ page.title || default: site.title }}",
+      "url":"{{ page.url }}"
+    }
     </script>
     <!-- End Jekyll SEO tag -->
 
