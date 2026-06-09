@@ -1,1 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="peru"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" shape-rendering="crispEdges">
+<rect x="0.0" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="56.25" y="0.0" width="56.25" height="56.25" fill="rgba(89, 56, 33, 1)" />
+<rect x="112.5" y="0.0" width="56.25" height="56.25" fill="rgba(153, 110, 69, 1)" />
+<rect x="168.75" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="225.0" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="281.25" y="0.0" width="56.25" height="56.25" fill="rgba(173, 133, 87, 1)" />
+<rect x="337.5" y="0.0" width="56.25" height="56.25" fill="rgba(107, 69, 41, 1)" />
+<rect x="393.75" y="0.0" width="56.25" height="56.25" fill="rgba(89, 56, 33, 1)" />
+<rect x="450.0" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="506.25" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="562.5" y="0.0" width="56.25" height="56.25" fill="rgba(153, 110, 69, 1)" />
+<rect x="618.75" y="0.0" width="56.25" height="56.25" fill="rgba(89, 56, 33, 1)" />
+<rect x="675.0" y="0.0" width="56.25" height="56.25" fill="rgba(107, 69, 41, 1)" />
+<rect x="731.25" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="787.5" y="0.0" width="56.25" height="56.25" fill="rgba(143, 143, 128, 1)" />
+<rect x="843.75" y="0.0" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="0.0" y="56.25" width="56.25" height="56.25" fill="rgba(153, 110, 69, 1)" />
+<rect x="56.25" y="56.25" width="56.25" height="56.25" fill="rgba(153, 110, 69, 1)" />
+<rect x="112.5" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="168.75" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="225.0" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="281.25" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="337.5" y="56.25" width="56.25" height="56.25" fill="rgba(107, 69, 41, 1)" />
+<rect x="393.75" y="56.25" width="56.25" height="56.25" fill="rgba(173, 133, 87, 1)" />
+<rect x="450.0" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="506.25" y="56.25" width="56.25" height="56.25" fill="rgba(89, 56, 33, 1)" />
+<rect x="562.5" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="618.75" y="56.25" width="56.25" height="56.25" fill="rgba(107, 69, 41, 1)" />
+<rect x="675.0" y="56.25" width="56.25" height="56.25" fill="rgba(107, 69, 41, 1)" />
+<rect x="731.25" y="56.25" width="56.25" height="56.25" fill="rgba(128, 87, 51, 1)" />
+<rect x="787.5" y="56.25" width="56.25" height="56.25" fill="rgba(89, 56, 33, 1)" />
+<rect x="843.75" y="56.25" width="56.25" height="56.25" fill="rgba(153, 110, 69, 1)" />
+</svg>
