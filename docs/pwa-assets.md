@@ -1,4 +1,4 @@
-[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
 
 ---
 
@@ -15,6 +15,21 @@ Les objectifs sont :
 - supporter le fonctionnement hors ligne lorsque les assets sont prêts ;
 - éviter les problèmes de cache lors des mises à jour ;
 - servir les assets statiques nécessaires au rendu 3D et aux UI.
+
+```mermaid
+flowchart LR
+  Source[Sources TS / Rust / assets]
+  Vite[Vite build]
+  Dist[dist]
+  SW[Service worker]
+  Cache[Cache Storage]
+  Browser[Navigateur]
+  Install[PWA installable]
+
+  Source --> Vite --> Dist --> Browser
+  Dist --> SW --> Cache --> Browser
+  Browser --> Install
+```
 
 ## Vite
 
@@ -46,6 +61,17 @@ import voxelWasmUrl from "~/assets/wasm/voxel_wasm_bg.wasm?url";
 
 Cela permet à Vite de traiter le `.wasm` comme un asset et de fournir une URL utilisable par `wasm-bindgen`.
 
+```mermaid
+flowchart TD
+  Rust[wasm/src/lib.rs]
+  WasmPack[wasm-pack]
+  Generated[src/assets/wasm]
+  ViteAsset[Import ?url]
+  Runtime[loadVoxelWasm]
+
+  Rust --> WasmPack --> Generated --> ViteAsset --> Runtime
+```
+
 ## Service worker
 
 Le service worker est enregistré dans `src/main.ts` via :
@@ -68,6 +94,16 @@ Comportement :
 - rechargement automatique lorsqu'une mise à jour est disponible ;
 - log lorsque l'app est prête hors ligne.
 
+```mermaid
+stateDiagram-v2
+  [*] --> Registered: registerSW immediate
+  Registered --> OfflineReady: cache pret
+  Registered --> NeedRefresh: nouvelle version
+  NeedRefresh --> Reload: window.location.reload
+  OfflineReady --> [*]
+  Reload --> [*]
+```
+
 ## Nettoyage des registrations multiples
 
 Au démarrage, le code vérifie :
@@ -83,6 +119,21 @@ S'il existe plus d'une registration :
 3. la page est rechargée.
 
 Ce mécanisme vise à éviter les situations où plusieurs services workers ou caches incompatibles empêchent la mise à jour réelle du code.
+
+```mermaid
+flowchart TD
+  Start[Demarrage]
+  Check[Lire registrations SW]
+  Count{Plusieurs registrations ?}
+  Keep[Continuer normalement]
+  Unregister[Unregister tous les SW]
+  Clear[Supprimer Cache Storage]
+  Reload[Recharger la page]
+
+  Start --> Check --> Count
+  Count -->|non| Keep
+  Count -->|oui| Unregister --> Clear --> Reload
+```
 
 ## Assets statiques
 
@@ -101,6 +152,21 @@ Un asset placé dans `public/blocks/plants/poppy.png` peut être référencé pa
 
 ```txt
 /blocks/plants/poppy.png
+```
+
+```mermaid
+flowchart LR
+  Public[public]
+  Blocks[blocks]
+  Items[items]
+  Models[models]
+  Icons[icons]
+  URLs[URLs publiques]
+
+  Public --> Blocks --> URLs
+  Public --> Items --> URLs
+  Public --> Models --> URLs
+  Public --> Icons --> URLs
 ```
 
 ## Assets générés
@@ -201,6 +267,24 @@ Ce dossier doit contenir :
 - le WASM traité par Vite ;
 - les fichiers publics copiés.
 
+```mermaid
+flowchart TD
+  Build[npm run build]
+  Dist[dist]
+  JS[Bundles JavaScript]
+  Assets[Assets]
+  Wasm[WASM]
+  PWA[Fichiers PWA]
+  Public[public copie]
+
+  Build --> Dist
+  Dist --> JS
+  Dist --> Assets
+  Dist --> Wasm
+  Dist --> PWA
+  Dist --> Public
+```
+
 ## Points d'attention déploiement
 
 - Servir avec HTTPS.
@@ -253,4 +337,4 @@ Pour ajouter une image d'item :
 
 ---
 
-[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
