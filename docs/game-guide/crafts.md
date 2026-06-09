@@ -1,4 +1,4 @@
-[Precedent](./items.md) | [Sommaire](../README.md) | [Suivant](../README.md)
+[Precedent](./items.md) | [Sommaire](../README.md)
 
 ---
 
@@ -52,4 +52,4 @@ Resultat : 1x Dirt Grass Pickaxe / pioche en terre et herbe.
 
 ---
 
-[Precedent](./items.md) | [Sommaire](../README.md) | [Suivant](../README.md)
+[Precedent](./items.md) | [Sommaire](../README.md)
