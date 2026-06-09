@@ -9,9 +9,9 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 | Staging       | https://staging.minecraft-xr.nicovers06.fr |
 | Production    | https://minecraft-xr.nicovers06.fr         |
 
-| Documentation Technique                                         | Guide de jeu                                                     |
-|-----------------------------------------------------------------|------------------------------------------------------------------|
-| https://nicolachoquet06250.github.io/minecraft-webxr/           | https://nicolachoquet06250.github.io/minecraft-webxr/game-guide/ |
+| Documentation Technique                                          | Guide de jeu                                                                |
+|------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| https://nicolachoquet06250.github.io/minecraft-webxr/README.html | https://nicolachoquet06250.github.io/minecraft-webxr/game-guide/README.html |
 
 ## 🚀 Fonctionnalités
 
