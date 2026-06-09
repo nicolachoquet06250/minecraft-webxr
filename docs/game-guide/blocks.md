@@ -10,11 +10,11 @@ Cette page liste les blocs actuellement disponibles dans le jeu avec leur mode d
 
 | Visuel | Bloc | Nom francais | Ou le trouver |
 |--------|------|--------------|---------------|
-| ![Grass Block](../blocks/visuels/grass-block.svg) | Grass Block | bloc d'herbe | Surface du biome plaines. |
-| ![Dirt](../blocks/visuels/dirt-block.svg) | Dirt | terre | Sous la surface des plaines et de certains biomes enneiges. |
-| ![Stone](../blocks/visuels/stone.svg) | Stone | pierre | Sous-sol classique et fonds sous-marins. |
-| ![Sand](../blocks/visuels/sand.svg) | Sand | sable | Surface et sous-sol du biome desert. |
-| ![Water](../blocks/visuels/water.svg) | Water | eau | Zones sous le niveau de la mer hors biome enneige. |
+| <img src="../blocks/visuels/grass-block.svg" alt="Grass Block" width="40" height="40" /> | Grass Block | bloc d'herbe | Surface du biome plaines. |
+| <img src="../blocks/visuels/dirt-block.svg" alt="Dirt" width="40" height="40" /> | Dirt | terre | Sous la surface des plaines et de certains biomes enneiges. |
+| <img src="../blocks/visuels/stone.svg" alt="Stone" width="40" height="40" /> | Stone | pierre | Sous-sol classique et fonds sous-marins. |
+| <img src="../blocks/visuels/sand.svg" alt="Sand" width="40" height="40" /> | Sand | sable | Surface et sous-sol du biome desert. |
+| <img src="../blocks/visuels/water.svg" alt="Water" width="40" height="40" /> | Water | eau | Zones sous le niveau de la mer hors biome enneige. |
 
 ## Terrain naturel
 
