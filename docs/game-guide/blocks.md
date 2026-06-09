@@ -6,36 +6,26 @@
 
 Cette page liste les blocs actuellement disponibles dans le jeu avec leur mode d'obtention et des visuels SVG stockes dans `docs/blocks/visuels/`.
 
-## Visuels
+## Terrain naturel
 
 | Visuel | Bloc | Nom francais | Ou le trouver |
 |--------|------|--------------|---------------|
 | <img src="../blocks/visuels/grass-block.svg" alt="Grass Block" width="40" height="40" /> | Grass Block | bloc d'herbe | Surface du biome plaines. |
 | <img src="../blocks/visuels/dirt-block.svg" alt="Dirt" width="40" height="40" /> | Dirt | terre | Sous la surface des plaines et de certains biomes enneiges. |
+|  | Coarse Dirt | terre sterile | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Podzol | podzol | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Rooted Dirt | terre racineuse | Bloc defini dans le jeu, pas encore genere naturellement. |
 | <img src="../blocks/visuels/stone.svg" alt="Stone" width="40" height="40" /> | Stone | pierre | Sous-sol classique et fonds sous-marins. |
+|  | Deepslate | ardoise des abimes | Sous-sol profond. |
+|  | Granite | granite | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Diorite | diorite | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Andesite | andesite | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Tuff | tuf | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Calcite | calcite | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Gravel | gravier | Bloc defini dans le jeu, pas encore genere naturellement. |
 | <img src="../blocks/visuels/sand.svg" alt="Sand" width="40" height="40" /> | Sand | sable | Surface et sous-sol du biome desert. |
-| <img src="../blocks/visuels/water.svg" alt="Water" width="40" height="40" /> | Water | eau | Zones sous le niveau de la mer hors biome enneige. |
-
-## Terrain naturel
-
-| Bloc | Nom francais | Ou le trouver |
-|------|--------------|---------------|
-| Grass Block | bloc d'herbe | Surface du biome plaines. |
-| Dirt | terre | Sous la surface des plaines et de certains biomes enneiges. |
-| Coarse Dirt | terre sterile | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Podzol | podzol | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Rooted Dirt | terre racineuse | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Stone | pierre | Sous-sol classique et fonds sous-marins. |
-| Deepslate | ardoise des abimes | Sous-sol profond. |
-| Granite | granite | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Diorite | diorite | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Andesite | andesite | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Tuff | tuf | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Calcite | calcite | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Gravel | gravier | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Sand | sable | Surface et sous-sol du biome desert. |
-| Red Sand | sable rouge | Bloc defini dans le jeu, pas encore genere naturellement. |
-| Clay | argile | Fonds sous-marins dans les zones enneigees. |
+|  | Red Sand | sable rouge | Bloc defini dans le jeu, pas encore genere naturellement. |
+|  | Clay | argile | Fonds sous-marins dans les zones enneigees. |
 
 ## Autres categories
 
