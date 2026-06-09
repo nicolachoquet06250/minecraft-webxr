@@ -1,4 +1,4 @@
-[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md)
+[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)
 
 ---
 
@@ -131,4 +131,4 @@ flowchart LR
 
 ---
 
-[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md)
+[⬅️ Précédent](./runtime-flow.md) | [Sommaire](./README.md) | [Suivant ➡️](./blocks-items-crafting.md)

@@ -64,7 +64,7 @@ export const stevePalette = {
 export type StevePaletteKey = keyof typeof stevePalette;
 
 export type SteveTextureDefinition = {
-  palette: { readonly [K: string]: readonly number[]};
+  palette: typeof stevePalette;
   width: number;
   height: number;
   matrix: string[];
@@ -142,7 +142,7 @@ export const steveModelTextures = {
           "IIPHHKDD",
           "HHOPPODD",
       ],
-    } as SteveTextureDefinition,
+    } as unknown as SteveTextureDefinition,
     back: tx(8, 8, [
         "ABBCCBBA",
         "BBCDDCBA",

@@ -1,4 +1,4 @@
-[⬅️ Précédent](./rendering-and-effects.md) | [Sommaire](./README.md) | [Suivant ➡️](./world-generation.md)
+[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./world-generation.md)
 
 ---
 
@@ -96,4 +96,4 @@ Pour ajouter un système runtime : créer un module dédié, l'initialiser dans 
 
 ---
 
-[⬅️ Précédent](./rendering-and-effects.md) | [Sommaire](./README.md) | [Suivant ➡️](./world-generation.md)
+[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./world-generation.md)

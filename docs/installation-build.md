@@ -1,4 +1,4 @@
-[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./pwa-assets.md)
+[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./runtime-flow.md)
 
 ---
 
@@ -61,4 +61,4 @@ npm run preview
 
 ---
 
-[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./pwa-assets.md)
+[⬅️ Précédent](./architecture.md) | [Sommaire](./README.md) | [Suivant ➡️](./runtime-flow.md)

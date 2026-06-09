@@ -1,4 +1,4 @@
-[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./character-system.md) | [Sommaire](./README.md)
 
 ---
 
@@ -337,4 +337,4 @@ Pour ajouter une image d'item :
 
 ---
 
-[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+[⬅️ Précédent](./character-system.md) | [Sommaire](./README.md)

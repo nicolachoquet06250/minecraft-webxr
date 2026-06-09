@@ -1,4 +1,4 @@
-[⬅️ Précédent](./pwa-assets.md) | [Sommaire](./README.md) | [Suivant ➡️](./runtime-flow.md)
+[⬅️ Précédent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
 
 ---
 
@@ -80,6 +80,55 @@ flowchart TD
   UI --> Scene
 ```
 
+## Personnages 3D
+
+Le jeu utilise un système de personnages cubiques avec textures procédurales. Les personnages sont construits à partir de parties du corps (tête, torse, bras, jambes) assemblées en mesh unique.
+
+```mermaid
+flowchart LR
+  Template[Template de corps]
+  Parts[Parties du corps]
+  Textures[Textures procédurales]
+  Mesh[Mesh personnage]
+  Animator[Animations]
+  Scene[Scene]
+  
+  Template --> Parts
+  Textures --> Parts
+  Parts --> Mesh
+  Mesh --> Animator
+  Mesh --> Scene
+```
+
+### Construction des personnages
+
+Les personnages sont construits à partir de cuboïdes texturés :
+
+```txt
+Matrices de couleurs 16x16
+  + Palette RGBA
+  -> Textures dynamiques
+  -> Cuboïdes pour chaque partie
+  -> Assemblage en mesh unique
+```
+
+### Types de personnages
+
+- **Steve** : Modèle masculin avec bras larges (4×12×4 px)
+- **Alex** : Modèle féminin avec bras fins (3×12×4 px)
+- **Custom** : Modèle personnalisé avec proportions définies
+
+### Animations des personnages
+
+Les animations sont réalisées avec Babylon.js Animation Groups :
+
+- **idle** : Position debout neutre
+- **walk** : Marche avec balancement des bras
+- **mine** : Animation de minage
+- **jump** : Saut
+
+Les animations sont identiques pour tous les types de corps. Seules les dimensions des parties changent.
+
 ---
 
-[⬅️ Précédent](./pwa-assets.md) | [Sommaire](./README.md) | [Suivant ➡️](./runtime-flow.md)
+[⬅️ Précédent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
