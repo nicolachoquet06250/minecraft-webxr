@@ -15,7 +15,6 @@ Cette documentation décrit l'architecture technique du projet, les principaux m
 5. [Blocs, items, inventaire et craft](./blocks-items-crafting.md)
 6. [Rendu, meshes, atlas et effets visuels](./rendering-and-effects.md)
 7. [Interactions de gameplay](./gameplay-interactions.md)
-8. [Contrôles desktop, mobile et VR](./controls.md)
 9. [PWA, assets et déploiement navigateur](./pwa-assets.md)
 10. [Guide non technique du jeu](./game-guide/README.md)
 
