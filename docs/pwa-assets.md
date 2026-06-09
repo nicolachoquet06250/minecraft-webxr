@@ -1,3 +1,7 @@
+[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
+
+---
+
 # PWA, assets et déploiement navigateur
 
 ## Vue d'ensemble
@@ -246,3 +250,7 @@ Pour ajouter une image d'item :
 - Ne pas modifier directement les assets générés par `wasm-pack`.
 - Toujours tester une installation PWA après changement du manifest.
 - Toujours tester une mise à jour PWA après changement du service worker ou de la configuration Vite.
+
+---
+
+[⬅️ Précédent](./installation-build.md) | [Sommaire](./README.md) | [Suivant ➡️](./rendering-and-effects.md)
