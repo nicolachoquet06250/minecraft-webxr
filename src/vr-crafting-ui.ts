@@ -240,7 +240,7 @@ export function initializeVRCraftingOverlay(scene: Scene, player: PlayerPhysics)
     const targetPosition = origin
       .add(flatForward.scale(VR_CRAFT_PANEL_DISTANCE))
       .add(new Vector3(0, VR_CRAFT_PANEL_VERTICAL_OFFSET, 0));
-    const panelYaw = Math.atan2(flatForward.x, flatForward.z) + Math.PI;
+    const panelYaw = Math.atan2(flatForward.x, flatForward.z);
 
     panel.parent = null;
     pickPlane.parent = null;
