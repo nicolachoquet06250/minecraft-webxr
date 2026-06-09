@@ -4,6 +4,11 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 
 ![screenshot](.github/screenshots/screenshot.png)
 
+| Environnement | Lien                                       |
+|---------------|--------------------------------------------|
+| Staging       | https://staging.minecraft-xr.nicovers06.fr |
+| Production    | https://minecraft-xr.nicovers06.fr         |
+
 ## 🚀 Fonctionnalités
 
 -   **Moteur de Voxel Performant** : Utilisation de Rust via WebAssembly pour la génération de chunks et le bruit (noise) afin de garantir des performances optimales.
