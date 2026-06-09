@@ -1,3 +1,7 @@
+[⬅️ Précédent](../pwa-assets.md) | [Sommaire](../README.md) | [Suivant ➡️](./blocks.md)
+
+---
+
 # Guide du jeu - Minecraft WebXR
 
 Ce dossier contient la documentation non technique du jeu. Elle est pensée pour un joueur ou un testeur, pas pour un développeur.
@@ -15,6 +19,9 @@ Ce dossier contient la documentation non technique du jeu. Elle est pensée pour
 - Certains blocs sont déjà définis dans le jeu mais ne sont pas encore générés naturellement dans le monde.
 - Les blocs non générés naturellement peuvent quand même exister dans les définitions du jeu, l'inventaire, les crafts ou les tests.
 - Les crafts listés ici correspondent uniquement aux recettes actuellement implémentées.
+- Les visuels de la documentation joueur sont générés en SVG embarqué via des `data:image/svg+xml;base64,...`.
+- Quand un bloc possède une matrice de couleurs procédurale dans le code TypeScript, le visuel reprend cette matrice.
+- Quand aucun texture matrix n'est encore définie pour un bloc, le guide utilise sa couleur de bloc actuelle comme aperçu simple.
 
 ## Catégories principales
 
@@ -26,3 +33,7 @@ Ce dossier contient la documentation non technique du jeu. Elle est pensée pour
 - **Décoration / utilitaire** : pierres taillées, blocs spéciaux, table de craft, coffre, four, etc.
 - **Laine** : toutes les couleurs de laine définies.
 - **Outils** : items non-blocs, comme la pioche en terre/herbe.
+
+---
+
+[⬅️ Précédent](../pwa-assets.md) | [Sommaire](../README.md) | [Suivant ➡️](./blocks.md)
