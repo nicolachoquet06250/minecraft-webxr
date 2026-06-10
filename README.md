@@ -35,6 +35,7 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 -   **Frontend** : TypeScript, Vite.js
 -   **Moteur 3D** : Babylon.js, Babylon.js GUI, Babylon.js Loaders
 -   **Core (Calculs)** : Rust (compilé en WASM via `wasm-pack`)
+-   **Serveur Multi-joueur** : Rust (serveur autoritaire WebSocket)
 -   **Mathématiques & Bruit** : `noise` crate (Rust)
 -   **PWA** : `vite-plugin-pwa`
 -   **Tests & Outillage** : TypeScript, Playwright, Cargo tests
@@ -71,6 +72,9 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 -   `npm run dev` : Compile le WASM et lance le serveur de dev.
 -   `npm run build` : Compile le WASM, le TypeScript et génère le build de production dans `dist/`.
 -   `npm run build:wasm` : Compile uniquement la partie Rust/WASM.
+-   `npm run dev:server` : Lance le serveur Rust multi-joueur (`server/`).
+-   `npm run check:server` : Vérifie la compilation du serveur Rust.
+-   `npm run build:server` : Build le serveur Rust en release.
 -   `npm run preview` : Prévisualise le build de production localement.
 
 ## 🕹️ Contrôles
@@ -93,6 +97,7 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 -   `src/items/` : Définitions des items, outils et icônes d'inventaire.
 -   `src/crafts/` : Recettes de craft et patterns associés.
 -   `wasm/` : Code source Rust (génération de chunks, logique bas niveau).
+-   `server/` : Serveur Rust autoritaire (état map en mémoire, lobbies et WebSocket).
 -   `public/` : Assets statiques.
 
 ## 📚 Anexes
