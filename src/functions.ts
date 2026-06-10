@@ -372,12 +372,32 @@ export function hasCollisionAt(
   sizeZ: number,
   position: Vector3,
 ): boolean {
-  const minX = position.x - PLAYER_RADIUS;
-  const maxX = position.x + PLAYER_RADIUS;
+  return hasCollisionAtWithExtents(
+    worldChunks,
+    sizeX,
+    sizeY,
+    sizeZ,
+    position,
+    PLAYER_RADIUS,
+    PLAYER_HEIGHT,
+  );
+}
+
+export function hasCollisionAtWithExtents(
+  worldChunks: WorldChunks,
+  sizeX: number,
+  sizeY: number,
+  sizeZ: number,
+  position: Vector3,
+  radius: number,
+  height: number,
+): boolean {
+  const minX = position.x - radius;
+  const maxX = position.x + radius;
   const minY = position.y;
-  const maxY = position.y + PLAYER_HEIGHT;
-  const minZ = position.z - PLAYER_RADIUS;
-  const maxZ = position.z + PLAYER_RADIUS;
+  const maxY = position.y + height;
+  const minZ = position.z - radius;
+  const maxZ = position.z + radius;
 
   for (let y = Math.floor(minY); y <= Math.floor(maxY); y++) {
     for (let z = Math.floor(minZ); z <= Math.floor(maxZ); z++) {

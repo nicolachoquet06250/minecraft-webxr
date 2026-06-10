@@ -351,6 +351,40 @@ Interface visuelle pour :
 - Prévisualiser en temps réel
 - Exporter/importer les configurations
 
+## Export SVG des personnages
+
+Le système supporte l'export de personnages sous forme d'images SVG en perspective avec support complet des :
+- Poses animées (lever les bras, tourner la tête, etc.)
+- Perspectives 3D (caméra configurable)
+- Textures matricielles colorées
+
+Pour une documentation complète sur l'export SVG, consultez :
+- **[character-svg-export.md](./character-svg-export.md)** - Export SVG complet avec poses
+
+### Exemple d'export
+
+```typescript
+import { createSteveSvg } from "./characters/steve";
+
+// Générer un SVG avec pose personnalisée
+const svg = createSteveSvg(
+  scene,
+  new Vector3(0, 0, 0),
+  { physics: false },
+  {
+    width: 512,
+    height: 512,
+    pose: {
+      parts: {
+        rightArm: { rotation: { x: -1.2 } }, // Lever le bras
+      },
+    },
+  }
+);
+
+// Utiliser le SVG (téléchargement, affichage, etc.)
+```
+
 ## Documentation complète
 
 Pour plus de détails techniques, consultez :
@@ -360,7 +394,8 @@ Pour plus de détails techniques, consultez :
 - `src/characters/examples.ts` - 5 exemples pratiques
 - `CHARACTER_SYSTEM_SUMMARY.md` - Résumé du système (racine du projet)
 - `GENDER_SUPPORT.md` - Support masculin/féminin (racine du projet)
+- **[character-svg-export.md](./character-svg-export.md)** - Export SVG et système de poses 📸
 
 ---
 
-[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./pwa-assets.md)
+[⬅️ Précédent](./gameplay-interactions.md) | [Sommaire](./README.md) | [Suivant ➡️](./character-svg-export.md)

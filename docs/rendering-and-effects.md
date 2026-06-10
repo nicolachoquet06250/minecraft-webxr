@@ -1,4 +1,4 @@
-[⬅️ Précédent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
+[⬅️ Précédent](./blocks-items-crafting.md) | [Sommaire](./README.md) | [Suivant ➡️](./avatar-physics.md)
 
 ---
 

@@ -1,4 +1,4 @@
-[⬅️ Précédent](./character-system.md) | [Sommaire](./README.md)
+[⬅️ Précédent](./character-svg-export.md) | [Sommaire](./README.md)
 
 ---
 

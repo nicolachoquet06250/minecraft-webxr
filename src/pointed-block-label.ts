@@ -1,6 +1,7 @@
 import { Color3, LinesMesh, MeshBuilder, Ray, Scene, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, TextBlock } from "@babylonjs/gui";
 import { getBlockDefinition, isTransparentForMeshingDefinition } from "./blocks";
+import { getCharacterHitDistance } from "./character-builder";
 import { EYE_HEIGHT } from "./constants";
 import { getWorldBlock } from "./functions";
 import { isMobileMode } from "./mobile-controls";
@@ -306,8 +307,17 @@ function findPointedBlock(params: PointedBlockLabelParams): TargetBlock | null {
   );
   const start = player.position.add(new Vector3(0, EYE_HEIGHT, 0));
   const direction = ray.direction.normalize();
+  const characterHitDistance = getCharacterHitDistance(
+    scene,
+    new Ray(start, direction, POINTED_BLOCK_REACH),
+    POINTED_BLOCK_REACH,
+  );
 
   for (let distance = POINTED_BLOCK_STEP; distance <= POINTED_BLOCK_REACH; distance += POINTED_BLOCK_STEP) {
+    if (characterHitDistance !== null && characterHitDistance <= distance) {
+      return null;
+    }
+
     const point = start.add(direction.scale(distance));
     const x = Math.floor(point.x);
     const y = Math.floor(point.y);
@@ -341,11 +351,16 @@ function findClosestControllerPointedBlock(params: PointedBlockLabelParams): Tar
 }
 
 function findPointedBlockFromRay(params: PointedBlockLabelParams, ray: Ray): TargetBlockHit | null {
-  const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const { scene, worldChunks, sizeX, sizeY, sizeZ } = params;
   const direction = ray.direction.normalize();
   const maxDistance = getRayReach(ray);
+  const characterHitDistance = getCharacterHitDistance(scene, ray, maxDistance);
 
   for (let distance = POINTED_BLOCK_STEP; distance <= maxDistance; distance += POINTED_BLOCK_STEP) {
+    if (characterHitDistance !== null && characterHitDistance <= distance) {
+      return null;
+    }
+
     const point = ray.origin.add(direction.scale(distance));
     const x = Math.floor(point.x);
     const y = Math.floor(point.y);

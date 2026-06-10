@@ -17,6 +17,7 @@ import {
   setBlock,
   worldToLocalCoordinate,
 } from "./functions";
+import { getCharacterHitDistance } from "~/character-builder";
 import type { CreateChunkMeshParams, DroppedItem, FaceDefinition, PlayerPhysics, VoxelWasmModule, WorldChunk, WorldChunks } from "./types";
 import { BlockId } from "./types";
 
@@ -469,11 +470,17 @@ function getInteractionRay(params: BreakBlockParams): Ray {
 
 function findFirstSolidBlockFromInteractionRay(params: BreakBlockParams): (WorldBlockPosition & { block: BlockId }) | null {
   const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const { scene } = params;
   const ray = getInteractionRay(params);
   const direction = ray.direction.normalize();
   const reach = getInteractionRayReach(ray);
+  const characterHitDistance = getCharacterHitDistance(scene, ray, reach);
 
   for (let distance = BLOCK_INTERACTION_STEP; distance <= reach; distance += BLOCK_INTERACTION_STEP) {
+    if (characterHitDistance !== null && characterHitDistance <= distance) {
+      return null;
+    }
+
     const point = ray.origin.add(direction.scale(distance));
     const x = Math.floor(point.x);
     const y = Math.floor(point.y);
@@ -490,12 +497,18 @@ function findFirstSolidBlockFromInteractionRay(params: BreakBlockParams): (World
 
 function findLastReplaceableBlockBeforeSolidFromInteractionRay(params: BreakBlockParams): WorldBlockPosition | null {
   const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const { scene } = params;
   const ray = getInteractionRay(params);
   const direction = ray.direction.normalize();
   const reach = getInteractionRayReach(ray);
+  const characterHitDistance = getCharacterHitDistance(scene, ray, reach);
   let lastReplaceable: WorldBlockPosition | null = null;
 
   for (let distance = BLOCK_INTERACTION_STEP; distance <= reach; distance += BLOCK_INTERACTION_STEP) {
+    if (characterHitDistance !== null && characterHitDistance <= distance) {
+      return null;
+    }
+
     const point = ray.origin.add(direction.scale(distance));
     const x = Math.floor(point.x);
     const y = Math.floor(point.y);

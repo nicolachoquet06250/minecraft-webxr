@@ -109,6 +109,21 @@ import { CharacterAnimator } from "./character-builder/animator";
 const animator = new CharacterAnimator(characterMesh, scene);
 animator.loadAnimations(animations);
 animator.play("walk");
+
+// Contrôle direct des parties du corps (multi-joueurs / avatars)
+animator.setPartRotation("rightArm", { x: -0.4 });
+animator.setPartPosition("torso", { y: 1.02 });
+
+// Liaison caméra -> tête (yaw uniquement)
+animator.setHeadYaw(camera.rotation.y);
+
+// Construire avec physique activée (par défaut)
+const withPhysics = buildCharacter(scene, model, new Vector3(0, 10, 0));
+
+// Construire sans physique locale (avatar piloté en externe / serveur)
+const externalAvatar = buildCharacter(scene, model, new Vector3(0, 10, 0), {
+  physics: { externalControl: true },
+});
 ```
 
 ## Exemple complet : Steve et Alex
@@ -256,3 +271,179 @@ const monPersonnageUnique: CharacterModel = {
   ],
 };
 ```
+
+## Physique des Personnages
+
+Le système supporte une physique intégrée pour les personnages avec :
+- **Gravité** : Application continue de l'accélération gravitationnelle
+- **Collision** : Détection de collision avec le terrain et les blocs
+- **Contrôle externe** : Toggle pour activer/désactiver la simulation locale
+
+### Utilisation
+
+```typescript
+import { createSteve } from "./characters";
+
+// Créer Steve avec physique intégrée
+const { mesh, animator, physics } = createSteve(
+  scene,
+  new Vector3(0, 0, 0),
+  { physics: true }  // Active la physique
+);
+
+// Dans la boucle de jeu
+scene.onAfterRenderObservable.add(() => {
+  if (physics) {
+    physics.update({
+      worldChunks,
+      sizeX: WORLD_SIZE_X,
+      sizeY: WORLD_SIZE_Y,
+      sizeZ: WORLD_SIZE_Z,
+      deltaTime: engine.getDeltaTime() / 1000,
+    });
+  }
+});
+```
+
+### API
+
+```typescript
+interface CharacterPhysicsController {
+  // Appliquer gravité et collisions
+  update(options: {
+    worldChunks: Map<string, Chunk>;
+    sizeX: number;
+    sizeY: number;
+    sizeZ: number;
+    deltaTime: number;
+  }): void;
+
+  // Basculer simulation locale/distante
+  setExternalControl(enabled: boolean): void;
+
+  // Positionner directement (mode distant)
+  setPosition(position: Vector3): void;
+  setVelocity(velocity: Vector3): void;
+
+  // Obtenir état
+  isGrounded(): boolean;
+  getPosition(): Vector3;
+  getVelocity(): Vector3;
+}
+```
+
+### Configuration
+
+```typescript
+{
+  physics: true|false        // Activer/désactiver (défaut: false)
+  externalControl: true|false // Mode distant (défaut: false)
+}
+```
+
+### Désactiver la physique
+
+```typescript
+// Créer sans physique
+const { mesh, animator } = createSteve(scene, pos, { physics: false });
+
+// Ou personnaliser complètement
+const steve = buildCharacter(scene, steveModel, pos, {
+  physics: false,
+});
+```
+
+## Export SVG en Perspective
+
+Le système peut exporter les personnages sous forme d'images SVG 2D avec support complet des poses et perspectives 3D.
+
+### Utilisation basique
+
+```typescript
+import { createSteveSvg } from "./characters";
+
+// Générer un SVG simple
+const svg = createSteveSvg(
+  scene,
+  new Vector3(0, 0, 0),
+  { physics: false },
+  {
+    width: 512,
+    height: 512,
+  }
+);
+
+// Sauvegarder le SVG
+const blob = new Blob([svg], { type: "image/svg+xml" });
+const url = URL.createObjectURL(blob);
+downloadFile(url, "steve.svg");
+```
+
+### Avec poses personnalisées
+
+```typescript
+const svg = createSteveSvg(scene, pos, {}, {
+  width: 512,
+  height: 512,
+  pose: {
+    parts: {
+      rightArm: { rotation: { x: -1.2 } },  // Lever
+      leftLeg: { rotation: { x: 0.5 } },    // Avancer
+    },
+  },
+});
+```
+
+### Options avancées
+
+```typescript
+interface CharacterSvgRenderOptions {
+  // Dimensions
+  width?: number;           // 512 par défaut
+  height?: number;          // 512 par défaut
+  padding?: number;         // 20 par défaut
+
+  // Caméra
+  fov?: number;             // 0.9 par défaut (angle d'ouverture)
+  yaw?: number;             // -π/4 par défaut (rotation H)
+  pitch?: number;           // 0.35 par défaut (rotation V)
+  distanceFactor?: number;  // 2.6 par défaut (éloignement)
+
+  // Rendu
+  background?: string;      // "#f8fafc" par défaut
+  stroke?: string;          // "none" par défaut
+  strokeWidth?: number;     // 0 par défaut
+  cellOverlap?: number;     // 0.6 par défaut (anti-couture)
+
+  // Performance
+  occlusion?: boolean;      // false par défaut (raycast)
+
+  // Animation
+  pose?: CharacterPoseOptions;
+}
+```
+
+### Parties du corps manipulables
+
+```typescript
+pose: {
+  parts: {
+    "rightArm": { rotation: {...}, position: {...} },
+    "leftArm": { rotation: {...}, position: {...} },
+    "rightLeg": { rotation: {...}, position: {...} },
+    "leftLeg": { rotation: {...}, position: {...} },
+    "head": { rotation: {...}, position: {...} },
+    "torso": { rotation: {...}, position: {...} },
+  },
+  headYaw?: number;  // Raccourci pour tête
+}
+```
+
+### Notes techniques
+
+- Les poses sont **restaurées automatiquement** après export (pas d'effet de bord)
+- Le rendu utilise la **perspective 3D réaliste** avec matrices de projection
+- Les textures sont **échantillonnées en temps réel** depuis les DynamicTextures
+- Les **pivots des mailles restent inchangés** (poses non-destructives)
+
+Pour la documentation complète, voir [character-svg-export.md](../../docs/character-svg-export.md).

@@ -9,3 +9,4 @@ export * from "./steve-animations";
 export * from "./alex";
 export * from "./alex-model";
 export * from "./alex-animations";
+export * from "./avatar-physics";

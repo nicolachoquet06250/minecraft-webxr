@@ -47,7 +47,12 @@ import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 import { createWaterEffect } from "./water-effects";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
-import {createAlex, createSteve} from "~/characters";
+import {
+  createAlex,
+  createSteve,
+  resolvePlayerCharacterCollision,
+  syncCameraToPlayerPosition,
+} from "~/characters";
 
 const registrations = await navigator.serviceWorker.getRegistrations();
 if (registrations.length > 1) {
@@ -319,7 +324,11 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     );
     console.log("Alex spawn position:", alexSpawn);
     const alexPosition = new Vector3(alexSpawn.x, alexSpawn.y, alexSpawn.z);
-    const {animator: alexAnimator} = createAlex(scene, alexPosition);
+    const {animator: alexAnimator, physics: alexPhysics} = createAlex(
+      scene,
+      alexPosition,
+      { physics: { externalControl: false } },
+    );
 
     alexAnimator.play("mine");
 
@@ -337,9 +346,12 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
         SPAWN_Z - 1,
         10,
     );
-    console.log("Steve spawn position:", steveSpawn);
     const stevePosition = new Vector3(steveSpawn.x, steveSpawn.y, steveSpawn.z);
-    const {mesh: steveMesh, animator: steveAnimator} = createSteve(scene, stevePosition);
+    const {mesh: steveMesh, animator: steveAnimator, physics: stevePhysics} = createSteve(
+      scene,
+      stevePosition,
+      { physics: { externalControl: false } },
+    );
 
     steveMesh.rotation.y = -(Math.PI / 2); // Faire face au joueur
 
@@ -508,6 +520,36 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
                 sizeZ,
             });
         }
+
+          alexPhysics?.update({
+            worldChunks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            deltaTime,
+          });
+
+          stevePhysics?.update({
+            worldChunks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            deltaTime,
+          });
+
+          const playerCollidedWithAlex = alexPhysics
+            ? resolvePlayerCharacterCollision(player, alexPhysics)
+            : false;
+          const playerCollidedWithSteve = stevePhysics
+            ? resolvePlayerCharacterCollision(player, stevePhysics)
+            : false;
+
+          if (playerCollidedWithAlex || playerCollidedWithSteve) {
+            syncCameraToPlayerPosition(player, camera.position);
+            camera.rotation.x = player.pitch;
+            camera.rotation.y = player.yaw;
+            camera.rotation.z = 0;
+          }
 
         waterEffect.update(deltaTime);
         waterEffect.tryTriggerSplash({

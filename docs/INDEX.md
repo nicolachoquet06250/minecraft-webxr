@@ -11,9 +11,11 @@
 5. **[world-generation.md](./world-generation.md)** - Génération procédurale du monde
 6. **[blocks-items-crafting.md](./blocks-items-crafting.md)** - Blocs, items, inventaire et craft
 7. **[rendering-and-effects.md](./rendering-and-effects.md)** - Rendu, meshes et effets visuels
-8. **[gameplay-interactions.md](./gameplay-interactions.md)** - Interactions et contrôles
-9. **[character-system.md](./character-system.md)** - ✨ Système de personnages (Steve, Alex, Custom)
-10. **[pwa-assets.md](./pwa-assets.md)** - PWA, assets et déploiement
+8. **[avatar-physics.md](./avatar-physics.md)** - 🎮 Physique des personnages (gravité, collisions)
+9. **[gameplay-interactions.md](./gameplay-interactions.md)** - Interactions et contrôles
+10. **[character-system.md](./character-system.md)** - ✨ Système de personnages (Steve, Alex, Custom)
+11. **[character-svg-export.md](./character-svg-export.md)** - 📸 Export SVG en perspective des personnages
+12. **[pwa-assets.md](./pwa-assets.md)** - PWA, assets et déploiement
 
 ### Documentation de mise à jour
 

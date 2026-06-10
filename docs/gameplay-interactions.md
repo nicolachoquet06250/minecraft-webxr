@@ -1,4 +1,4 @@
-[⬅️ Précédent](./rendering-and-effects.md) | [Sommaire](./README.md) | [Suivant ➡️](./character-system.md)
+[⬅️ Précédent](./avatar-physics.md) | [Sommaire](./README.md) | [Suivant ➡️](./character-system.md)
 
 ---
 
