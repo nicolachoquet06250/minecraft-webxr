@@ -92,7 +92,7 @@ permissions:
       - name: Publish/update staging release assets
         uses: ncipollo/release-action@v1
         with:
-          tag: staging
+          tag: server-staging
           name: staging
           prerelease: true
           allowUpdates: true
