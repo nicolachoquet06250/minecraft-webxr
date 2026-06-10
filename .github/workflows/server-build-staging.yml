@@ -16,8 +16,7 @@ name: "Server Build Staging (Linux + Windows)"
   workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: write
+  contents: write
 
 "jobs":
   build-server:
@@ -71,8 +70,8 @@ permissions:
           path: dist/minecraft-server-windows-x86_64.zip
           if-no-files-found: error
 
-  publish-github-packages:
-    name: Publish staging server packages to GHCR
+  publish-downloadable-packages:
+    name: Publish staging downloadable binaries
     needs: build-server
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
@@ -90,34 +89,15 @@ permissions:
           name: minecraft-server-windows-x86_64
           path: dist/windows
 
-      - name: Install ORAS
-        uses: oras-project/setup-oras@v1
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Push Linux package to GHCR (staging)
-        env:
-          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/minecraft-webxr-server-staging-linux:${{ github.sha }}
-        run: |
-          oras push "$IMAGE_REF" \
-            --artifact-type application/vnd.minecraft.xr.server.binary.v1+tar \
-            dist/linux/minecraft-server-linux-x86_64.tar.gz:application/gzip
-
-      - name: Push Windows package to GHCR (staging)
-        env:
-          IMAGE_REF: ghcr.io/${{ github.repository_owner }}/minecraft-webxr-server-staging-windows:${{ github.sha }}
-        run: |
-          oras push "$IMAGE_REF" \
-            --artifact-type application/vnd.minecraft.xr.server.binary.v1+zip \
-            dist/windows/minecraft-server-windows-x86_64.zip:application/zip
-
-      - name: Tag staging latest
-        env:
-          LINUX_SHA_REF: ghcr.io/${{ github.repository_owner }}/minecraft-webxr-server-staging-linux:${{ github.sha }}
-          WINDOWS_SHA_REF: ghcr.io/${{ github.repository_owner }}/minecraft-webxr-server-staging-windows:${{ github.sha }}
-          LINUX_BRANCH_REF: ghcr.io/${{ github.repository_owner }}/minecraft-webxr-server-staging-linux:staging-latest
-          WINDOWS_BRANCH_REF: ghcr.io/${{ github.repository_owner }}/minecraft-webxr-server-staging-windows:staging-latest
-        run: |
-          oras cp "$LINUX_SHA_REF" "$LINUX_BRANCH_REF"
-          oras cp "$WINDOWS_SHA_REF" "$WINDOWS_BRANCH_REF"
+      - name: Publish/update staging release assets
+        uses: ncipollo/release-action@v1
+        with:
+          tag: server-staging-latest
+          name: Minecraft Server Staging (latest)
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          artifacts: dist/linux/minecraft-server-linux-x86_64.tar.gz,dist/windows/minecraft-server-windows-x86_64.zip
+          body: |
+            Downloadable server executables for the staging branch.
+            Commit: ${{ github.sha }}
