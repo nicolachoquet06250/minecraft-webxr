@@ -1,3 +1,7 @@
+[⬅️ Précédent](./rendering-and-effects.md) | [Sommaire](./README.md) | [Suivant ➡️](./gameplay-interactions.md)
+
+---
+
 # Physique des Personnages (Avatar Physics)
 
 ## Vue d'ensemble

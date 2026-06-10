@@ -1,3 +1,7 @@
+[⬅️ Précédent](./character-system.md) | [Sommaire](./README.md) | [Suivant ➡️](./pwa-assets.md)
+
+---
+
 # Export SVG en Perspective des Personnages
 
 ## Vue d'ensemble
