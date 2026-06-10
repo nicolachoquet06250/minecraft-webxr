@@ -77,6 +77,9 @@ permissions:
     if: github.event_name != 'pull_request'
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download Linux build artifact
         uses: actions/download-artifact@v4
         with:
@@ -89,15 +92,26 @@ permissions:
           name: minecraft-server-windows-x86_64
           path: dist/windows
 
+      - name: Read server version from Cargo.toml
+        id: server_version
+        shell: bash
+        run: |
+          VERSION=$(grep -m1 '^version = ' server/Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          if [[ -z "$VERSION" ]]; then
+            echo "Unable to read server version from server/Cargo.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=server-v$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Publish/update prod release assets
         uses: ncipollo/release-action@v1
         with:
-          tag: server-prod-latest
-          name: Minecraft Server Prod (latest)
+          tag: ${{ steps.server_version.outputs.tag }}
+          name: server v${{ steps.server_version.outputs.version }}
           prerelease: false
-          allowUpdates: true
-          removeArtifacts: true
           artifacts: dist/linux/minecraft-server-linux-x86_64.tar.gz,dist/windows/minecraft-server-windows-x86_64.zip
           body: |
-            Downloadable server executables for the production branch.
+            Downloadable server executables for production.
+            Version: ${{ steps.server_version.outputs.version }}
             Commit: ${{ github.sha }}

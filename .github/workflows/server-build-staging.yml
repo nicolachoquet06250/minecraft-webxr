@@ -92,8 +92,8 @@ permissions:
       - name: Publish/update staging release assets
         uses: ncipollo/release-action@v1
         with:
-          tag: server-staging-latest
-          name: Minecraft Server Staging (latest)
+          tag: staging
+          name: staging
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
