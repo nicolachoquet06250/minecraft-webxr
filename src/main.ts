@@ -47,7 +47,7 @@ import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
 import { createWaterEffect } from "./water-effects";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
-import {createAlex} from "~/characters";
+import {createAlex, createSteve} from "~/characters";
 
 const registrations = await navigator.serviceWorker.getRegistrations();
 if (registrations.length > 1) {
@@ -307,8 +307,8 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
     const player = generatePlayer(spawn);
 
-    // Créer le personnage Steve près du spawn sur une zone plate
-    const persoSpawn = findDrySpawnPosition(
+    // Créer le personnage Alex près du spawn sur une zone plate
+    const alexSpawn = findDrySpawnPosition(
         worldChunks,
         sizeX,
         sizeY,
@@ -317,13 +317,36 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
         SPAWN_Z,
         10,
     );
-    const persoPosition = new Vector3(persoSpawn.x, persoSpawn.y, persoSpawn.z);
-    const {animator} = createAlex(scene, persoPosition);
+    console.log("Alex spawn position:", alexSpawn);
+    const alexPosition = new Vector3(alexSpawn.x, alexSpawn.y, alexSpawn.z);
+    const {animator: alexAnimator} = createAlex(scene, alexPosition);
 
-    animator.play("mine");
+    alexAnimator.play("mine");
 
     setTimeout(() => {
-        animator.stop();
+        alexAnimator.stop();
+    }, 20000);
+
+    // Créer le personnage Steve près du spawn sur une zone plate
+    const steveSpawn = findDrySpawnPosition(
+        worldChunks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        SPAWN_X + 5,
+        SPAWN_Z - 1,
+        10,
+    );
+    console.log("Steve spawn position:", steveSpawn);
+    const stevePosition = new Vector3(steveSpawn.x, steveSpawn.y, steveSpawn.z);
+    const {mesh: steveMesh, animator: steveAnimator} = createSteve(scene, stevePosition);
+
+    steveMesh.rotation.y = -(Math.PI / 2); // Faire face au joueur
+
+    steveAnimator.play("walk");
+
+    setTimeout(() => {
+        steveAnimator.stop();
     }, 20000);
 
     // Expose properties for mobile controls
