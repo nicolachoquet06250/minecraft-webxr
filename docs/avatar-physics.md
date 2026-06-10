@@ -7,6 +7,8 @@ Le système de physique gère la gravité, les collisions et le mouvement des pe
 1. **Mode simulé local** : Gravité + collision appliquées à chaque frame
 2. **Mode distante** : Accepte position/vélocité de sources externes (réseau, IA, etc.)
 
+Par défaut, un personnage créé avec `buildCharacter()`, `createSteve()` ou `createAlex()` a une physique active (sauf si `physics: false`).
+
 ## Architecture
 
 ### Module : `src/character-builder/avatar-physics.ts`
@@ -125,6 +127,7 @@ Le personnage est entièrement piloté par la gravité + collision locale.
 
 ```typescript
 const { mesh, physics } = createSteve(scene, pos, {
+  // équivalent au comportement par défaut
   physics: true,
   externalControl: false,  // Simulé local
 });
@@ -143,6 +146,8 @@ physics.update({
 - Personnages amis statiques (NPCs)
 - Animations autonomes
 - Démos visuelles
+
+Pour couper complètement la simulation locale, utilisez `physics: false` à la création.
 
 ### Mode 2 : Contrôle Externe
 

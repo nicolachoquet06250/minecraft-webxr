@@ -333,9 +333,13 @@ Le tout avec une API claire, type-safe et extensible ! 🚀
 
 Les personnages créés avec `buildCharacter()` peuvent avoir une **physique intégrée** :
 
+- **Active par défaut** (si vous ne passez pas `physics: false`)
+- **Désactivable** entièrement pour un pilotage externe
+- **Mode externe serveur** disponible via `externalControl`
+
 ```typescript
-// Créer avec physique
-const { mesh, animator, physics } = createSteve(scene, pos, { physics: true });
+// Créer avec physique (actif par défaut)
+const { mesh, animator, physics } = createSteve(scene, pos);
 
 // Mettre à jour chaque frame
 physics.update({
@@ -350,6 +354,14 @@ physics.update({
 // - Contrôle externe optionnel (mode réseau/IA)
 // - isGrounded() pour savoir si au sol
 // - Intégration avec collision joueur↔personnage
+
+// Désactiver la simulation locale
+const noLocalPhysics = createSteve(scene, pos, { physics: false });
+
+// Pilotage serveur
+const remote = createSteve(scene, pos, { physics: { externalControl: true } });
+remote.physics?.teleport(serverState.position);
+remote.physics?.setVelocity(serverState.velocity);
 ```
 
 ### Export SVG en perspective (svg-export.ts)
