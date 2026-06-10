@@ -1,4 +1,5 @@
 import { isMobileMode, isVRMode } from "./mobile-controls";
+import { showOptionsMenu } from "./options-menu";
 
 export type MainMenuLaunchOptions = {
     readonly enterVR?: boolean;
@@ -86,11 +87,22 @@ function createDesktopButtonPanel(onPlay: () => void): HTMLElement {
     const panel = document.createElement("section");
     panel.className = "minecraft-menu__desktop-panel";
 
+    function openOptions(): void {
+        showOptionsMenu({
+            onBack: () => {
+                const canvas = document.querySelector<HTMLCanvasElement>("#minecraft");
+                if (canvas) {
+                    showDomMenu(canvas, "desktop", onPlay);
+                }
+            },
+        });
+    }
+
     panel.append(
         createMenuButton("Un joueur", "play", false, onPlay),
         createMenuButton("Multijoueur", undefined, true),
         createDesktopButtonRow(
-            createMenuButton("Options...", undefined, false),
+            createMenuButton("Options...", undefined, false, openOptions),
             createMenuButton("Quitter le jeu", undefined, false),
         ),
     );
@@ -125,11 +137,22 @@ function createMobileButtonPanel(onPlay: () => void): HTMLElement {
     const panel = document.createElement("section");
     panel.className = "minecraft-menu__mobile-panel";
 
+    function openOptions(): void {
+        showOptionsMenu({
+            onBack: () => {
+                const canvas = document.querySelector<HTMLCanvasElement>("#minecraft");
+                if (canvas) {
+                    showDomMenu(canvas, "mobile", onPlay);
+                }
+            },
+        });
+    }
+
     const actions = document.createElement("div");
     actions.className = "minecraft-menu__mobile-actions";
     actions.append(
         createMenuButton("Jouer", "play", false, onPlay),
-        createMenuButton("Paramètres", undefined, false),
+        createMenuButton("Paramètres", undefined, false, openOptions),
     );
 
     const signIn = createMenuButton("Se connecter", undefined, true);

@@ -261,6 +261,33 @@ function createMenuPanel(scene: Scene, floorY: number): Mesh {
         text.fontSize = 34;
         text.fontWeight = "600";
         button.addControl(text);
+
+        if (label === "Options...") {
+            button.onPointerClickObservable.add(() => {
+                // Clear the current UI
+                ui.dispose();
+                
+                // Import and show options menu
+                import("./vr-options-ui").then(({ createVROptionsPanel }) => {
+                    createVROptionsPanel(panel, () => {
+                        // When back is clicked, recreate the main menu
+                        ui.dispose();
+                        createMenuPanel(scene, floorY);
+                    });
+                });
+            });
+
+            button.onPointerEnterObservable.add(() => {
+                button.background = "rgba(140, 140, 140, 0.92)";
+                text.color = "#ffeb3b";
+            });
+
+            button.onPointerOutObservable.add(() => {
+                button.background = "rgba(112, 112, 112, 0.92)";
+                text.color = "white";
+            });
+        }
+
         stack.addControl(button);
     }
 
