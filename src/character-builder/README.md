@@ -322,13 +322,11 @@ interface CharacterPhysicsController {
   setExternalControl(enabled: boolean): void;
 
   // Positionner directement (mode distant)
-  setPosition(position: Vector3): void;
+  teleport(position: Vector3): void;
   setVelocity(velocity: Vector3): void;
 
   // Obtenir état
   isGrounded(): boolean;
-  getPosition(): Vector3;
-  getVelocity(): Vector3;
 }
 ```
 
@@ -336,10 +334,22 @@ interface CharacterPhysicsController {
 
 ```typescript
 {
-  physics: true|false        // Activer/désactiver (défaut: false)
-  externalControl: true|false // Mode distant (défaut: false)
+  // Par défaut la physique est active
+  physics?: false | {
+    externalControl?: boolean;  // défaut: false
+    gravityEnabled?: boolean;   // défaut: true
+    collisionsEnabled?: boolean; // défaut: true
+    collisionRadius?: number;
+    collisionHeight?: number;
+  }
 }
 ```
+
+### Comportement par défaut et mode serveur
+
+- Sans option, la physique est active (`physics` non fourni).
+- Pour désactiver totalement la simulation locale: `physics: false`.
+- Pour un pilotage réseau/serveur, utiliser `physics: { externalControl: true }`, puis pousser la pose depuis l'extérieur (`teleport`, `setVelocity`).
 
 ### Désactiver la physique
 
@@ -350,6 +360,11 @@ const { mesh, animator } = createSteve(scene, pos, { physics: false });
 // Ou personnaliser complètement
 const steve = buildCharacter(scene, steveModel, pos, {
   physics: false,
+});
+
+// Pilotage serveur (pas de gravité/collision locale)
+const remoteSteve = buildCharacter(scene, steveModel, pos, {
+  physics: { externalControl: true },
 });
 ```
 

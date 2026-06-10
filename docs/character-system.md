@@ -288,6 +288,42 @@ if (player.velocity.length() > 0.01) {
 }
 ```
 
+### Gestion de la physique des personnages
+
+La physique personnage est **active par défaut** lors de la création via `buildCharacter()`, `createSteve()` ou `createAlex()`.
+
+```typescript
+// Physique active par défaut (options omises)
+const { mesh, animator, physics } = createSteve(scene, new Vector3(0, 0, 0));
+
+// Important : update() doit être appelée à chaque frame
+physics?.update({
+  worldChunks,
+  sizeX,
+  sizeY,
+  sizeZ,
+  deltaTime,
+});
+```
+
+Si vous souhaitez déléguer complètement la simulation au serveur (ou à une source externe), deux approches sont possibles :
+
+```typescript
+// 1) Désactiver totalement la physique locale
+const serverDriven = createSteve(scene, spawnPos, { physics: false });
+
+// 2) Garder le contrôleur mais basculer en contrôle externe
+const { physics } = createSteve(scene, spawnPos, {
+  physics: { externalControl: true },
+});
+
+// Tick réseau : appliquer les états venant du serveur
+physics?.teleport(serverState.position);
+physics?.setVelocity(serverState.velocity);
+```
+
+En mode `externalControl`, `update()` n'applique ni gravité ni collisions locales : la position est pilotée depuis l'extérieur.
+
 ### Support multi-joueur (futur)
 
 Le système permet facilement de créer plusieurs personnages avec des types différents :
@@ -394,6 +430,7 @@ Pour plus de détails techniques, consultez :
 - `src/characters/examples.ts` - 5 exemples pratiques
 - `CHARACTER_SYSTEM_SUMMARY.md` - Résumé du système (racine du projet)
 - `GENDER_SUPPORT.md` - Support masculin/féminin (racine du projet)
+- **[avatar-physics.md](./avatar-physics.md)** - Physique personnages (active par défaut, mode serveur)
 - **[character-svg-export.md](./character-svg-export.md)** - Export SVG et système de poses 📸
 
 ---
