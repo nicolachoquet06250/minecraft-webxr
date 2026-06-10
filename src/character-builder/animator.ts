@@ -2,18 +2,40 @@ import { Mesh, Scene, Animation, AnimationGroup as BabylonAnimationGroup, Vector
 import type { CharacterAnimations } from "./types";
 import { getAllBodyParts } from "./character-builder";
 
+export type Axis = "x" | "y" | "z";
+
+export type BodyPartVectorUpdate = {
+  x?: number;
+  y?: number;
+  z?: number;
+};
+
 /**
  * Gestionnaire d'animations pour un personnage
  */
 export class CharacterAnimator {
-    private scene: Scene;
-    private bodyParts: Map<string, Mesh>;
-    private animationGroups: Map<string, BabylonAnimationGroup> = new Map();
-    private currentAnimation: BabylonAnimationGroup | null = null;
+  private scene: Scene;
+  private bodyParts: Map<string, Mesh>;
+  private animationGroups: Map<string, BabylonAnimationGroup> = new Map();
+  private currentAnimation: BabylonAnimationGroup | null = null;
 
-    constructor(characterMesh: Mesh, scene: Scene) {
-        this.scene = scene;
+  constructor(characterMesh: Mesh, scene: Scene) {
+    this.scene = scene;
     this.bodyParts = getAllBodyParts(characterMesh);
+  }
+
+  /**
+   * Retourne les noms de toutes les parties pilotables
+   */
+  getBodyPartNames(): string[] {
+    return [...this.bodyParts.keys()];
+  }
+
+  /**
+   * Retourne le mesh d'une partie du corps
+   */
+  getBodyPart(partName: string): Mesh | null {
+    return this.bodyParts.get(partName) ?? null;
   }
 
   /**
@@ -96,10 +118,73 @@ export class CharacterAnimator {
   }
 
   /**
+   * Met à jour la rotation d'une partie du corps
+   */
+  setPartRotation(partName: string, update: BodyPartVectorUpdate): boolean {
+    const part = this.bodyParts.get(partName);
+    if (!part) {
+      console.warn(`Body part "${partName}" not found`);
+      return false;
+    }
+
+    if (update.x !== undefined) part.rotation.x = update.x;
+    if (update.y !== undefined) part.rotation.y = update.y;
+    if (update.z !== undefined) part.rotation.z = update.z;
+    return true;
+  }
+
+  /**
+   * Met à jour la position d'une partie du corps
+   */
+  setPartPosition(partName: string, update: BodyPartVectorUpdate): boolean {
+    const part = this.bodyParts.get(partName);
+    if (!part) {
+      console.warn(`Body part "${partName}" not found`);
+      return false;
+    }
+
+    if (update.x !== undefined) part.position.x = update.x;
+    if (update.y !== undefined) part.position.y = update.y;
+    if (update.z !== undefined) part.position.z = update.z;
+    return true;
+  }
+
+  /**
+   * Met à jour la rotation d'une partie sur un seul axe
+   */
+  setPartRotationAxis(partName: string, axis: Axis, value: number): boolean {
+    const part = this.bodyParts.get(partName);
+    if (!part) {
+      console.warn(`Body part "${partName}" not found`);
+      return false;
+    }
+
+    part.rotation[axis] = value;
+    return true;
+  }
+
+  /**
+   * Oriente la tête sur l'axe Y uniquement (yaw)
+   */
+  setHeadYaw(yaw: number, headPartName: string = "head"): boolean {
+    const head = this.bodyParts.get(headPartName);
+    if (!head) {
+      console.warn(`Head part "${headPartName}" not found`);
+      return false;
+    }
+
+    // La tête suit uniquement le yaw pour un binding direct avec la caméra.
+    head.rotation.x = 0;
+    head.rotation.y = yaw;
+    head.rotation.z = 0;
+    return true;
+  }
+
+  /**
    * Réinitialise la pose par défaut
    */
   private resetPose(): void {
-    for (const [_, part] of this.bodyParts) {
+    for (const part of this.bodyParts.values()) {
       part.rotation = Vector3.Zero();
     }
   }

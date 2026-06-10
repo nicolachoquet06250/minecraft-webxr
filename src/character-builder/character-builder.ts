@@ -1,7 +1,19 @@
-import { Mesh, Scene, Vector3 } from "@babylonjs/core";
+import { Mesh, Ray, Scene, Vector3 } from "@babylonjs/core";
 import type { CharacterModel } from "./types";
 import { createTextureFromMatrix } from "./texture-builder";
 import { createCuboidMesh } from "./mesh-builder";
+import {
+  CharacterPhysicsController,
+  type CharacterPhysicsOptions,
+} from "./avatar-physics.ts";
+
+export type BuildCharacterOptions = {
+  physics?: false | CharacterPhysicsOptions;
+};
+
+const characterPhysicsControllers = new WeakMap<Mesh, CharacterPhysicsController>();
+
+const CHARACTER_MESH_METADATA_KEY = "isCharacterMesh";
 
 /**
  * Construit un personnage à partir d'un modèle de personnage
@@ -13,10 +25,15 @@ import { createCuboidMesh } from "./mesh-builder";
 export function buildCharacter(
   scene: Scene,
   model: CharacterModel,
-  position: Vector3
+  position: Vector3,
+  options: BuildCharacterOptions = {}
 ): Mesh {
   const rootMesh = new Mesh(model.name, scene);
   rootMesh.position = position;
+  rootMesh.metadata = {
+    ...(rootMesh.metadata ?? {}),
+    [CHARACTER_MESH_METADATA_KEY]: true,
+  };
 
   const meshMap = new Map<string, Mesh>();
   meshMap.set(model.name, rootMesh);
@@ -66,6 +83,10 @@ export function buildCharacter(
       bodyPart.dimensions.depth,
       textures
     );
+    partMesh.metadata = {
+      ...(partMesh.metadata ?? {}),
+      [CHARACTER_MESH_METADATA_KEY]: true,
+    };
 
     // Définir le pivot si spécifié
     if (bodyPart.pivot) {
@@ -98,7 +119,43 @@ export function buildCharacter(
     meshMap.set(bodyPart.name, partMesh);
   }
 
+  if (options.physics !== false) {
+    const physicsOptions = options.physics ?? {};
+    const controller = new CharacterPhysicsController(rootMesh, physicsOptions);
+    characterPhysicsControllers.set(rootMesh, controller);
+  }
+
   return rootMesh;
+}
+
+/**
+ * Récupère le contrôleur physique associé au personnage
+ */
+export function getCharacterPhysics(
+  characterMesh: Mesh,
+): CharacterPhysicsController | null {
+  return characterPhysicsControllers.get(characterMesh) ?? null;
+}
+
+/**
+ * Retourne la distance du premier personnage touché par un rayon.
+ */
+export function getCharacterHitDistance(
+  scene: Scene,
+  ray: Ray,
+  maxDistance: number,
+): number | null {
+  const pick = scene.pickWithRay(
+    ray,
+    (mesh) => Boolean(mesh.metadata?.[CHARACTER_MESH_METADATA_KEY]),
+    true,
+  );
+
+  if (!pick?.hit || pick.distance === undefined) {
+    return null;
+  }
+
+  return pick.distance <= maxDistance ? pick.distance : null;
 }
 
 /**

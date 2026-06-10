@@ -10,6 +10,7 @@ import {
   Vector3,
   VertexData,
 } from "@babylonjs/core";
+import { getCharacterHitDistance } from "~/character-builder";
 import { BREAKING_SPRITE_MASKS, BREAKING_SPRITE_TILE_SIZE } from "./block-breaking-sprite";
 import { EYE_HEIGHT, FACES } from "./constants";
 import { getWorldBlock } from "./functions";
@@ -164,13 +165,18 @@ function findTargetBlock(params: BlockBreakingParams): TargetBlock | null {
 }
 
 function findTargetBlockFromRay(params: BlockBreakingParams, ray: Ray): TargetBlock | null {
-  const { worldChunks, sizeX, sizeY, sizeZ } = params;
+  const { scene, worldChunks, sizeX, sizeY, sizeZ } = params;
   const direction = ray.direction.normalize();
   const reach = Number.isFinite(ray.length) && ray.length > 0
     ? Math.min(ray.length, BREAKING_REACH)
     : BREAKING_REACH;
+  const characterHitDistance = getCharacterHitDistance(scene, ray, reach);
 
   for (let distance = 0.1; distance <= reach; distance += 0.1) {
+    if (characterHitDistance !== null && characterHitDistance <= distance) {
+      return null;
+    }
+
     const point = ray.origin.add(direction.scale(distance));
     const x = Math.floor(point.x);
     const y = Math.floor(point.y);

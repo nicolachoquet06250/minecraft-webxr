@@ -324,3 +324,126 @@ Vous pouvez créer des personnages en utilisant :
 - La construction manuelle complète pour un contrôle total
 
 Le tout avec une API claire, type-safe et extensible ! 🚀
+
+---
+
+## 🎮 Extensions : Physique et Export SVG
+
+### Physique intégrée (avatar-physics.ts)
+
+Les personnages créés avec `buildCharacter()` peuvent avoir une **physique intégrée** :
+
+```typescript
+// Créer avec physique
+const { mesh, animator, physics } = createSteve(scene, pos, { physics: true });
+
+// Mettre à jour chaque frame
+physics.update({
+  worldChunks,
+  sizeX, sizeY, sizeZ,
+  deltaTime,
+});
+
+// Caractéristiques :
+// - Gravité appliquée continuellement
+// - Collision avec le terrain (détection AABB)
+// - Contrôle externe optionnel (mode réseau/IA)
+// - isGrounded() pour savoir si au sol
+// - Intégration avec collision joueur↔personnage
+```
+
+### Export SVG en perspective (svg-export.ts)
+
+Générer des images SVG 2D en perspective 3D :
+
+```typescript
+// Export basique
+const svg = createSteveSvg(scene, pos, { physics: false }, {
+  width: 512,
+  height: 512,
+});
+
+// Avec poses animées
+const svg = createSteveSvg(scene, pos, undefined, {
+  pose: {
+    parts: {
+      rightArm: { rotation: { x: -1.2 } },  // Lever le bras
+      leftLeg: { rotation: { x: 0.5 } },    // Avancer la jambe
+    },
+  },
+});
+
+// Caractéristiques :
+// - Rendu perspective 3D réaliste
+// - Textures matricielles échantillonnées
+// - Support complet des poses (rotation/position)
+// - Paramètres de caméra configurables
+// - Anti-coutures via cellOverlap
+```
+
+### Intégration dans le jeu
+
+```typescript
+// main.ts - Boucle de jeu
+
+// Créer les personnages avec physique
+const { mesh: alexMesh, physics: alexPhysics } = createAlex(
+  scene,
+  new Vector3(5, 0, 0),
+  { physics: true }
+);
+
+// Chaque frame
+scene.onAfterRenderObservable.add(() => {
+  // Mettre à jour la physique
+  alexPhysics?.update({
+    worldChunks,
+    sizeX, sizeY, sizeZ,
+    deltaTime: engine.getDeltaTime() / 1000,
+  });
+
+  // Résoudre collisions joueur↔personnages
+  resolvePlayerCharacterCollision(playerPhysics, alexPhysics);
+
+  scene.render();
+});
+```
+
+### Occlusion rayon personnage
+
+Les personnages **bloquent** automatiquement la sélection/cassage de bloc :
+
+```typescript
+// Dans pointed-block-label.ts, block-breaking.ts, textured-world.ts
+const characterHit = getCharacterHitDistance(scene, ray);
+if (characterHit > 0 && characterHit < blockDistance) {
+  // Rayon a frappé un personnage → pas de sélection
+  return null;
+}
+```
+
+---
+
+## 📚 Documentation complète
+
+- [docs/character-system.md](./docs/character-system.md) - Système complet de personnages
+- [docs/avatar-physics.md](./docs/avatar-physics.md) - Physique intégrée
+- [docs/character-svg-export.md](./docs/character-svg-export.md) - Export SVG
+- [src/character-builder/README.md](./src/character-builder/README.md) - API détaillée
+- [src/character-builder/BODY_TYPES.md](./src/character-builder/BODY_TYPES.md) - Types de corps
+
+---
+
+## ✅ État d'implémentation
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Types corps (masculin/féminin/custom) | ✅ | Complet |
+| Création rapide (factories) | ✅ | createSteve, createAlex, etc. |
+| Animations | ✅ | idle, walk, mine, jump |
+| Textures matricielles | ✅ | Couleurs procédurales |
+| **Physique intégrée** | ✅ | Gravité + collision |
+| **Export SVG 2D** | ✅ | Perspective 3D + poses |
+| **Occlusion rayon** | ✅ | Bloque sélection bloc |
+| Multi-joueur réseau | 🚧 | Mode externalControl prêt |
+| Éditeur visuel | 🚫 | Futur (UI non implémentée) |

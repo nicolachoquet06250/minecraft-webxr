@@ -44,5 +44,11 @@ export function createTextureFromMatrix(
   texture.update();
   texture.hasAlpha = true;
   texture.updateSamplingMode(1); // Nearest neighbor pour effet pixelisé
+  texture.metadata = {
+    ...(texture.metadata ?? {}),
+    matrixWidth: width,
+    matrixHeight: height,
+    pixelScale: scale,
+  };
   return texture;
 }

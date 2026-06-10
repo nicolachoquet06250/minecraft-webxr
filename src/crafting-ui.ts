@@ -1,5 +1,6 @@
 import type { Scene } from "@babylonjs/core";
-import { AdvancedDynamicTexture, Control, Grid, Rectangle, TextBlock } from "@babylonjs/gui";
+import { Vector3 } from "@babylonjs/core";
+import { AdvancedDynamicTexture, Control, Grid, Image as GuiImage, Rectangle, TextBlock } from "@babylonjs/gui";
 import { craftingRecipes, type CraftingPattern, type CraftingRecipe } from "./crafts";
 import { addToInventory } from "./functions";
 import { isMobileMode } from "./mobile-controls";
@@ -7,6 +8,7 @@ import { renderItemIconControl } from "./items/rendering";
 import { getItemMaxStackSize } from "./items";
 import { setCraftingOverlayOpen } from "./ui-state";
 import { type InventoryItem, type PlayerPhysics } from "./types";
+import { createSteveSvg } from "~/characters";
 
 type CraftingSlot = InventoryItem | null;
 type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number } | { type: "result" };
@@ -103,13 +105,52 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     topZone.addControl(armorSlot);
   }
 
+  // Créer et afficher le SVG de Steve à droite des armor slots
+  const stevePreviewContainer = new Rectangle("steve-preview-container");
+  stevePreviewContainer.width = "120px";
+  stevePreviewContainer.height = "120px";
+  stevePreviewContainer.left = "-180px";
+  stevePreviewContainer.top = "0px";
+  stevePreviewContainer.thickness = 0;
+  stevePreviewContainer.background = "transparent";
+  topZone.addControl(stevePreviewContainer);
+
+  let stevePreviewUrl: string | null = null;
+
+  // Générer le SVG Steve en position neutre et le convertir en data URL
+  try {
+    const steveSvg = createSteveSvg(
+      scene,
+      new Vector3(0, 0, 0),
+      { physics: false },
+      {
+        width: 120,
+        height: 120,
+        background: null,
+        stroke: "none",
+      }
+    );
+
+    // Convertir SVG en data URL
+    const svgBlob = new Blob([steveSvg], { type: "image/svg+xml" });
+    stevePreviewUrl = URL.createObjectURL(svgBlob);
+
+    // Créer l'image GUI et l'ajouter
+    const stevePreview = new GuiImage("steve-preview", stevePreviewUrl);
+    stevePreview.width = "150px";
+    stevePreview.height = "150px";
+    stevePreviewContainer.addControl(stevePreview);
+  } catch (error) {
+    console.warn("Impossible de générer le SVG Steve pour l'aperçu:", error);
+  }
+
   const offhandSlot = createSlot("craft-offhand-slot", armorSlotSize);
-  offhandSlot.left = "-192px";
+  offhandSlot.left = "-110px";
   offhandSlot.top = `${armorSlotsTop + armorSlotsStep}px`;
   topZone.addControl(offhandSlot);
 
   const craftGrid = createGrid("crafting-grid", CRAFT_GRID_SIZE, CRAFT_GRID_SIZE, SLOT_SIZE);
-  craftGrid.left = "-36px";
+  craftGrid.left = "-6px";
   craftGrid.top = "-22px";
   topZone.addControl(craftGrid);
 
@@ -220,6 +261,10 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     returnAllCraftSlotsToInventory();
     ui.rootContainer.isVisible = false;
     setCraftingOverlayOpen(false);
+    if (stevePreviewUrl) {
+      URL.revokeObjectURL(stevePreviewUrl);
+      stevePreviewUrl = null;
+    }
     updateAll();
   }
 
