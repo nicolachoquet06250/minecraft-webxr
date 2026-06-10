@@ -6,8 +6,14 @@
   "scripts": {
     "dev": "npm run build:wasm && vite --host",
     "build": "npm run build:wasm && tsc && vite build",
+    "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm",
     "preview": "vite preview",
-    "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm"
+    "server:dev": "cargo run --manifest-path server/Cargo.toml",
+    "server:build": "cargo build --manifest-path server/Cargo.toml --release",
+    "server:build:linux": "cargo build --manifest-path server/Cargo.toml --release --target x86_64-unknown-linux-gnu",
+    "server:build:windows": "cargo build --manifest-path server/Cargo.toml --release --target x86_64-pc-windows-msvc",
+    "server:build:all": "npm run server:build:linux && npm run server:build:windows",
+    "server:check": "cargo check --manifest-path server/Cargo.toml"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

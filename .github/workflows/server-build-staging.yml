@@ -1,0 +1,103 @@
+name: "Server Build Staging (Linux + Windows)"
+
+"on":
+  push:
+    branches:
+      - staging
+    paths:
+      - "server/**"
+      - ".github/workflows/server-build-staging.yml"
+  pull_request:
+    branches:
+      - staging
+    paths:
+      - "server/**"
+      - ".github/workflows/server-build-staging.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+"jobs":
+  build-server:
+    name: Build server on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build server (release)
+        run: cargo build --manifest-path server/Cargo.toml --release
+
+      - name: Package Linux binary
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          cp server/target/release/minecraft_server dist/minecraft_server
+          tar -czf dist/minecraft-server-linux-x86_64.tar.gz -C dist minecraft_server
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-server-linux-x86_64
+          path: dist/minecraft-server-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+      - name: Package Windows binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item server/target/release/minecraft_server.exe dist/minecraft_server.exe
+          Compress-Archive -Path dist/minecraft_server.exe -DestinationPath dist/minecraft-server-windows-x86_64.zip -Force
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: minecraft-server-windows-x86_64
+          path: dist/minecraft-server-windows-x86_64.zip
+          if-no-files-found: error
+
+  publish-downloadable-packages:
+    name: Publish staging downloadable binaries
+    needs: build-server
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Download Linux build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: minecraft-server-linux-x86_64
+          path: dist/linux
+
+      - name: Download Windows build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: minecraft-server-windows-x86_64
+          path: dist/windows
+
+      - name: Publish/update staging release assets
+        uses: ncipollo/release-action@v1
+        with:
+          tag: staging
+          name: staging
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          artifacts: dist/linux/minecraft-server-linux-x86_64.tar.gz,dist/windows/minecraft-server-windows-x86_64.zip
+          body: |
+            Downloadable server executables for the staging branch.
+            Commit: ${{ github.sha }}

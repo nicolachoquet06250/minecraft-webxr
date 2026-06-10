@@ -1,0 +1,5 @@
+CORS_CLIENT_DOMAIN=https://mon-domain-client.exemple # à remplacer par le domaine de votre client
+SERVER_HOST=0.0.0.0 # optionnel
+SERVER_PORT=3001 # optionnel
+WORLD_SEED=12345 # optionnel, à remplacer par la seed de votre monde Minecraft
+RUST_LOG="minecraft_server=info,tower_http=info,axum=info" # optionnel
