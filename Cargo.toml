@@ -1,0 +1,3 @@
+[workspace]
+members = ["wasm", "server", "minecraft-auth-platform/backend"]
+resolver = "2"

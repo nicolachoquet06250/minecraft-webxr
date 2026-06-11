@@ -16,7 +16,6 @@
     "server:check": "cargo check --manifest-path server/Cargo.toml"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.1",
     "@vite-pwa/assets-generator": "^1.0.0",
     "typescript": "~6.0.2",
