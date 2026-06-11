@@ -116,9 +116,9 @@ permissions:
         id: server_version
         shell: bash
         run: |
-          VERSION=$(grep -m1 '^version = ' server/Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
+          VERSION=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "([^"]+)"/\1/')
           if [[ -z "$VERSION" ]]; then
-            echo "Unable to read server version from server/Cargo.toml"
+            echo "Unable to read server version from Cargo.toml"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
