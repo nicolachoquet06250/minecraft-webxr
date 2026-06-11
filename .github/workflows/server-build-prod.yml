@@ -43,7 +43,7 @@ permissions:
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
-          if [ ! -f target/release/minecraft_server ]; then
+          if [ -f target/release/minecraft_server ]; then
             cp target/release/minecraft_server dist/minecraft_server
             tar -czf dist/minecraft-server-linux-x86_64.tar.gz -C dist minecraft_server
           else
