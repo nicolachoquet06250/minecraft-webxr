@@ -1,8 +1,13 @@
 import { isMobileMode, isVRMode } from "./mobile-controls";
 import { showOptionsMenu } from "./options-menu";
 
+export const GAME_MODE_STORAGE_KEY = "minecraft:game-mode";
+
+export type GameMode = "singleplayer" | "multiplayer";
+
 export type MainMenuLaunchOptions = {
     readonly enterVR?: boolean;
+    readonly gameMode?: GameMode;
 };
 
 type MenuDevice = "desktop" | "mobile" | "vr";
@@ -50,10 +55,11 @@ function showDomMenu(
         content.classList.add("minecraft-menu__content--desktop");
     }
 
-    function startGame(): void {
+    function startGame(gameMode: GameMode = "singleplayer"): void {
+        window.localStorage.setItem(GAME_MODE_STORAGE_KEY, gameMode);
         root.remove();
         canvas.classList.remove("is-menu-visible");
-        onPlay({ enterVR: device === "vr" });
+        onPlay({ enterVR: device === "vr", gameMode });
     }
 
     if (device === "mobile") {
@@ -83,7 +89,7 @@ function createDesktopMenuTitle(device: "desktop" | "vr"): HTMLElement {
     return header;
 }
 
-function createDesktopButtonPanel(onPlay: () => void): HTMLElement {
+function createDesktopButtonPanel(onPlay: (gameMode?: GameMode) => void): HTMLElement {
     const panel = document.createElement("section");
     panel.className = "minecraft-menu__desktop-panel";
 
@@ -92,15 +98,15 @@ function createDesktopButtonPanel(onPlay: () => void): HTMLElement {
             onBack: () => {
                 const canvas = document.querySelector<HTMLCanvasElement>("#minecraft");
                 if (canvas) {
-                    showDomMenu(canvas, "desktop", onPlay);
+                    showDomMenu(canvas, "desktop", (options) => onPlay(options?.gameMode));
                 }
             },
         });
     }
 
     panel.append(
-        createMenuButton("Un joueur", "play", false, onPlay),
-        createMenuButton("Multijoueur", "play", false, onPlay),
+        createMenuButton("Un joueur", "play", false, () => onPlay("singleplayer")),
+        createMenuButton("Multijoueur", "play", false, () => onPlay("multiplayer")),
         createDesktopButtonRow(
             createMenuButton("Options...", undefined, false, openOptions),
             createMenuButton("Quitter le jeu", undefined, false),
@@ -133,7 +139,7 @@ function createMobileMenuHeader(): HTMLElement {
     return header;
 }
 
-function createMobileButtonPanel(onPlay: () => void): HTMLElement {
+function createMobileButtonPanel(onPlay: (gameMode?: GameMode) => void): HTMLElement {
     const panel = document.createElement("section");
     panel.className = "minecraft-menu__mobile-panel";
 
@@ -142,7 +148,7 @@ function createMobileButtonPanel(onPlay: () => void): HTMLElement {
             onBack: () => {
                 const canvas = document.querySelector<HTMLCanvasElement>("#minecraft");
                 if (canvas) {
-                    showDomMenu(canvas, "mobile", onPlay);
+                    showDomMenu(canvas, "mobile", (options) => onPlay(options?.gameMode));
                 }
             },
         });
@@ -151,7 +157,7 @@ function createMobileButtonPanel(onPlay: () => void): HTMLElement {
     const actions = document.createElement("div");
     actions.className = "minecraft-menu__mobile-actions";
     actions.append(
-        createMenuButton("Jouer", "play", false, onPlay),
+        createMenuButton("Jouer", "play", false, () => onPlay("singleplayer")),
         createMenuButton("Paramètres", undefined, false, openOptions),
     );
 

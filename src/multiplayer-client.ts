@@ -10,6 +10,16 @@ export type PlayerPublicState = {
   transform: PlayerTransformPayload;
 };
 
+const GAME_MODE_STORAGE_KEY = "minecraft:game-mode";
+
+function isSinglePlayerMode(): boolean {
+  try {
+    return window.localStorage.getItem(GAME_MODE_STORAGE_KEY) === "singleplayer";
+  } catch {
+    return false;
+  }
+}
+
 export type ServerMessage =
   | {
       type: "welcome";
@@ -175,6 +185,10 @@ export class MultiplayerClient {
   }
 
   connect(timeoutMs = 5000): Promise<MultiplayerWelcome> {
+    if (isSinglePlayerMode()) {
+      return Promise.reject(new Error("Mode solo local: WebSocket désactivé"));
+    }
+
     if (this.socket && this.connected) {
       return Promise.reject(new Error("WebSocket déjà connecté"));
     }
