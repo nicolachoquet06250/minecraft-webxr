@@ -2,22 +2,11 @@ mod protocol;
 mod state;
 mod stats;
 
-use std::{
-    env,
-    fs::OpenOptions,
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
-};
-
+use std::{env, fs::OpenOptions, net::SocketAddr, sync::{Arc, Mutex}, time::{SystemTime, UNIX_EPOCH}};
 use axum::{
     body::{Body, Bytes},
-    extract::{
-        RawQuery,
-        State,
-        ws::{Message, WebSocket, WebSocketUpgrade},
-    },
-    http::{HeaderMap, HeaderValue, Method, StatusCode, header},
+    extract::{ws::{Message, WebSocket, WebSocketUpgrade}, RawQuery, State},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -27,8 +16,8 @@ use futures::{SinkExt, StreamExt};
 use protocol::{ClientMessage, PlayerPublicState, PlayerTransform, ServerMessage};
 use rusqlite::Connection;
 use state::{player_id_to_wire, ServerState};
-use tokio::sync::{RwLock, mpsc};
-use tower_http::cors::CorsLayer;
+use tokio::sync::{mpsc, RwLock};
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::{error, info, warn};
 
 const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
@@ -44,10 +33,7 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    match dotenvy::dotenv() {
-        Ok(path) => println!(".env auto chargé depuis: {}", path.display()),
-        Err(error) => println!("Aucun .env auto chargé: {error}"),
-    }
+    load_env();
 
     let args = env::args().collect::<Vec<_>>();
     match run_migration_command(&args) {
@@ -70,18 +56,12 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_ansi(false)
         .with_writer(log_writer)
-        .with_env_filter(
-            env::var("RUST_LOG")
-                .unwrap_or_else(|_| "minecraft_server=info,tower_http=info,axum=info".to_string()),
-        )
+        .with_env_filter(env::var("RUST_LOG").unwrap_or_else(|_| "minecraft_server=info,tower_http=info,axum=info".to_string()))
         .init();
 
     let mut host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("SERVER_PORT").unwrap_or_else(|_| "3001".to_string());
-    let seed = env::var("WORLD_SEED")
-        .ok()
-        .and_then(|value| value.parse::<u32>().ok())
-        .unwrap_or(12345);
+    let seed = env::var("WORLD_SEED").ok().and_then(|value| value.parse::<u32>().ok()).unwrap_or(12345);
     let cors_client_domain = env::var("CORS_CLIENT_DOMAIN")
         .ok()
         .map(|value| value.trim().to_string())
@@ -95,19 +75,14 @@ async fn main() {
     let startup_auth_central_base_url = auth_central_base_url.clone();
     let stats_database_path = default_stats_database_path();
 
-    let mut stats_connection = Connection::open(&stats_database_path)
-        .expect("failed to open stats SQLite database");
-    stats::migrate_up(&mut stats_connection)
-        .expect("failed to run stats SQLite migrations");
+    let mut stats_connection = Connection::open(&stats_database_path).expect("failed to open stats SQLite database");
+    stats::migrate_up(&mut stats_connection).expect("failed to run stats SQLite migrations");
 
-    if host.contains(':') {
+    if host.contains(':') && !host.starts_with('[') {
         host = format!("[{host}]");
     }
 
-    let addr: SocketAddr = format!("{host}:{port}")
-        .parse()
-        .expect("invalid SERVER_HOST or SERVER_PORT");
-
+    let addr: SocketAddr = format!("{host}:{port}").parse().expect("invalid SERVER_HOST or SERVER_PORT");
     println!("http://{}:{}", host, port);
 
     let app_state = AppState {
@@ -132,13 +107,15 @@ async fn main() {
     info!(log_file = %log_file_path, "file logging enabled");
     info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, "minecraft server started");
 
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .expect("failed to bind TCP listener");
+    let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind TCP listener");
+    axum::serve(listener, app).await.expect("server failed unexpectedly");
+}
 
-    axum::serve(listener, app)
-        .await
-        .expect("server failed unexpectedly");
+fn load_env() {
+    match dotenvy::dotenv() {
+        Ok(path) => println!(".env auto chargé depuis: {}", path.display()),
+        Err(error) => println!("Aucun .env auto chargé: {error}"),
+    }
 }
 
 fn default_stats_database_path() -> String {
@@ -154,25 +131,19 @@ fn run_migration_command(args: &[String]) -> Result<bool, String> {
         return Ok(false);
     }
 
-    let action = args
-        .get(2)
-        .map(String::as_str)
-        .ok_or_else(|| migration_usage())?;
-
+    let action = args.get(2).map(String::as_str).ok_or_else(migration_usage)?;
     let database_path = migration_database_path(args)?;
     let mut connection = Connection::open(&database_path)
         .map_err(|error| format!("Impossible d'ouvrir la base SQLite {database_path}: {error}"))?;
 
     match action {
         "up" => {
-            stats::migrate_up(&mut connection)
-                .map_err(|error| format!("Erreur pendant les migrations up: {error}"))?;
+            stats::migrate_up(&mut connection).map_err(|error| format!("Erreur pendant les migrations up: {error}"))?;
             println!("Migrations appliquées sur {database_path}");
         }
         "down" => {
             let rolled_back = stats::rollback_last_migration(&mut connection)
                 .map_err(|error| format!("Erreur pendant la migration down: {error}"))?;
-
             match rolled_back {
                 Some(version) => println!("Migration {version} annulée sur {database_path}"),
                 None => println!("Aucune migration à annuler sur {database_path}"),
@@ -191,15 +162,10 @@ fn migration_database_path(args: &[String]) -> Result<String, String> {
     while index < args.len() {
         match args[index].as_str() {
             "--database" | "--db" => {
-                let value = args
-                    .get(index + 1)
-                    .ok_or_else(|| "Option --database sans chemin".to_string())?;
-                database_path = value.clone();
+                database_path = args.get(index + 1).ok_or_else(|| "Option --database sans chemin".to_string())?.clone();
                 index += 2;
             }
-            option => {
-                return Err(format!("Option de migration inconnue: {option}\n{}", migration_usage()));
-            }
+            option => return Err(format!("Option de migration inconnue: {option}\n{}", migration_usage())),
         }
     }
 
@@ -216,7 +182,13 @@ fn build_log_file_name() -> String {
 }
 
 fn build_cors_layer(cors_client_domain: &str) -> CorsLayer {
-    let base = CorsLayer::new()
+    let mut origins = Vec::new();
+    push_cors_origin(&mut origins, DEFAULT_ALLOWED_CORS_ORIGIN);
+    push_cors_origin(&mut origins, cors_client_domain);
+
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_credentials(true)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
             header::CONTENT_TYPE,
@@ -224,14 +196,23 @@ fn build_cors_layer(cors_client_domain: &str) -> CorsLayer {
             header::ACCEPT,
             header::ORIGIN,
             header::COOKIE,
-        ]);
+        ])
+}
 
-    match HeaderValue::from_str(cors_client_domain) {
-        Ok(origin_header) => base.allow_origin(origin_header).allow_credentials(true),
-        Err(error) => {
-            warn!(%error, origin = %cors_client_domain, fallback_origin = %DEFAULT_ALLOWED_CORS_ORIGIN, "invalid CORS_CLIENT_DOMAIN, using default central origin");
-            base.allow_origin(HeaderValue::from_static(DEFAULT_ALLOWED_CORS_ORIGIN)).allow_credentials(true)
+fn push_cors_origin(origins: &mut Vec<HeaderValue>, origin: &str) {
+    let normalized_origin = origin.trim().trim_end_matches('/');
+
+    if normalized_origin.is_empty() {
+        return;
+    }
+
+    match HeaderValue::from_str(normalized_origin) {
+        Ok(origin_header) => {
+            if !origins.iter().any(|origin| origin == &origin_header) {
+                origins.push(origin_header);
+            }
         }
+        Err(error) => warn!(%error, origin = %origin, "invalid CORS origin ignored"),
     }
 }
 
@@ -269,7 +250,6 @@ async fn stats_snapshot(State(app_state): State<AppState>) -> Response {
                     .into_response();
             }
         };
-
         stats::collect_server_stats(&connection, connected_players)
     };
 
@@ -293,66 +273,20 @@ async fn ws_handler(ws: WebSocketUpgrade, State(app_state): State<AppState>) -> 
     ws.on_upgrade(move |socket| handle_socket(socket, app_state))
 }
 
-async fn auth_register_proxy(
-    State(app_state): State<AppState>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    forward_auth_request(
-        &app_state,
-        reqwest::Method::POST,
-        "/api/auth/register",
-        None,
-        Some(body),
-        headers.get(header::CONTENT_TYPE),
-    )
-    .await
+async fn auth_register_proxy(State(app_state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    forward_auth_request(&app_state, reqwest::Method::POST, "/api/auth/register", None, Some(body), headers.get(header::CONTENT_TYPE)).await
 }
 
-async fn auth_login_proxy(
-    State(app_state): State<AppState>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    forward_auth_request(
-        &app_state,
-        reqwest::Method::POST,
-        "/api/auth/login",
-        None,
-        Some(body),
-        headers.get(header::CONTENT_TYPE),
-    )
-    .await
+async fn auth_login_proxy(State(app_state): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    forward_auth_request(&app_state, reqwest::Method::POST, "/api/auth/login", None, Some(body), headers.get(header::CONTENT_TYPE)).await
 }
 
-async fn auth_discord_url_proxy(
-    State(app_state): State<AppState>,
-    RawQuery(raw_query): RawQuery,
-) -> Response {
-    forward_auth_request(
-        &app_state,
-        reqwest::Method::GET,
-        "/api/auth/discord/url",
-        raw_query,
-        None,
-        None,
-    )
-    .await
+async fn auth_discord_url_proxy(State(app_state): State<AppState>, RawQuery(raw_query): RawQuery) -> Response {
+    forward_auth_request(&app_state, reqwest::Method::GET, "/api/auth/discord/url", raw_query, None, None).await
 }
 
-async fn auth_discord_callback_proxy(
-    State(app_state): State<AppState>,
-    RawQuery(raw_query): RawQuery,
-) -> Response {
-    forward_auth_request(
-        &app_state,
-        reqwest::Method::GET,
-        "/api/auth/discord/callback",
-        raw_query,
-        None,
-        None,
-    )
-    .await
+async fn auth_discord_callback_proxy(State(app_state): State<AppState>, RawQuery(raw_query): RawQuery) -> Response {
+    forward_auth_request(&app_state, reqwest::Method::GET, "/api/auth/discord/callback", raw_query, None, None).await
 }
 
 async fn forward_auth_request(
@@ -364,13 +298,9 @@ async fn forward_auth_request(
     content_type: Option<&HeaderValue>,
 ) -> Response {
     let url = build_proxy_url(&app_state.auth_central_base_url, remote_path, raw_query.as_deref());
-
     let mut request = app_state.auth_http_client.request(method, &url);
 
-    if let Some(content_type_value) = content_type
-        .and_then(|value| value.to_str().ok())
-        .filter(|value| !value.is_empty())
-    {
+    if let Some(content_type_value) = content_type.and_then(|value| value.to_str().ok()).filter(|value| !value.is_empty()) {
         request = request.header(reqwest::header::CONTENT_TYPE, content_type_value);
     }
 
@@ -393,8 +323,7 @@ async fn forward_auth_request(
         }
     };
 
-    let status = StatusCode::from_u16(upstream_response.status().as_u16())
-        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let status = StatusCode::from_u16(upstream_response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let upstream_content_type = upstream_response
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
@@ -514,41 +443,28 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                             player: joined_player,
                         };
 
-                        (
-                            result.player.id,
-                            result.welcome,
-                            result.lobby_state,
-                            joined_message,
-                        )
+                        (result.player.id, result.welcome, result.lobby_state, joined_message)
                     };
 
                     let player_id_wire = player_id_to_wire(new_player_id);
-                    let stats_session_id = {
-                        match app_state.stats_db.lock() {
-                            Ok(connection) => match stats::start_player_session(
-                                &connection,
-                                &player_id_wire,
-                                match &joined_message {
-                                    ServerMessage::PlayerJoined { lobby_id, .. } => lobby_id,
-                                    _ => "unknown",
-                                },
-                                match &joined_message {
-                                    ServerMessage::PlayerJoined { player, .. } => &player.nickname,
-                                    _ => "unknown",
-                                },
-                                &normalized_gender,
-                                &connected_at,
-                            ) {
-                                Ok(session_id) => Some(session_id),
-                                Err(error) => {
-                                    error!(%error, player_id = %player_id_wire, "failed to create player stats session");
-                                    None
-                                }
-                            },
+                    let stats_session_id = match app_state.stats_db.lock() {
+                        Ok(connection) => match stats::start_player_session(
+                            &connection,
+                            &player_id_wire,
+                            match &joined_message { ServerMessage::PlayerJoined { lobby_id, .. } => lobby_id, _ => "unknown" },
+                            match &joined_message { ServerMessage::PlayerJoined { player, .. } => &player.nickname, _ => "unknown" },
+                            &normalized_gender,
+                            &connected_at,
+                        ) {
+                            Ok(session_id) => Some(session_id),
                             Err(error) => {
-                                error!(%error, "stats SQLite mutex poisoned");
+                                error!(%error, player_id = %player_id_wire, "failed to create player stats session");
                                 None
                             }
+                        },
+                        Err(error) => {
+                            error!(%error, "stats SQLite mutex poisoned");
+                            None
                         }
                     };
 
@@ -571,16 +487,11 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                     continue;
                 }
 
-                let player_id = match active_player_id {
-                    Some(id) => id,
-                    None => continue,
-                };
-
-                process_player_message(&app_state, &out_tx, player_id, client_message).await;
+                if let Some(player_id) = active_player_id {
+                    process_player_message(&app_state, &out_tx, player_id, client_message).await;
+                }
             }
-            Message::Close(_) => {
-                break;
-            }
+            Message::Close(_) => break,
             Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => {}
         }
     }
@@ -609,9 +520,7 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                             error!(%error, player_id = %player_id_wire, session_id, "failed to finish player stats session");
                         }
                     }
-                    Err(error) => {
-                        error!(%error, "stats SQLite mutex poisoned");
-                    }
+                    Err(error) => error!(%error, "stats SQLite mutex poisoned"),
                 }
             }
         }
@@ -636,7 +545,6 @@ async fn process_player_message(
         ClientMessage::RequestChunk { chunk_x, chunk_z } => {
             let mut state = app_state.state.write().await;
             let chunk = state.get_or_create_chunk(chunk_x, chunk_z);
-
             let _ = out_tx.send(ServerMessage::ChunkData {
                 chunk_x,
                 chunk_z,
@@ -645,27 +553,12 @@ async fn process_player_message(
                 world_version: state.world_version,
             });
         }
-        ClientMessage::SetBlock {
-            world_x,
-            world_y,
-            world_z,
-            block_id,
-        } => {
+        ClientMessage::SetBlock { world_x, world_y, world_z, block_id } => {
             let mut state = app_state.state.write().await;
-            let Some(player) = state.player(player_id).cloned() else {
-                return;
-            };
-
+            let Some(player) = state.player(player_id).cloned() else { return; };
             match state.set_block(world_x, world_y, world_z, block_id) {
                 Ok(world_version) => {
-                    let message = ServerMessage::BlockUpdated {
-                        world_x,
-                        world_y,
-                        world_z,
-                        block_id,
-                        world_version,
-                    };
-
+                    let message = ServerMessage::BlockUpdated { world_x, world_y, world_z, block_id, world_version };
                     state.broadcast_to_lobby(&player.lobby_id, &message, None);
                 }
                 Err(reason) => {
@@ -676,52 +569,32 @@ async fn process_player_message(
                 }
             }
         }
-        ClientMessage::PlayerTransform {
-            position,
-            rotation,
-            velocity,
-        } => {
+        ClientMessage::PlayerTransform { position, rotation, velocity } => {
             let mut state = app_state.state.write().await;
-            let Some(player) = state.player(player_id).cloned() else {
-                return;
-            };
-
-            let transform = PlayerTransform {
-                position,
-                rotation,
-                velocity,
-            };
-
+            let Some(player) = state.player(player_id).cloned() else { return; };
+            let transform = PlayerTransform { position, rotation, velocity };
             if state.update_player_transform(player_id, transform.clone()) {
                 let message = ServerMessage::PlayerTransform {
                     player_id: player_id_to_wire(player_id),
                     transform,
                     world_version: state.world_version,
                 };
-
                 state.broadcast_to_lobby(&player.lobby_id, &message, Some(player_id));
             }
         }
         ClientMessage::Chat { message } => {
             let state = app_state.state.write().await;
-            let Some(player) = state.player(player_id).cloned() else {
-                return;
-            };
-
+            let Some(player) = state.player(player_id).cloned() else { return; };
             let outbound = ServerMessage::Chat {
                 player_id: player_id_to_wire(player_id),
                 nickname: player.nickname,
                 message,
                 world_version: state.world_version,
             };
-
             state.broadcast_to_lobby(&player.lobby_id, &outbound, None);
         }
         ClientMessage::Ping { client_time_ms } => {
-            let _ = out_tx.send(ServerMessage::Pong {
-                server_time_ms: now_ms(),
-                client_time_ms,
-            });
+            let _ = out_tx.send(ServerMessage::Pong { server_time_ms: now_ms(), client_time_ms });
         }
     }
 }
@@ -730,6 +603,5 @@ fn now_ms() -> u64 {
     let Ok(duration) = SystemTime::now().duration_since(UNIX_EPOCH) else {
         return 0;
     };
-
     duration.as_millis() as u64
 }
