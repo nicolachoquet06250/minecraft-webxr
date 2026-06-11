@@ -31,7 +31,7 @@ permissions:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build server (release)
-        run: cargo build --manifest-path server/Cargo.toml --release
+        run: cargo build --manifest-path server/Cargo.toml --release --features embed_front
 
       - name: Package Linux binary
         if: runner.os == 'Linux'
