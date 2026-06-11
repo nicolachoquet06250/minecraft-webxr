@@ -7,7 +7,6 @@ use std::{
     net::SocketAddr,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
-    //path::Path,
 };
 
 use axum::{
@@ -43,34 +42,6 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    /*let exe_path = env::current_exe()
-        .expect("Impossible de récupérer le chemin de l'exécutable");
-
-    let exe_dir = exe_path
-        .parent()
-        .expect("Impossible de récupérer le dossier de l'exécutable");
-
-    let env_path = exe_dir.join(".env");
-
-    if env_path.is_file() {
-        match dotenvy::from_path_override(&env_path) {
-            Ok(()) => eprintln!(".env chargé depuis: {}", env_path.display()),
-            Err(error) => eprintln!("Erreur chargement .env {}: {error}", env_path.display()),
-        }
-    } else {
-        match dotenvy::dotenv() {
-            Ok(path) => eprintln!(".env auto chargé depuis: {}", path.display()),
-            Err(error) => eprintln!("Aucun .env auto chargé: {error}"),
-        }
-    }
-
-    eprintln!("SERVER_HOST = {:?}", env::var("SERVER_HOST"));
-    eprintln!("SERVER_PORT = {:?}", env::var("SERVER_PORT"));
-    eprintln!("WORLD_SEED = {:?}", env::var("WORLD_SEED"));
-    eprintln!("AUTH_CENTRAL_BASE_URL = {:?}", env::var("AUTH_CENTRAL_BASE_URL"));
-    eprintln!("API_HOST = {:?}", env::var("API_HOST"));
-    eprintln!("API_PORT = {:?}", env::var("API_PORT"));*/
-
     match dotenvy::dotenv() {
         Ok(path) => println!(".env auto chargé depuis: {}", path.display()),
         Err(error) => println!("Aucun .env auto chargé: {error}"),
