@@ -373,6 +373,7 @@ export function resolveDefaultWsUrl(): string {
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.hostname;
+  const port = import.meta.env.DEV ? ":3001" : "";
 
-  return `${protocol}//${host}:3001/ws`;
+  return `${protocol}//${host}${port}/ws`;
 }
