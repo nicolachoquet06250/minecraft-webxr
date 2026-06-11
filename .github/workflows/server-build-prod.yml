@@ -43,23 +43,11 @@ permissions:
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
-          if [ -f target/release/minecraft_server ]; then
-            cp target/release/minecraft_server dist/minecraft_server
-            tar -czf dist/minecraft-server-linux-x86_64.tar.gz -C dist minecraft_server
-          else
-            cp target/release/voxicraft_server dist/voxicraft_server
-            tar -czf dist/voxicraft-server-linux-x86_64.tar.gz -C dist voxicraft_server
-          fi
-
-      - name: Upload Linux artifact minecraft_server
-        if: runner.os == 'Linux' && hashFiles('dist/minecraft-server-linux-x86_64.tar.gz')
-        uses: actions/upload-artifact@v4
-        with:
-          name: minecraft-server-linux-x86_64
-          path: dist/minecraft-server-linux-x86_64.tar.gz
+          cp target/release/voxicraft_server dist/voxicraft_server
+          tar -czf dist/voxicraft-server-linux-x86_64.tar.gz -C dist voxicraft_server
 
       - name: Upload Linux artifact voxicraft_server
-        if: runner.os == 'Linux' && hashFiles('dist/voxicraft-server-linux-x86_64.tar.gz')
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: voxicraft-server-linux-x86_64
@@ -71,24 +59,11 @@ permissions:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          If (Test-Path target\release\minecraft_server.exe) {
-            Copy-Item target\release\minecraft_server.exe dist\minecraft_server.exe
-            Compress-Archive -Path dist\minecraft_server.exe -DestinationPath dist\minecraft-server-windows-x86_64.zip -Force
-          } Else {
-            Copy-Item target\release\voxicraft_server.exe dist\voxicraft_server.exe
-            Compress-Archive -Path dist\voxicraft_server.exe -DestinationPath dist\voxicraft-server-windows-x86_64.zip -Force
-          }
-
-      - name: Upload Windows artifact minecraft_server
-        if: runner.os == 'Windows' && hashFiles('dist/minecraft-server-windows-x86_64.zip')
-        uses: actions/upload-artifact@v4
-        with:
-          name: minecraft-server-windows-x86_64
-          path: dist/minecraft-server-windows-x86_64.zip
-          if-no-files-found: error
+          Copy-Item target\release\voxicraft_server.exe dist\voxicraft_server.exe
+          Compress-Archive -Path dist\voxicraft_server.exe -DestinationPath dist\voxicraft-server-windows-x86_64.zip -Force
 
       - name: Upload Windows artifact  voxicraft_server
-        if: runner.os == 'Windows' && hashFiles('dist/voxicraft-server-windows-x86_64.zip')
+        if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: voxicraft-server-windows-x86_64
@@ -108,13 +83,13 @@ permissions:
       - name: Download Linux build artifact
         uses: actions/download-artifact@v4
         with:
-          name: minecraft-server-linux-x86_64
+          name: voxicraft-server-linux-x86_64
           path: dist/linux
 
       - name: Download Windows build artifact
         uses: actions/download-artifact@v4
         with:
-          name: minecraft-server-windows-x86_64
+          name: voxicraft-server-windows-x86_64
           path: dist/windows
 
       - name: Read server version from Cargo.toml
@@ -135,7 +110,7 @@ permissions:
           tag: ${{ steps.server_version.outputs.tag }}
           name: server v${{ steps.server_version.outputs.version }}
           prerelease: false
-          artifacts: dist/linux/minecraft-server-linux-x86_64.tar.gz,dist/windows/minecraft-server-windows-x86_64.zip
+          artifacts: dist/linux/voxicraft-server-linux-x86_64.tar.gz,dist/windows/voxicraft-server-windows-x86_64.zip
           body: |
             Downloadable server executables for production.
             Version: ${{ steps.server_version.outputs.version }}
