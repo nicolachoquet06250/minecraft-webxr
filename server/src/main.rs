@@ -87,7 +87,7 @@ async fn main() {
         .parse()
         .expect("invalid SERVER_HOST or SERVER_PORT");
 
-    eprintln!(format!("https://{}:{}", host, port));
+    eprintln!("https://{}:{}", host, port);
 
     let app_state = AppState {
         state: Arc::new(RwLock::new(ServerState::new(seed))),
