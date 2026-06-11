@@ -26,6 +26,23 @@ permissions:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+
+      - name: Build front
+        run: npm run build
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
