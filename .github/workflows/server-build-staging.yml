@@ -6,6 +6,15 @@ name: "Server Build Staging (Linux + Windows)"
       - staging
     paths:
       - "server/**"
+      - "src/**"
+      - "scripts/**"
+      - "public/**"
+      - "wasm/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "*.html"
+      - "*.ts"
+      - "*.json"
       - ".github/workflows/server-build-staging.yml"
   workflow_dispatch:
 
