@@ -741,25 +741,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
-name = "minecraft_server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "chrono",
- "dotenvy",
- "futures",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "mio"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1620,6 +1601,25 @@ version = "0.1.0"
 dependencies = [
  "noise",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "voxicraft_server"
+version = "0.2.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "dotenvy",
+ "futures",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]
