@@ -49,6 +49,16 @@ async fn main() {
         Err(error) => println!("Aucun .env auto chargé: {error}"),
     }
 
+    let args = env::args().collect::<Vec<_>>();
+    match run_migration_command(&args) {
+        Ok(true) => return,
+        Ok(false) => {}
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+    }
+
     let log_file_path = build_log_file_name();
     let log_file = OpenOptions::new()
         .create(true)
@@ -83,11 +93,7 @@ async fn main() {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "https://central.voxicraft.fr".to_string());
     let startup_auth_central_base_url = auth_central_base_url.clone();
-    let stats_database_path = env::var("STATS_DATABASE_PATH")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| DEFAULT_STATS_DATABASE_PATH.to_string());
+    let stats_database_path = default_stats_database_path();
 
     let mut stats_connection = Connection::open(&stats_database_path)
         .expect("failed to open stats SQLite database");
@@ -133,6 +139,75 @@ async fn main() {
     axum::serve(listener, app)
         .await
         .expect("server failed unexpectedly");
+}
+
+fn default_stats_database_path() -> String {
+    env::var("STATS_DATABASE_PATH")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_STATS_DATABASE_PATH.to_string())
+}
+
+fn run_migration_command(args: &[String]) -> Result<bool, String> {
+    if args.get(1).map(String::as_str) != Some("migrate") {
+        return Ok(false);
+    }
+
+    let action = args
+        .get(2)
+        .map(String::as_str)
+        .ok_or_else(|| migration_usage())?;
+
+    let database_path = migration_database_path(args)?;
+    let mut connection = Connection::open(&database_path)
+        .map_err(|error| format!("Impossible d'ouvrir la base SQLite {database_path}: {error}"))?;
+
+    match action {
+        "up" => {
+            stats::migrate_up(&mut connection)
+                .map_err(|error| format!("Erreur pendant les migrations up: {error}"))?;
+            println!("Migrations appliquées sur {database_path}");
+        }
+        "down" => {
+            let rolled_back = stats::rollback_last_migration(&mut connection)
+                .map_err(|error| format!("Erreur pendant la migration down: {error}"))?;
+
+            match rolled_back {
+                Some(version) => println!("Migration {version} annulée sur {database_path}"),
+                None => println!("Aucune migration à annuler sur {database_path}"),
+            }
+        }
+        _ => return Err(migration_usage()),
+    }
+
+    Ok(true)
+}
+
+fn migration_database_path(args: &[String]) -> Result<String, String> {
+    let mut database_path = default_stats_database_path();
+    let mut index = 3;
+
+    while index < args.len() {
+        match args[index].as_str() {
+            "--database" | "--db" => {
+                let value = args
+                    .get(index + 1)
+                    .ok_or_else(|| "Option --database sans chemin".to_string())?;
+                database_path = value.clone();
+                index += 2;
+            }
+            option => {
+                return Err(format!("Option de migration inconnue: {option}\n{}", migration_usage()));
+            }
+        }
+    }
+
+    Ok(database_path)
+}
+
+fn migration_usage() -> String {
+    "Usage: minecraft_server migrate <up|down> [--database <path>]".to_string()
 }
 
 fn build_log_file_name() -> String {
