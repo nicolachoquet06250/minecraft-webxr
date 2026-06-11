@@ -52,11 +52,19 @@ permissions:
           fi
 
       - name: Upload Linux artifact
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && exists('dist/minecraft-server-linux-x86_64.tar.gz')
         uses: actions/upload-artifact@v4
         with:
           name: minecraft-server-linux-x86_64
           path: dist/minecraft-server-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+      - name: Upload Linux artifact
+        if: runner.os == 'Linux' && exists('dist/voxicraft-server-linux-x86_64.tar.gz')
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxicraft-server-linux-x86_64
+          path: dist/voxicraft-server-linux-x86_64.tar.gz
           if-no-files-found: error
 
       - name: Package Windows binary
@@ -73,11 +81,19 @@ permissions:
           }
 
       - name: Upload Windows artifact
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && exists('dist/minecraft-server-windows-x86_64.zip')
         uses: actions/upload-artifact@v4
         with:
           name: minecraft-server-windows-x86_64
           path: dist/minecraft-server-windows-x86_64.zip
+          if-no-files-found: error
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows' && exists('dist/voxicraft-server-windows-x86_64.zip')
+        uses: actions/upload-artifact@v4
+        with:
+          name: voxicraft-server-windows-x86_64
+          path: dist/voxicraft-server-windows-x86_64.zip
           if-no-files-found: error
 
   publish-downloadable-packages:
