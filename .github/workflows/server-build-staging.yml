@@ -79,14 +79,12 @@ permissions:
     steps:
       - name: Download Linux build artifact
         uses: actions/download-artifact@v4
-        continued-on-error: true
         with:
           name: voxicraft-server-linux-x86_64
           path: dist/linux
 
       - name: Download Windows build artifact
         uses: actions/download-artifact@v4
-        continued-on-error: true
         with:
           name: voxicraft-server-windows-x86_64
           path: dist/windows
