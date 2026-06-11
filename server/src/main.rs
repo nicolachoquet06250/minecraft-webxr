@@ -6,13 +6,14 @@ use std::{env, fs::OpenOptions, net::SocketAddr, sync::{Arc, Mutex}, time::{Syst
 use axum::{
     body::{Body, Bytes},
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, RawQuery, State},
-    http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     response::{IntoResponse, Response},
-    routing::{any, get, post},
+    routing::{get, post},
     Json, Router,
 };
 use chrono::Local;
 use futures::{SinkExt, StreamExt};
+#[cfg(feature = "embed_front")]
 use include_dir::{include_dir, Dir};
 use protocol::{ClientMessage, PlayerPublicState, PlayerTransform, ServerMessage};
 use rusqlite::Connection;
@@ -23,6 +24,8 @@ use tracing::{error, info, warn};
 
 const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
 const DEFAULT_STATS_DATABASE_PATH: &str = "minecraft-xr-stats.sqlite3";
+
+#[cfg(feature = "embed_front")]
 static FRONT_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../dist");
 
 #[derive(Clone)]
@@ -94,7 +97,17 @@ async fn main() {
         auth_central_base_url,
     };
 
-    let app = Router::new()
+    let app = build_router(&cors_client_domain, app_state);
+
+    info!(log_file = %log_file_path, "file logging enabled");
+    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, embedded_front = cfg!(feature = "embed_front"), "minecraft server started");
+
+    let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind TCP listener");
+    axum::serve(listener, app).await.expect("server failed unexpectedly");
+}
+
+fn build_router(cors_client_domain: &str, app_state: AppState) -> Router {
+    let router = Router::new()
         .route("/healthz", get(healthz))
         .route("/state", get(state_snapshot))
         .route("/stats", get(stats_snapshot))
@@ -102,16 +115,14 @@ async fn main() {
         .route("/api/auth/register", post(auth_register_proxy))
         .route("/api/auth/login", post(auth_login_proxy))
         .route("/api/auth/discord/url", get(auth_discord_url_proxy))
-        .route("/api/auth/discord/callback", get(auth_discord_callback_proxy))
-        .fallback(any(embedded_front_handler))
-        .layer(build_cors_layer(&cors_client_domain))
-        .with_state(app_state);
+        .route("/api/auth/discord/callback", get(auth_discord_callback_proxy));
 
-    info!(log_file = %log_file_path, "file logging enabled");
-    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, embedded_front_files = FRONT_DIST.files().count(), "minecraft server started");
+    #[cfg(feature = "embed_front")]
+    let router = router.fallback(get(embedded_front_handler));
 
-    let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind TCP listener");
-    axum::serve(listener, app).await.expect("server failed unexpectedly");
+    router
+        .layer(build_cors_layer(cors_client_domain))
+        .with_state(app_state)
 }
 
 fn load_env() {
@@ -219,7 +230,8 @@ fn push_cors_origin(origins: &mut Vec<HeaderValue>, origin: &str) {
     }
 }
 
-async fn embedded_front_handler(uri: Uri) -> Response {
+#[cfg(feature = "embed_front")]
+async fn embedded_front_handler(uri: axum::http::Uri) -> Response {
     if uri.path().starts_with("/api/") {
         return (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "not_found" }))).into_response();
     }
@@ -238,6 +250,7 @@ async fn embedded_front_handler(uri: Uri) -> Response {
     (StatusCode::NOT_FOUND, "Front embarqué introuvable").into_response()
 }
 
+#[cfg(feature = "embed_front")]
 fn embedded_file_response(path: &str, bytes: &'static [u8]) -> Response {
     let content_type = mime_guess::from_path(path)
         .first_or_octet_stream()
