@@ -1,8 +1,24 @@
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 use crate::state::ConnectedPlayerSummary;
+
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "create_player_sessions",
+        up_sql: include_str!("../migrations/0001_create_player_sessions/up.sql"),
+        down_sql: include_str!("../migrations/0001_create_player_sessions/down.sql"),
+    },
+];
+
+struct Migration {
+    version: i64,
+    name: &'static str,
+    up_sql: &'static str,
+    down_sql: &'static str,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CountByGender {
@@ -59,33 +75,93 @@ pub fn normalize_gender(gender: Option<&str>) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
-pub fn init_stats_database(connection: &Connection) -> rusqlite::Result<()> {
+pub fn migrate_up(connection: &mut Connection) -> rusqlite::Result<()> {
+    initialize_migration_table(connection)?;
+
+    for migration in MIGRATIONS {
+        let already_applied = migration_version_exists(connection, migration.version)?;
+
+        if already_applied {
+            continue;
+        }
+
+        let tx = connection.transaction()?;
+        tx.execute_batch(migration.up_sql)?;
+        tx.execute(
+            r#"
+            INSERT INTO schema_migrations (version, name, applied_at)
+            VALUES (?1, ?2, ?3)
+            "#,
+            params![migration.version, migration.name, now_rfc3339()],
+        )?;
+        tx.commit()?;
+    }
+
+    Ok(())
+}
+
+#[allow(dead_code)]
+pub fn rollback_last_migration(connection: &mut Connection) -> rusqlite::Result<Option<i64>> {
+    initialize_migration_table(connection)?;
+
+    let current_version = connection
+        .query_row(
+            r#"
+            SELECT version
+            FROM schema_migrations
+            ORDER BY version DESC
+            LIMIT 1
+            "#,
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?;
+
+    let Some(version) = current_version else {
+        return Ok(None);
+    };
+
+    let Some(migration) = MIGRATIONS.iter().find(|migration| migration.version == version) else {
+        return Err(rusqlite::Error::InvalidQuery);
+    };
+
+    let tx = connection.transaction()?;
+    tx.execute_batch(migration.down_sql)?;
+    tx.execute(
+        "DELETE FROM schema_migrations WHERE version = ?1",
+        params![version],
+    )?;
+    tx.commit()?;
+
+    Ok(Some(version))
+}
+
+fn initialize_migration_table(connection: &Connection) -> rusqlite::Result<()> {
     connection.execute_batch(
         r#"
         PRAGMA journal_mode = WAL;
         PRAGMA foreign_keys = ON;
 
-        CREATE TABLE IF NOT EXISTS player_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            player_id TEXT NOT NULL,
-            lobby_id TEXT NOT NULL,
-            nickname TEXT NOT NULL,
-            gender TEXT NOT NULL DEFAULT 'unknown',
-            connected_at TEXT NOT NULL,
-            disconnected_at TEXT,
-            duration_seconds INTEGER
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at TEXT NOT NULL
         );
-
-        CREATE INDEX IF NOT EXISTS idx_player_sessions_connected_at
-            ON player_sessions (connected_at);
-
-        CREATE INDEX IF NOT EXISTS idx_player_sessions_gender
-            ON player_sessions (gender);
-
-        CREATE INDEX IF NOT EXISTS idx_player_sessions_disconnected_at
-            ON player_sessions (disconnected_at);
         "#,
     )
+}
+
+fn migration_version_exists(connection: &Connection, version: i64) -> rusqlite::Result<bool> {
+    let exists = connection
+        .query_row(
+            "SELECT 1 FROM schema_migrations WHERE version = ?1 LIMIT 1",
+            params![version],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some();
+
+    Ok(exists)
 }
 
 pub fn start_player_session(
