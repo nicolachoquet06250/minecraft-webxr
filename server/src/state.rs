@@ -188,6 +188,12 @@ impl ServerState {
         self.players.get(&player_id)
     }
 
+    pub fn set_player_stats_session_id(&mut self, player_id: u64, stats_session_id: i64) {
+        if let Some(player) = self.players.get_mut(&player_id) {
+            player.stats_session_id = Some(stats_session_id);
+        }
+    }
+
     pub fn update_player_transform(&mut self, player_id: u64, transform: PlayerTransform) -> bool {
         if let Some(player) = self.players.get_mut(&player_id) {
             player.transform = transform;
@@ -244,10 +250,7 @@ impl ServerState {
     }
 
     pub fn get_or_create_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> ChunkState {
-        let coord = ChunkCoord {
-            x: chunk_x,
-            z: chunk_z,
-        };
+        let coord = ChunkCoord { x: chunk_x, z: chunk_z };
 
         if !self.chunks.contains_key(&coord) {
             let chunk = ChunkState {
@@ -258,10 +261,7 @@ impl ServerState {
             self.chunks.insert(coord, chunk);
         }
 
-        self.chunks
-            .get(&coord)
-            .expect("chunk should exist")
-            .clone()
+        self.chunks.get(&coord).expect("chunk should exist").clone()
     }
 
     pub fn set_block(
@@ -277,18 +277,13 @@ impl ServerState {
 
         let chunk_x = div_floor(world_x, CHUNK_SIZE_X as i32);
         let chunk_z = div_floor(world_z, CHUNK_SIZE_Z as i32);
-
         let local_x = world_x - chunk_x * CHUNK_SIZE_X as i32;
         let local_z = world_z - chunk_z * CHUNK_SIZE_Z as i32;
-
         let index = block_index(local_x as usize, world_y as usize, local_z as usize);
 
         let chunk = self
             .chunks
-            .entry(ChunkCoord {
-                x: chunk_x,
-                z: chunk_z,
-            })
+            .entry(ChunkCoord { x: chunk_x, z: chunk_z })
             .or_insert_with(|| ChunkState {
                 blocks: generate_chunk(chunk_x, chunk_z, self.seed),
                 chunk_version: 1,
@@ -300,7 +295,6 @@ impl ServerState {
 
         chunk.blocks[index] = block_id;
         chunk.chunk_version = chunk.chunk_version.saturating_add(1);
-
         self.world_version = self.world_version.saturating_add(1);
 
         Ok(self.world_version)
@@ -349,14 +343,12 @@ fn div_floor(a: i32, b: i32) -> i32 {
 
 fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
     let mut blocks = vec![0_u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
-
     let sea_level = 42_i32;
 
     for local_x in 0..CHUNK_SIZE_X {
         for local_z in 0..CHUNK_SIZE_Z {
             let world_x = chunk_x * CHUNK_SIZE_X as i32 + local_x as i32;
             let world_z = chunk_z * CHUNK_SIZE_Z as i32 + local_z as i32;
-
             let noise_a = coord_noise(world_x, world_z, seed);
             let noise_b = coord_noise(world_x / 2, world_z / 2, seed.wrapping_add(99));
             let height = 24_i32 + (noise_a % 28) as i32 + (noise_b % 10) as i32;
@@ -365,17 +357,9 @@ fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
             for y in 0..CHUNK_SIZE_Y {
                 let yi = y as i32;
                 let block = if yi > clamped_height {
-                    if yi <= sea_level {
-                        17_u8
-                    } else {
-                        0_u8
-                    }
+                    if yi <= sea_level { 17_u8 } else { 0_u8 }
                 } else if yi == clamped_height {
-                    if yi < sea_level {
-                        14_u8
-                    } else {
-                        1_u8
-                    }
+                    if yi < sea_level { 14_u8 } else { 1_u8 }
                 } else if yi > clamped_height - 4 {
                     2_u8
                 } else {
@@ -395,12 +379,10 @@ fn coord_noise(x: i32, z: i32, seed: u32) -> u32 {
     let mut value = seed as u64;
     value ^= (x as i64 as u64).wrapping_mul(0x9E37_79B1_85EB_CA87);
     value ^= (z as i64 as u64).wrapping_mul(0xC2B2_AE3D_27D4_EB4F);
-
     value ^= value >> 33;
     value = value.wrapping_mul(0xFF51_AFD7_ED55_8CCD);
     value ^= value >> 33;
     value = value.wrapping_mul(0xC4CE_B9FE_1A85_EC53);
     value ^= value >> 33;
-
     (value & 0xFFFF_FFFF) as u32
 }
