@@ -89,10 +89,10 @@ async fn main() {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| DEFAULT_STATS_DATABASE_PATH.to_string());
 
-    let stats_connection = Connection::open(&stats_database_path)
+    let mut stats_connection = Connection::open(&stats_database_path)
         .expect("failed to open stats SQLite database");
-    stats::init_stats_database(&stats_connection)
-        .expect("failed to initialize stats SQLite database");
+    stats::migrate_up(&mut stats_connection)
+        .expect("failed to run stats SQLite migrations");
 
     if host.contains(':') {
         host = format!("[{host}]");
@@ -530,7 +530,8 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                 match app_state.stats_db.lock() {
                     Ok(connection) => {
                         if let Err(error) = stats::finish_player_session(&connection, session_id, &disconnected_at) {
-                            error!(%error, player_id = %player_id_to_wire(player.id), session_id, "failed to finish player stats session");
+                            let player_id_wire = player_id_to_wire(player.id);
+                            error!(%error, player_id = %player_id_wire, session_id, "failed to finish player stats session");
                         }
                     }
                     Err(error) => {
