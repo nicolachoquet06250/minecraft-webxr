@@ -61,7 +61,7 @@ async fn main() {
         )
         .init();
 
-    let host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let mut host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("SERVER_PORT").unwrap_or_else(|_| "3001".to_string());
     let seed = env::var("WORLD_SEED")
         .ok()
@@ -79,9 +79,15 @@ async fn main() {
         .unwrap_or_else(|| "https://central.voxicraft.fr".to_string());
     let startup_auth_central_base_url = auth_central_base_url.clone();
 
+    if host.contains(':') {
+        host = format!("[{}]", host);
+    }
+
     let addr: SocketAddr = format!("{host}:{port}")
         .parse()
         .expect("invalid SERVER_HOST or SERVER_PORT");
+
+    eprintln(format!("https://{}:{}", host, port));
 
     let app_state = AppState {
         state: Arc::new(RwLock::new(ServerState::new(seed))),
