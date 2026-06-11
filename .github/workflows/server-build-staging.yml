@@ -44,7 +44,7 @@ permissions:
         run: |
           mkdir -p dist
           ls -las server
-          cp server/target/release/minecraft_server dist/minecraft_server
+          cp target/release/minecraft_server dist/minecraft_server
           tar -czf dist/minecraft-server-linux-x86_64.tar.gz -C dist minecraft_server
 
       - name: Upload Linux artifact
@@ -60,7 +60,7 @@ permissions:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item server/target/release/minecraft_server.exe dist/minecraft_server.exe
+          Copy-Item target/release/minecraft_server.exe dist/minecraft_server.exe
           Compress-Archive -Path dist/minecraft_server.exe -DestinationPath dist/minecraft-server-windows-x86_64.zip -Force
 
       - name: Upload Windows artifact
