@@ -100,7 +100,7 @@ function createDesktopButtonPanel(onPlay: () => void): HTMLElement {
 
     panel.append(
         createMenuButton("Un joueur", "play", false, onPlay),
-        createMenuButton("Multijoueur", undefined, true),
+        createMenuButton("Multijoueur", "play", false, onPlay),
         createDesktopButtonRow(
             createMenuButton("Options...", undefined, false, openOptions),
             createMenuButton("Quitter le jeu", undefined, false),

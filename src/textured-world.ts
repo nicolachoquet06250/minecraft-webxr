@@ -47,6 +47,7 @@ type BreakBlockParams = {
   material: StandardMaterial;
   droppedItems: DroppedItem[];
   targetRay?: Ray | null;
+  onBlockMutated?: (worldX: number, worldY: number, worldZ: number, blockId: BlockId) => void;
 };
 
 type WorldBlockPosition = { x: number; y: number; z: number };
@@ -344,6 +345,7 @@ export function breakBlock(params: BreakBlockParams): void {
   const localX = worldToLocalCoordinate(target.x, sizeX);
   const localZ = worldToLocalCoordinate(target.z, sizeZ);
   setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, target.y, localZ, BlockId.Air);
+  params.onBlockMutated?.(target.x, target.y, target.z, BlockId.Air);
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
   dropBlock(scene, target.block, new Vector3(target.x + 0.5, target.y + 0.5, target.z + 0.5), material, droppedItems);
 }
@@ -389,6 +391,7 @@ export function placeBlock(params: BreakBlockParams): void {
   const localZ = worldToLocalCoordinate(placeTarget.z, sizeZ);
 
   setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, placeTarget.y, localZ, blockToPlace);
+  params.onBlockMutated?.(placeTarget.x, placeTarget.y, placeTarget.z, blockToPlace);
   rebuildAffectedChunks(scene, worldChunks, sizeX, sizeY, sizeZ, material, chunk, localX, localZ);
 
   selectedItem.count -= 1;

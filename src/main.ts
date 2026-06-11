@@ -20,10 +20,14 @@ import {
   initializeCamera,
   inisializeLight,
   generatePlayer,
+  getChunkFromWorldPosition,
   getChunkKey,
+  getCurrentChunkCoordinate,
   initializeCrosshair,
   findDrySpawnPosition,
   hasCollisionAt,
+  setBlock,
+  worldToLocalCoordinate,
 } from "./functions";
 import {
   createChunkMesh,
@@ -48,11 +52,14 @@ import { createWaterEffect } from "./water-effects";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 import {
-  createAlex,
   createSteve,
-  resolvePlayerCharacterCollision,
-  syncCameraToPlayerPosition,
 } from "~/characters";
+import {
+  MultiplayerClient,
+  resolveDefaultWsUrl,
+  type PlayerPublicState,
+  type PlayerTransformPayload,
+} from "./multiplayer-client";
 
 const registrations = await navigator.serviceWorker.getRegistrations();
 if (registrations.length > 1) {
@@ -113,6 +120,41 @@ function debugBlockDistribution(blocks: Uint8Array): void {
       .sort(([a], [b]) => a - b)
       .map(([blockId, count]) => ({ blockId, count })),
   );
+}
+
+type RemotePlayerVisual = {
+  mesh: import("@babylonjs/core").Mesh;
+  animator: {
+    play: (animationName: string, loop?: boolean, speed?: number) => void;
+    getCurrentAnimation: () => string | null;
+    dispose: () => void;
+  };
+};
+
+function getOrCreateMultiplayerIdentity(): { lobbyId: string; nickname: string } {
+  const lobbyStorageKey = "minecraft:multiplayer:lobby";
+  const nicknameStorageKey = "minecraft:multiplayer:nickname";
+
+  const lobbyIdFromStorage = window.localStorage.getItem(lobbyStorageKey)?.trim();
+  const nicknameFromStorage = window.localStorage.getItem(nicknameStorageKey)?.trim();
+
+  const lobbyId = lobbyIdFromStorage && lobbyIdFromStorage.length > 0
+    ? lobbyIdFromStorage
+    : "public";
+
+  let nickname = nicknameFromStorage && nicknameFromStorage.length > 0
+    ? nicknameFromStorage
+    : "";
+
+  if (!nickname) {
+    const suffix = Math.floor(Math.random() * 9000 + 1000);
+    nickname = `joueur-${suffix}`;
+  }
+
+  window.localStorage.setItem(lobbyStorageKey, lobbyId);
+  window.localStorage.setItem(nicknameStorageKey, nickname);
+
+  return { lobbyId, nickname };
 }
 
 function getInputMoveDirection(player: PlayerPhysics): Vector3 {
@@ -252,22 +294,213 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
         chunk_size_y, chunk_size_z
     } = wasm;
 
-    const sizeX = chunk_size_x();
-    const sizeY = chunk_size_y();
-    const sizeZ = chunk_size_z();
+    let sizeX = chunk_size_x();
+    let sizeY = chunk_size_y();
+    let sizeZ = chunk_size_z();
+    let worldSeed = SEED;
 
     const spawnChunkX = Math.floor(SPAWN_X / sizeX);
     const spawnChunkZ = Math.floor(SPAWN_Z / sizeZ);
 
     const worldChunks: WorldChunks = new Map();
     const droppedItems: DroppedItem[] = [];
+    const remotePlayers = new Map<string, RemotePlayerVisual>();
+    const requestedServerChunks = new Set<string>();
+    let localPlayerId: string | null = null;
+
+    const upsertRemotePlayer = (playerState: PlayerPublicState): void => {
+      if (playerState.player_id === localPlayerId) {
+        return;
+      }
+
+      let remote = remotePlayers.get(playerState.player_id);
+
+      if (!remote) {
+        const spawnPosition = new Vector3(
+          playerState.transform.position[0],
+          playerState.transform.position[1],
+          playerState.transform.position[2],
+        );
+        const { mesh, animator } = createSteve(scene, spawnPosition, {
+          physics: {
+            externalControl: true,
+            gravityEnabled: false,
+            collisionsEnabled: false,
+          },
+        });
+
+        remote = { mesh, animator };
+        remotePlayers.set(playerState.player_id, remote);
+      }
+
+      remote.mesh.position.copyFromFloats(
+        playerState.transform.position[0],
+        playerState.transform.position[1],
+        playerState.transform.position[2],
+      );
+      remote.mesh.rotation.y = playerState.transform.rotation[0];
+
+      const velocity = playerState.transform.velocity;
+      const speed = Math.hypot(velocity[0], velocity[2]);
+      const targetAnimation = speed > 0.15 ? "walk" : "idle";
+
+      if (remote.animator.getCurrentAnimation() !== targetAnimation) {
+        remote.animator.play(targetAnimation);
+      }
+    };
+
+    const removeRemotePlayer = (playerId: string): void => {
+      const remote = remotePlayers.get(playerId);
+
+      if (!remote) {
+        return;
+      }
+
+      remote.animator.dispose();
+      remote.mesh.dispose();
+      remotePlayers.delete(playerId);
+    };
+
+    const applyServerChunkData = (
+      chunkX: number,
+      chunkZ: number,
+      blocks: Uint8Array,
+    ): void => {
+      const key = getChunkKey(chunkX, chunkZ);
+      const existing = worldChunks.get(key);
+
+      if (existing) {
+        existing.blocks = blocks;
+        existing.mesh.dispose();
+        existing.mesh = createChunkMesh({
+          scene,
+          name: `chunk-${chunkX}-${chunkZ}`,
+          blocks,
+          sizeX,
+          sizeY,
+          sizeZ,
+          chunkX,
+          chunkZ,
+          material: lightMaterial,
+        });
+        return;
+      }
+
+      const mesh = createChunkMesh({
+        scene,
+        name: `chunk-${chunkX}-${chunkZ}`,
+        blocks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        chunkX,
+        chunkZ,
+        material: lightMaterial,
+      });
+
+      worldChunks.set(key, {
+        chunkX,
+        chunkZ,
+        blocks,
+        mesh,
+      });
+    };
+
+    const applyServerBlockUpdate = (
+      worldX: number,
+      worldY: number,
+      worldZ: number,
+      blockId: number,
+    ): void => {
+      const chunk = getChunkFromWorldPosition(worldChunks, sizeX, sizeZ, worldX, worldZ);
+
+      if (!chunk) {
+        return;
+      }
+
+      const localX = worldToLocalCoordinate(worldX, sizeX);
+      const localZ = worldToLocalCoordinate(worldZ, sizeZ);
+
+      setBlock(chunk.blocks, sizeX, sizeY, sizeZ, localX, worldY, localZ, blockId as any);
+      chunk.mesh.dispose();
+      chunk.mesh = createChunkMesh({
+        scene,
+        name: `chunk-${chunk.chunkX}-${chunk.chunkZ}`,
+        blocks: chunk.blocks,
+        sizeX,
+        sizeY,
+        sizeZ,
+        chunkX: chunk.chunkX,
+        chunkZ: chunk.chunkZ,
+        material: lightMaterial,
+      });
+    };
+
+    const multiplayerIdentity = getOrCreateMultiplayerIdentity();
+    const multiplayerClient = new MultiplayerClient({
+      wsUrl: resolveDefaultWsUrl(),
+      lobbyId: multiplayerIdentity.lobbyId,
+      nickname: multiplayerIdentity.nickname,
+      handlers: {
+        onWelcome: (welcome) => {
+          localPlayerId = welcome.playerId;
+          worldSeed = welcome.seed;
+          sizeX = welcome.chunkSize[0];
+          sizeY = welcome.chunkSize[1];
+          sizeZ = welcome.chunkSize[2];
+        },
+        onLobbyState: (players) => {
+          const alivePlayerIds = new Set<string>();
+
+          for (const playerState of players) {
+            alivePlayerIds.add(playerState.player_id);
+            upsertRemotePlayer(playerState);
+          }
+
+          for (const playerId of [...remotePlayers.keys()]) {
+            if (!alivePlayerIds.has(playerId)) {
+              removeRemotePlayer(playerId);
+            }
+          }
+        },
+        onPlayerJoined: (playerState) => {
+          upsertRemotePlayer(playerState);
+        },
+        onPlayerLeft: (playerId) => {
+          removeRemotePlayer(playerId);
+        },
+        onPlayerTransform: (playerId, transform) => {
+          upsertRemotePlayer({
+            player_id: playerId,
+            nickname: "",
+            transform,
+          });
+        },
+        onChunkData: (chunkX, chunkZ, blocks) => {
+          applyServerChunkData(chunkX, chunkZ, blocks);
+        },
+        onBlockUpdated: (worldX, worldY, worldZ, blockId) => {
+          applyServerBlockUpdate(worldX, worldY, worldZ, blockId);
+        },
+        onError: (code, message) => {
+          console.warn("Erreur serveur multijoueur", code, message);
+        },
+      },
+    });
+
+    try {
+      await multiplayerClient.connect();
+      console.info("Multijoueur connecté");
+    } catch (error) {
+      console.warn("Connexion multijoueur indisponible, fallback solo local", error);
+    }
 
     for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
         for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
             const chunkX = spawnChunkX + offsetX;
             const chunkZ = spawnChunkZ + offsetZ;
 
-            const blocks = generate_chunk(chunkX, chunkZ, SEED);
+            const blocks = generate_chunk(chunkX, chunkZ, worldSeed);
 
             debugBlockDistribution(blocks);
 
@@ -312,54 +545,37 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
     const player = generatePlayer(spawn);
 
-    // Créer le personnage Alex près du spawn sur une zone plate
-    const alexSpawn = findDrySpawnPosition(
-        worldChunks,
-        sizeX,
-        sizeY,
-        sizeZ,
-        SPAWN_X + 5,
-        SPAWN_Z,
-        10,
-    );
-    console.log("Alex spawn position:", alexSpawn);
-    const alexPosition = new Vector3(alexSpawn.x, alexSpawn.y, alexSpawn.z);
-    const {animator: alexAnimator, physics: alexPhysics} = createAlex(
-      scene,
-      alexPosition,
-      { physics: { externalControl: false } },
-    );
+    const requestServerChunksAroundPlayer = (): void => {
+      if (!multiplayerClient.isConnected()) {
+        return;
+      }
 
-    alexAnimator.play("mine");
+      const centerChunkX = getCurrentChunkCoordinate(player.position.x, sizeX);
+      const centerChunkZ = getCurrentChunkCoordinate(player.position.z, sizeZ);
 
-    setTimeout(() => {
-        alexAnimator.stop();
-    }, 20000);
+      for (let dz = -INITIAL_CHUNK_RADIUS; dz <= INITIAL_CHUNK_RADIUS; dz++) {
+        for (let dx = -INITIAL_CHUNK_RADIUS; dx <= INITIAL_CHUNK_RADIUS; dx++) {
+          const chunkX = centerChunkX + dx;
+          const chunkZ = centerChunkZ + dz;
+          const key = getChunkKey(chunkX, chunkZ);
 
-    // Créer le personnage Steve près du spawn sur une zone plate
-    const steveSpawn = findDrySpawnPosition(
-        worldChunks,
-        sizeX,
-        sizeY,
-        sizeZ,
-        SPAWN_X + 5,
-        SPAWN_Z - 1,
-        10,
-    );
-    const stevePosition = new Vector3(steveSpawn.x, steveSpawn.y, steveSpawn.z);
-    const {mesh: steveMesh, animator: steveAnimator, physics: stevePhysics} = createSteve(
-      scene,
-      stevePosition,
-      { physics: { externalControl: false } },
-    );
+          if (requestedServerChunks.has(key)) {
+            continue;
+          }
 
-    steveMesh.rotation.y = -(Math.PI / 2); // Faire face au joueur
+          requestedServerChunks.add(key);
+          multiplayerClient.requestChunk(chunkX, chunkZ);
+        }
+      }
+    };
 
-    steveAnimator.play("walk");
+    requestServerChunksAroundPlayer();
 
-    setTimeout(() => {
-        steveAnimator.stop();
-    }, 20000);
+    (player as PlayerPhysics & {
+      _onLocalBlockMutated?: (worldX: number, worldY: number, worldZ: number, blockId: number) => void;
+    })._onLocalBlockMutated = (worldX, worldY, worldZ, blockId) => {
+      multiplayerClient.setBlock(worldX, worldY, worldZ, blockId);
+    };
 
     // Expose properties for mobile controls
     (player as any)._worldChunks = worldChunks;
@@ -396,6 +612,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     let leftTriggerWasPressed = false;
     let rightTriggerWasPressed = false;
     let rightBButtonWasPressed = false;
+    let transformSyncElapsed = 0;
 
     if (options.enterVR) {
         void webXRControls.enterVR();
@@ -464,6 +681,9 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
                     material: lightMaterial,
                     droppedItems,
                     targetRay: leftControllerRay,
+                    onBlockMutated: (worldX, worldY, worldZ, blockId) => {
+                      multiplayerClient.setBlock(worldX, worldY, worldZ, blockId);
+                    },
                 });
             }
 
@@ -480,6 +700,9 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
                     material: lightMaterial,
                     droppedItems,
                     targetRay: rightControllerRay,
+                  onBlockMutated: (worldX, worldY, worldZ, blockId) => {
+                    multiplayerClient.setBlock(worldX, worldY, worldZ, blockId);
+                  },
                 });
             } else {
                 cancelBlockBreaking();
@@ -521,36 +744,6 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             });
         }
 
-          alexPhysics?.update({
-            worldChunks,
-            sizeX,
-            sizeY,
-            sizeZ,
-            deltaTime,
-          });
-
-          stevePhysics?.update({
-            worldChunks,
-            sizeX,
-            sizeY,
-            sizeZ,
-            deltaTime,
-          });
-
-          const playerCollidedWithAlex = alexPhysics
-            ? resolvePlayerCharacterCollision(player, alexPhysics)
-            : false;
-          const playerCollidedWithSteve = stevePhysics
-            ? resolvePlayerCharacterCollision(player, stevePhysics)
-            : false;
-
-          if (playerCollidedWithAlex || playerCollidedWithSteve) {
-            syncCameraToPlayerPosition(player, camera.position);
-            camera.rotation.x = player.pitch;
-            camera.rotation.y = player.yaw;
-            camera.rotation.z = 0;
-          }
-
         waterEffect.update(deltaTime);
         waterEffect.tryTriggerSplash({
             player,
@@ -573,6 +766,23 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
             sizeY,
             sizeZ,
         });
+        requestServerChunksAroundPlayer();
+
+        if (multiplayerClient.isConnected()) {
+          transformSyncElapsed += deltaTime;
+
+          if (transformSyncElapsed >= 0.05) {
+            transformSyncElapsed = 0;
+
+            const transformPayload: PlayerTransformPayload = {
+              position: [player.position.x, player.position.y, player.position.z],
+              rotation: [player.yaw, player.pitch],
+              velocity: [player.velocity.x, player.velocity.y, player.velocity.z],
+            };
+
+            multiplayerClient.sendTransform(transformPayload);
+          }
+        }
 
         updateBlockBreaking(deltaTime);
         updateDroppedItems(droppedItems, player, worldChunks, sizeX, sizeY, sizeZ, deltaTime);

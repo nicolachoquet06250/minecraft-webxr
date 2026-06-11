@@ -120,6 +120,9 @@ function getBreakingParams(
     sizeZ,
     material,
     droppedItems,
+    onBlockMutated: (player as PlayerPhysics & {
+      _onLocalBlockMutated?: (worldX: number, worldY: number, worldZ: number, blockId: number) => void;
+    })._onLocalBlockMutated,
   };
 }
 
