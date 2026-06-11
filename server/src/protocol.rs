@@ -21,7 +21,12 @@ pub struct PlayerPublicState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ClientMessage {
-    Hello { lobby_id: String, nickname: String },
+    Hello {
+        lobby_id: String,
+        nickname: String,
+        #[serde(default)]
+        gender: Option<String>,
+    },
     RequestChunk { chunk_x: i32, chunk_z: i32 },
     SetBlock {
         world_x: i32,
