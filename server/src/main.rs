@@ -1,11 +1,12 @@
 mod protocol;
 mod state;
+mod stats;
 
 use std::{
     env,
     fs::OpenOptions,
     net::SocketAddr,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -23,19 +24,20 @@ use axum::{
 };
 use chrono::Local;
 use futures::{SinkExt, StreamExt};
-use protocol::{
-    ClientMessage, PlayerPublicState, PlayerTransform, ServerMessage,
-};
+use protocol::{ClientMessage, PlayerPublicState, PlayerTransform, ServerMessage};
+use rusqlite::Connection;
 use state::{player_id_to_wire, ServerState};
 use tokio::sync::{RwLock, mpsc};
 use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
 
 const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
+const DEFAULT_STATS_DATABASE_PATH: &str = "minecraft-xr-stats.sqlite3";
 
 #[derive(Clone)]
 struct AppState {
     state: Arc<RwLock<ServerState>>,
+    stats_db: Arc<Mutex<Connection>>,
     auth_http_client: reqwest::Client,
     auth_central_base_url: String,
 }
@@ -81,19 +83,30 @@ async fn main() {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "https://central.voxicraft.fr".to_string());
     let startup_auth_central_base_url = auth_central_base_url.clone();
+    let stats_database_path = env::var("STATS_DATABASE_PATH")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_STATS_DATABASE_PATH.to_string());
+
+    let stats_connection = Connection::open(&stats_database_path)
+        .expect("failed to open stats SQLite database");
+    stats::init_stats_database(&stats_connection)
+        .expect("failed to initialize stats SQLite database");
 
     if host.contains(':') {
-        host = format!("[{}]", host);
+        host = format!("[{host}]");
     }
 
     let addr: SocketAddr = format!("{host}:{port}")
         .parse()
         .expect("invalid SERVER_HOST or SERVER_PORT");
 
-    println!("https://{}:{}", host, port);
+    println!("http://{}:{}", host, port);
 
     let app_state = AppState {
         state: Arc::new(RwLock::new(ServerState::new(seed))),
+        stats_db: Arc::new(Mutex::new(stats_connection)),
         auth_http_client: reqwest::Client::new(),
         auth_central_base_url,
     };
@@ -101,6 +114,7 @@ async fn main() {
     let app = Router::new()
         .route("/healthz", get(healthz))
         .route("/state", get(state_snapshot))
+        .route("/stats", get(stats_snapshot))
         .route("/ws", get(ws_handler))
         .route("/api/auth/register", post(auth_register_proxy))
         .route("/api/auth/login", post(auth_login_proxy))
@@ -110,7 +124,7 @@ async fn main() {
         .with_state(app_state);
 
     info!(log_file = %log_file_path, "file logging enabled");
-    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, "minecraft server started");
+    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, "minecraft server started");
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -157,6 +171,47 @@ async fn healthz() -> Json<serde_json::Value> {
 async fn state_snapshot(State(app_state): State<AppState>) -> Json<state::ServerSummary> {
     let state = app_state.state.read().await;
     Json(state.summary())
+}
+
+async fn stats_snapshot(State(app_state): State<AppState>) -> Response {
+    let connected_players = {
+        let state = app_state.state.read().await;
+        state.connected_players_summary()
+    };
+
+    let stats_result = {
+        let connection = match app_state.stats_db.lock() {
+            Ok(connection) => connection,
+            Err(error) => {
+                error!(%error, "stats SQLite mutex poisoned");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": "stats_database_unavailable",
+                        "message": "La base de statistiques est indisponible"
+                    })),
+                )
+                    .into_response();
+            }
+        };
+
+        stats::collect_server_stats(&connection, connected_players)
+    };
+
+    match stats_result {
+        Ok(stats) => Json(stats).into_response(),
+        Err(error) => {
+            error!(%error, "failed to collect server stats");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "stats_query_failed",
+                    "message": "Impossible de récupérer les statistiques serveur"
+                })),
+            )
+                .into_response()
+        }
+    }
 }
 
 async fn ws_handler(ws: WebSocketUpgrade, State(app_state): State<AppState>) -> impl IntoResponse {
@@ -351,7 +406,7 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                 };
 
                 if active_player_id.is_none() {
-                    let ClientMessage::Hello { lobby_id, nickname } = client_message else {
+                    let ClientMessage::Hello { lobby_id, nickname, gender } = client_message else {
                         let _ = out_tx.send(ServerMessage::Error {
                             code: "hello_required".to_string(),
                             message: "Le premier message doit etre hello".to_string(),
@@ -359,9 +414,19 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                         continue;
                     };
 
+                    let normalized_gender = stats::normalize_gender(gender.as_deref());
+                    let connected_at = stats::now_rfc3339();
+
                     let (new_player_id, welcome_message, lobby_state_message, joined_message) = {
                         let mut state = app_state.state.write().await;
-                        let result = state.register_player(lobby_id, nickname, out_tx.clone());
+                        let result = state.register_player(
+                            lobby_id,
+                            nickname,
+                            normalized_gender.clone(),
+                            connected_at.clone(),
+                            None,
+                            out_tx.clone(),
+                        );
 
                         let joined_player = PlayerPublicState {
                             player_id: player_id_to_wire(result.player.id),
@@ -381,6 +446,41 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                             joined_message,
                         )
                     };
+
+                    let player_id_wire = player_id_to_wire(new_player_id);
+                    let stats_session_id = {
+                        match app_state.stats_db.lock() {
+                            Ok(connection) => match stats::start_player_session(
+                                &connection,
+                                &player_id_wire,
+                                match &joined_message {
+                                    ServerMessage::PlayerJoined { lobby_id, .. } => lobby_id,
+                                    _ => "unknown",
+                                },
+                                match &joined_message {
+                                    ServerMessage::PlayerJoined { player, .. } => &player.nickname,
+                                    _ => "unknown",
+                                },
+                                &normalized_gender,
+                                &connected_at,
+                            ) {
+                                Ok(session_id) => Some(session_id),
+                                Err(error) => {
+                                    error!(%error, player_id = %player_id_wire, "failed to create player stats session");
+                                    None
+                                }
+                            },
+                            Err(error) => {
+                                error!(%error, "stats SQLite mutex poisoned");
+                                None
+                            }
+                        }
+                    };
+
+                    if let Some(session_id) = stats_session_id {
+                        let mut state = app_state.state.write().await;
+                        state.set_player_stats_session_id(new_player_id, session_id);
+                    }
 
                     let _ = out_tx.send(welcome_message);
                     let _ = out_tx.send(lobby_state_message);
@@ -411,16 +511,39 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
     }
 
     if let Some(player_id) = active_player_id {
-        let mut state = app_state.state.write().await;
-        if let Some((lobby_id, left_message)) = state.remove_player(player_id) {
-            state.broadcast_to_lobby(&lobby_id, &left_message, None);
-            let lobby_state = state.lobby_state_message(&lobby_id);
-            state.broadcast_to_lobby(&lobby_id, &lobby_state, None);
+        let removed_player = {
+            let mut state = app_state.state.write().await;
+            match state.remove_player(player_id) {
+                Some((player, lobby_id, left_message)) => {
+                    state.broadcast_to_lobby(&lobby_id, &left_message, None);
+                    let lobby_state = state.lobby_state_message(&lobby_id);
+                    state.broadcast_to_lobby(&lobby_id, &lobby_state, None);
+                    Some(player)
+                }
+                None => None,
+            }
+        };
+
+        if let Some(player) = removed_player {
+            if let Some(session_id) = player.stats_session_id {
+                let disconnected_at = stats::now_rfc3339();
+                match app_state.stats_db.lock() {
+                    Ok(connection) => {
+                        if let Err(error) = stats::finish_player_session(&connection, session_id, &disconnected_at) {
+                            error!(%error, player_id = %player_id_to_wire(player.id), session_id, "failed to finish player stats session");
+                        }
+                    }
+                    Err(error) => {
+                        error!(%error, "stats SQLite mutex poisoned");
+                    }
+                }
+            }
         }
     }
 
     writer.abort();
 }
+
 async fn process_player_message(
     app_state: &AppState,
     out_tx: &mpsc::UnboundedSender<ServerMessage>,
