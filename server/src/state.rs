@@ -24,6 +24,9 @@ pub struct PlayerState {
     pub id: u64,
     pub lobby_id: String,
     pub nickname: String,
+    pub gender: String,
+    pub connected_at: String,
+    pub stats_session_id: Option<i64>,
     pub transform: PlayerTransform,
 }
 
@@ -37,6 +40,16 @@ pub struct LobbyState {
 pub struct LobbySummary {
     pub lobby_id: String,
     pub players: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ConnectedPlayerSummary {
+    pub player_id: String,
+    pub lobby_id: String,
+    pub nickname: String,
+    pub gender: String,
+    pub connected_at: String,
+    pub transform: PlayerTransform,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -98,10 +111,31 @@ impl ServerState {
         }
     }
 
+    pub fn connected_players_summary(&self) -> Vec<ConnectedPlayerSummary> {
+        let mut players: Vec<ConnectedPlayerSummary> = self
+            .players
+            .values()
+            .map(|player| ConnectedPlayerSummary {
+                player_id: player_id_to_wire(player.id),
+                lobby_id: player.lobby_id.clone(),
+                nickname: player.nickname.clone(),
+                gender: player.gender.clone(),
+                connected_at: player.connected_at.clone(),
+                transform: player.transform.clone(),
+            })
+            .collect();
+
+        players.sort_by(|a, b| a.connected_at.cmp(&b.connected_at));
+        players
+    }
+
     pub fn register_player(
         &mut self,
         lobby_id: String,
         nickname: String,
+        gender: String,
+        connected_at: String,
+        stats_session_id: Option<i64>,
         tx: mpsc::UnboundedSender<ServerMessage>,
     ) -> RegisterPlayerResult {
         let player_id = self.next_player_id;
@@ -111,6 +145,9 @@ impl ServerState {
             id: player_id,
             lobby_id: lobby_id.clone(),
             nickname,
+            gender,
+            connected_at,
+            stats_session_id,
             transform: PlayerTransform::default(),
         };
 
@@ -161,7 +198,7 @@ impl ServerState {
         false
     }
 
-    pub fn remove_player(&mut self, player_id: u64) -> Option<(String, ServerMessage)> {
+    pub fn remove_player(&mut self, player_id: u64) -> Option<(PlayerState, String, ServerMessage)> {
         let player = self.players.remove(&player_id)?;
         self.sessions.remove(&player_id);
 
@@ -172,13 +209,13 @@ impl ServerState {
             }
         }
 
-        let lobby_id = player.lobby_id;
+        let lobby_id = player.lobby_id.clone();
         let message = ServerMessage::PlayerLeft {
             lobby_id: lobby_id.clone(),
             player_id: player_id_to_wire(player_id),
         };
 
-        Some((lobby_id, message))
+        Some((player, lobby_id, message))
     }
 
     pub fn lobby_state_message(&self, lobby_id: &str) -> ServerMessage {
