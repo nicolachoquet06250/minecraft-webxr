@@ -8,6 +8,7 @@ import {
 import { placeBlock } from "./textured-world";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
+import { initializeSoloSpawnCharacters } from "./solo-spawn-characters";
 
 const MIN_PITCH = -Math.PI / 2 + 0.05;
 const MAX_PITCH = Math.PI / 2 - 0.05;
@@ -138,6 +139,8 @@ export default function (
   material: StandardMaterial,
   droppedItems: DroppedItem[],
 ) {
+  initializeSoloSpawnCharacters({ scene, worldChunks, sizeX, sizeY, sizeZ });
+
   new ResizeObserver(handleResize(engine)).observe(window.document.body);
 
   const breakingParams = getBreakingParams(
@@ -219,23 +222,6 @@ export default function (
   window.addEventListener("blur", () => {
     primaryBreakButtonPressed = false;
     cancelBlockBreaking();
+    clearMovementKeys();
   });
-
-  canvas.addEventListener("touchstart", (e) => {
-    if (isCraftingOverlayOpen()) {
-      clearMovementKeys();
-      cancelBlockBreaking();
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      return;
-    }
-
-    if (isMobileMode()) {
-        console.log("Canvas touchstart received - blocking destruction on mobile");
-        if (e.cancelable) {
-            e.preventDefault();
-        }
-    }
-  }, { passive: false });
 }
