@@ -72,8 +72,8 @@ async fn main() {
     eprintln!("API_PORT = {:?}", env::var("API_PORT"));*/
 
     match dotenvy::dotenv() {
-        Ok(path) => eprintln!(".env auto chargé depuis: {}", path.display()),
-        Err(error) => eprintln!("Aucun .env auto chargé: {error}"),
+        Ok(path) => println!(".env auto chargé depuis: {}", path.display()),
+        Err(error) => println!("Aucun .env auto chargé: {error}"),
     }
 
     let log_file_path = build_log_file_name();
@@ -119,7 +119,7 @@ async fn main() {
         .parse()
         .expect("invalid SERVER_HOST or SERVER_PORT");
 
-    eprintln!("https://{}:{}", host, port);
+    println!("https://{}:{}", host, port);
 
     let app_state = AppState {
         state: Arc::new(RwLock::new(ServerState::new(seed))),
