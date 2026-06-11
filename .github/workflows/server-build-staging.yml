@@ -43,6 +43,7 @@ permissions:
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
+          ls -las server
           cp server/target/release/minecraft_server dist/minecraft_server
           tar -czf dist/minecraft-server-linux-x86_64.tar.gz -C dist minecraft_server
 
