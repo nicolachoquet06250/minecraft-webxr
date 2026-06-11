@@ -8,12 +8,13 @@
     "build": "npm run build:wasm && tsc && vite build",
     "build:wasm": "cargo install wasm-pack && cd wasm && cargo test && wasm-pack build --target web --out-dir ../src/assets/wasm",
     "preview": "vite preview",
-    "server:dev": "npm run build && cargo run --manifest-path server/Cargo.toml",
-    "server:build": "npm run build && cargo build --manifest-path server/Cargo.toml --release",
-    "server:build:linux": "npm run build && cargo build --manifest-path server/Cargo.toml --release --target x86_64-unknown-linux-gnu",
-    "server:build:windows": "npm run build && cargo build --manifest-path server/Cargo.toml --release --target x86_64-pc-windows-msvc",
+    "server:dev": "cargo run --manifest-path server/Cargo.toml",
+    "server:build": "npm run build && cargo build --manifest-path server/Cargo.toml --release --features embed_front",
+    "server:build:linux": "npm run build && cargo build --manifest-path server/Cargo.toml --release --target x86_64-unknown-linux-gnu --features embed_front",
+    "server:build:windows": "npm run build && cargo build --manifest-path server/Cargo.toml --release --target x86_64-pc-windows-msvc --features embed_front",
     "server:build:all": "npm run server:build:linux && npm run server:build:windows",
-    "server:check": "npm run build && cargo check --manifest-path server/Cargo.toml"
+    "server:check": "cargo check --manifest-path server/Cargo.toml",
+    "server:check:prod": "npm run build && cargo check --manifest-path server/Cargo.toml --features embed_front"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
