@@ -6,13 +6,14 @@ use std::{env, fs::OpenOptions, net::SocketAddr, sync::{Arc, Mutex}, time::{Syst
 use axum::{
     body::{Body, Bytes},
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, RawQuery, State},
-    http::{header, HeaderMap, HeaderValue, Method, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, StatusCode, Uri},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{any, get, post},
     Json, Router,
 };
 use chrono::Local;
 use futures::{SinkExt, StreamExt};
+use include_dir::{include_dir, Dir};
 use protocol::{ClientMessage, PlayerPublicState, PlayerTransform, ServerMessage};
 use rusqlite::Connection;
 use state::{player_id_to_wire, ServerState};
@@ -22,6 +23,7 @@ use tracing::{error, info, warn};
 
 const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
 const DEFAULT_STATS_DATABASE_PATH: &str = "minecraft-xr-stats.sqlite3";
+static FRONT_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../dist");
 
 #[derive(Clone)]
 struct AppState {
@@ -101,11 +103,12 @@ async fn main() {
         .route("/api/auth/login", post(auth_login_proxy))
         .route("/api/auth/discord/url", get(auth_discord_url_proxy))
         .route("/api/auth/discord/callback", get(auth_discord_callback_proxy))
+        .fallback(any(embedded_front_handler))
         .layer(build_cors_layer(&cors_client_domain))
         .with_state(app_state);
 
     info!(log_file = %log_file_path, "file logging enabled");
-    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, "minecraft server started");
+    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, embedded_front_files = FRONT_DIST.files().count(), "minecraft server started");
 
     let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind TCP listener");
     axum::serve(listener, app).await.expect("server failed unexpectedly");
@@ -214,6 +217,41 @@ fn push_cors_origin(origins: &mut Vec<HeaderValue>, origin: &str) {
         }
         Err(error) => warn!(%error, origin = %origin, "invalid CORS origin ignored"),
     }
+}
+
+async fn embedded_front_handler(uri: Uri) -> Response {
+    if uri.path().starts_with("/api/") {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "not_found" }))).into_response();
+    }
+
+    let requested_path = uri.path().trim_start_matches('/');
+    let file_path = if requested_path.is_empty() { "index.html" } else { requested_path };
+
+    if let Some(file) = FRONT_DIST.get_file(file_path) {
+        return embedded_file_response(file_path, file.contents());
+    }
+
+    if let Some(index) = FRONT_DIST.get_file("index.html") {
+        return embedded_file_response("index.html", index.contents());
+    }
+
+    (StatusCode::NOT_FOUND, "Front embarqué introuvable").into_response()
+}
+
+fn embedded_file_response(path: &str, bytes: &'static [u8]) -> Response {
+    let content_type = mime_guess::from_path(path)
+        .first_or_octet_stream()
+        .as_ref()
+        .to_string();
+
+    let mut response = Response::new(Body::from(bytes));
+    *response.status_mut() = StatusCode::OK;
+
+    if let Ok(value) = HeaderValue::from_str(&content_type) {
+        response.headers_mut().insert(header::CONTENT_TYPE, value);
+    }
+
+    response
 }
 
 async fn healthz() -> Json<serde_json::Value> {
