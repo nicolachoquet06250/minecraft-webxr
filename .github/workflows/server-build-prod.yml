@@ -51,14 +51,14 @@ permissions:
             tar -czf dist/voxicraft-server-linux-x86_64.tar.gz -C dist voxicraft_server
           fi
 
-      - name: Upload Linux artifact
+      - name: Upload Linux artifact minecraft_server
         if: runner.os == 'Linux' && exists('dist/minecraft-server-linux-x86_64.tar.gz')
         uses: actions/upload-artifact@v4
         with:
           name: minecraft-server-linux-x86_64
           path: dist/minecraft-server-linux-x86_64.tar.gz
 
-      - name: Upload Linux artifact
+      - name: Upload Linux artifact voxicraft_server
         if: runner.os == 'Linux' && exists('dist/voxicraft-server-linux-x86_64.tar.gz')
         uses: actions/upload-artifact@v4
         with:
@@ -79,7 +79,7 @@ permissions:
             Compress-Archive -Path dist\voxicraft_server.exe -DestinationPath dist\voxicraft-server-windows-x86_64.zip -Force
           }
 
-      - name: Upload Windows artifact
+      - name: Upload Windows artifact minecraft_server
         if: runner.os == 'Windows' && exists('dist/minecraft-server-windows-x86_64.zip')
         uses: actions/upload-artifact@v4
         with:
@@ -87,7 +87,7 @@ permissions:
           path: dist/minecraft-server-windows-x86_64.zip
           if-no-files-found: error
 
-      - name: Upload Windows artifact
+      - name: Upload Windows artifact  voxicraft_server
         if: runner.os == 'Windows' && exists('dist/voxicraft-server-windows-x86_64.zip')
         uses: actions/upload-artifact@v4
         with:
