@@ -10,13 +10,15 @@ use std::{
 };
 
 use axum::{
+    body::{Body, Bytes},
     extract::{
+        RawQuery,
         State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{HeaderValue, Method},
-    response::IntoResponse,
-    routing::get,
+    http::{HeaderMap, HeaderValue, Method, StatusCode, header},
+    response::{IntoResponse, Response},
+    routing::{get, post},
     Json, Router,
 };
 use chrono::Local;
@@ -26,12 +28,16 @@ use protocol::{
 };
 use state::{player_id_to_wire, ServerState};
 use tokio::sync::{RwLock, mpsc};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tracing::{error, info, warn};
+
+const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
 
 #[derive(Clone)]
 struct AppState {
     state: Arc<RwLock<ServerState>>,
+    auth_http_client: reqwest::Client,
+    auth_central_base_url: String,
 }
 
 #[tokio::main]
@@ -64,7 +70,14 @@ async fn main() {
     let cors_client_domain = env::var("CORS_CLIENT_DOMAIN")
         .ok()
         .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_ALLOWED_CORS_ORIGIN.to_string());
+    let auth_central_base_url = env::var("AUTH_CENTRAL_BASE_URL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "https://central.voxicraft.fr".to_string());
+    let startup_auth_central_base_url = auth_central_base_url.clone();
 
     let addr: SocketAddr = format!("{host}:{port}")
         .parse()
@@ -72,17 +85,23 @@ async fn main() {
 
     let app_state = AppState {
         state: Arc::new(RwLock::new(ServerState::new(seed))),
+        auth_http_client: reqwest::Client::new(),
+        auth_central_base_url,
     };
 
     let app = Router::new()
         .route("/healthz", get(healthz))
         .route("/state", get(state_snapshot))
         .route("/ws", get(ws_handler))
-        .layer(build_cors_layer(cors_client_domain.as_deref()))
+        .route("/api/auth/register", post(auth_register_proxy))
+        .route("/api/auth/login", post(auth_login_proxy))
+        .route("/api/auth/discord/url", get(auth_discord_url_proxy))
+        .route("/api/auth/discord/callback", get(auth_discord_callback_proxy))
+        .layer(build_cors_layer(&cors_client_domain))
         .with_state(app_state);
 
     info!(log_file = %log_file_path, "file logging enabled");
-    info!(%addr, seed, cors_client_domain = ?cors_client_domain, "minecraft server started");
+    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, "minecraft server started");
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -98,20 +117,22 @@ fn build_log_file_name() -> String {
     format!("minecraft-xr-{date}.log")
 }
 
-fn build_cors_layer(cors_client_domain: Option<&str>) -> CorsLayer {
+fn build_cors_layer(cors_client_domain: &str) -> CorsLayer {
     let base = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers(Any);
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            header::ACCEPT,
+            header::ORIGIN,
+            header::COOKIE,
+        ]);
 
-    let Some(origin) = cors_client_domain else {
-        return base;
-    };
-
-    match HeaderValue::from_str(origin) {
+    match HeaderValue::from_str(cors_client_domain) {
         Ok(origin_header) => base.allow_origin(origin_header).allow_credentials(true),
         Err(error) => {
-            warn!(%error, origin, "invalid CORS_CLIENT_DOMAIN, CORS disabled");
-            base
+            warn!(%error, origin = %cors_client_domain, fallback_origin = %DEFAULT_ALLOWED_CORS_ORIGIN, "invalid CORS_CLIENT_DOMAIN, using default central origin");
+            base.allow_origin(HeaderValue::from_static(DEFAULT_ALLOWED_CORS_ORIGIN)).allow_credentials(true)
         }
     }
 }
@@ -120,6 +141,7 @@ async fn healthz() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "ok": true,
         "service": "minecraft_server",
+        "version": env!("CARGO_PKG_VERSION"),
     }))
 }
 
@@ -130,6 +152,151 @@ async fn state_snapshot(State(app_state): State<AppState>) -> Json<state::Server
 
 async fn ws_handler(ws: WebSocketUpgrade, State(app_state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, app_state))
+}
+
+async fn auth_register_proxy(
+    State(app_state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    forward_auth_request(
+        &app_state,
+        reqwest::Method::POST,
+        "/api/auth/register",
+        None,
+        Some(body),
+        headers.get(header::CONTENT_TYPE),
+    )
+    .await
+}
+
+async fn auth_login_proxy(
+    State(app_state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    forward_auth_request(
+        &app_state,
+        reqwest::Method::POST,
+        "/api/auth/login",
+        None,
+        Some(body),
+        headers.get(header::CONTENT_TYPE),
+    )
+    .await
+}
+
+async fn auth_discord_url_proxy(
+    State(app_state): State<AppState>,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    forward_auth_request(
+        &app_state,
+        reqwest::Method::GET,
+        "/api/auth/discord/url",
+        raw_query,
+        None,
+        None,
+    )
+    .await
+}
+
+async fn auth_discord_callback_proxy(
+    State(app_state): State<AppState>,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    forward_auth_request(
+        &app_state,
+        reqwest::Method::GET,
+        "/api/auth/discord/callback",
+        raw_query,
+        None,
+        None,
+    )
+    .await
+}
+
+async fn forward_auth_request(
+    app_state: &AppState,
+    method: reqwest::Method,
+    remote_path: &str,
+    raw_query: Option<String>,
+    body: Option<Bytes>,
+    content_type: Option<&HeaderValue>,
+) -> Response {
+    let url = build_proxy_url(&app_state.auth_central_base_url, remote_path, raw_query.as_deref());
+
+    let mut request = app_state.auth_http_client.request(method, &url);
+
+    if let Some(content_type_value) = content_type
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+    {
+        request = request.header(reqwest::header::CONTENT_TYPE, content_type_value);
+    }
+
+    if let Some(payload) = body {
+        request = request.body(payload.to_vec());
+    }
+
+    let upstream_response = match request.send().await {
+        Ok(response) => response,
+        Err(error) => {
+            error!(%error, %url, "failed to proxy auth request");
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({
+                    "error": "auth_proxy_unreachable",
+                    "message": "Le serveur d'authentification est indisponible"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let status = StatusCode::from_u16(upstream_response.status().as_u16())
+        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let upstream_content_type = upstream_response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+
+    let body_bytes = match upstream_response.bytes().await {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            error!(%error, %url, "failed to read auth proxy response body");
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({
+                    "error": "auth_proxy_invalid_response",
+                    "message": "Reponse invalide du serveur d'authentification"
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    let mut response = Response::new(Body::from(body_bytes));
+    *response.status_mut() = status;
+
+    if let Some(content_type) = upstream_content_type {
+        if let Ok(value) = HeaderValue::from_str(&content_type) {
+            response.headers_mut().insert(header::CONTENT_TYPE, value);
+        }
+    }
+
+    response
+}
+
+fn build_proxy_url(base_url: &str, remote_path: &str, raw_query: Option<&str>) -> String {
+    let base = base_url.trim_end_matches('/');
+    let path = remote_path.trim_start_matches('/');
+
+    match raw_query.filter(|value| !value.is_empty()) {
+        Some(query) => format!("{base}/{path}?{query}"),
+        None => format!("{base}/{path}"),
+    }
 }
 
 async fn handle_socket(socket: WebSocket, app_state: AppState) {

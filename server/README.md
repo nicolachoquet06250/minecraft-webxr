@@ -50,7 +50,8 @@ Variables d'environnement supportees :
 - `SERVER_HOST` (defaut `0.0.0.0`)
 - `SERVER_PORT` (defaut `3001`)
 - `WORLD_SEED` (defaut `12345`)
-- `CORS_CLIENT_DOMAIN` (optionnel, ex. `https://votre-domaine.fr`)
+- `CORS_CLIENT_DOMAIN` (defaut `https://central.voxicraft.fr`)
+- `AUTH_CENTRAL_BASE_URL` (defaut `https://central.voxicraft.fr`)
 
 Le serveur charge automatiquement le fichier `.env` s'il est present.
 
@@ -62,9 +63,19 @@ Le serveur ecrit les logs dans un fichier journalier a la racine du projet :
 
 ## Endpoints
 
-- `GET /healthz` : verification basique
+- `GET /health` : verification basique (utilisee par central.voxicraft.fr)
+- `GET /healthz` : alias de compatibilite
 - `GET /state` : snapshot JSON du serveur (lobbies, joueurs, chunks charges, version monde)
 - `GET /ws` : endpoint WebSocket principal
+
+Proxy authentification (vers `AUTH_CENTRAL_BASE_URL`) :
+
+- `POST /auth/register` et `POST /api/auth/register`
+- `POST /auth/login` et `POST /api/auth/login`
+- `GET /auth/discord/url` et `GET /api/auth/discord/url`
+- `GET /auth/discord/callback` et `GET /api/auth/discord/callback`
+
+Le serveur relaie le code HTTP et le corps de reponse du serveur central.
 
 ## Protocole WebSocket JSON
 
