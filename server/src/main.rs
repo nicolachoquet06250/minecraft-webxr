@@ -14,7 +14,7 @@ use axum::{
 use chrono::Local;
 use futures::{SinkExt, StreamExt};
 #[cfg(feature = "embed_front")]
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use protocol::{ClientMessage, PlayerPublicState, PlayerTransform, ServerMessage};
 use rusqlite::Connection;
 use state::{player_id_to_wire, ServerState};
