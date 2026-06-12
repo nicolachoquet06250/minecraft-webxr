@@ -85,7 +85,7 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
 }
 
 export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<string> {
-  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}/me/profile-pic.svg`, {
+  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}/users/me/profile-pic.svg`, {
     method: "GET",
     headers: {
       Accept: "image/svg+xml",
