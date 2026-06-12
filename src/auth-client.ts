@@ -18,6 +18,7 @@ type LoginPayload = {
 const AUTH_TOKEN_STORAGE_KEY = "auth_token";
 const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
+const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
 
 export function getAuthSession(): AuthSession | null {
   try {
@@ -84,7 +85,7 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
 }
 
 export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<string> {
-  const response = await fetch(`${resolveRelayAuthApiBaseUrl()}/me/profile-pic.svg`, {
+  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}/me/profile-pic.svg`, {
     method: "GET",
     headers: {
       Accept: "image/svg+xml",
@@ -125,6 +126,16 @@ function resolveRelayAuthApiBaseUrl(): string {
   const port = window.location.port ? `:${window.location.port}` : "";
 
   return `${protocol}//${host}${port}/api`;
+}
+
+function resolveCentralAuthApiBaseUrl(): string {
+  const customUrl = import.meta.env.VITE_AUTH_API_URL as string | undefined;
+
+  if (customUrl && customUrl.trim().length > 0) {
+    return customUrl.trim().replace(/\/$/, "");
+  }
+
+  return DEFAULT_CENTRAL_AUTH_API_BASE_URL;
 }
 
 async function readJsonResponse(response: Response): Promise<unknown> {
