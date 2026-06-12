@@ -1,6 +1,6 @@
 import { isMobileMode, isVRMode } from "./mobile-controls";
 import { showOptionsMenu } from "./options-menu";
-import { getAuthSession, isAuthenticated, loadProfilePicSvgObjectUrl, loginWithRelay, logoutFromRelaySession, type AuthSession } from "./auth-client";
+import { getAuthSession, isAuthenticated, loginWithRelay, logoutFromRelaySession, resolveProfilePicSvgUrl, type AuthSession } from "./auth-client";
 
 export const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 
@@ -315,21 +315,10 @@ function createAvatarThumbnail(session: AuthSession): HTMLElement {
     image.className = "voxicraft-menu__avatar-image";
     image.alt = "";
     image.decoding = "async";
+    image.referrerPolicy = "no-referrer";
     image.addEventListener("error", () => image.remove(), { once: true });
-    avatar.append(image);
-
-    void loadProfilePicSvgObjectUrl(session)
-        .then((avatarUrl) => {
-            image.src = avatarUrl;
-            image.addEventListener("load", () => {
-                window.setTimeout(() => URL.revokeObjectURL(avatarUrl), 30_000);
-            }, { once: true });
-        })
-        .catch(() => {
-            image.remove();
-        });
-
-    avatar.append(fallback);
+    image.src = resolveProfilePicSvgUrl();
+    avatar.append(image, fallback);
     return avatar;
 }
 
