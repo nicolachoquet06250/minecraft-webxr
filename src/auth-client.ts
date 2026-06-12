@@ -19,6 +19,7 @@ const AUTH_TOKEN_STORAGE_KEY = "auth_token";
 const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
+const PROFILE_PIC_ENDPOINT_PATH = "/users/me/profile-pic.svg";
 
 export function getAuthSession(): AuthSession | null {
   try {
@@ -84,8 +85,12 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
   return session;
 }
 
+export function resolveProfilePicSvgUrl(): string {
+  return `${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}?t=${Date.now()}`;
+}
+
 export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<string> {
-  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}/users/me/profile-pic.svg`, {
+  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}`, {
     method: "GET",
     headers: {
       Accept: "image/svg+xml",
