@@ -1,7 +1,6 @@
 import { isMobileMode, isVRMode } from "./mobile-controls";
 import { showOptionsMenu } from "./options-menu";
-import { getAuthSession, isAuthenticated, loginWithRelay, logoutFromRelaySession, type AuthSession } from "./auth-client";
-import { resolveCachedAvatarUrl, warmDefaultAvatarCache } from "./avatar-cache";
+import { getAuthSession, isAuthenticated, loadProfilePicSvgObjectUrl, loginWithRelay, logoutFromRelaySession, type AuthSession } from "./auth-client";
 
 export const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 
@@ -54,7 +53,6 @@ function showDomMenu(
     onPlay: (options?: MainMenuLaunchOptions) => void,
 ): void {
     canvas.classList.add("is-menu-visible");
-    warmDefaultAvatarCache();
 
     const root = document.createElement("div");
     root.className = `voxicraft-menu voxicraft-menu--${device === "vr" ? "desktop voxicraft-menu--vr" : device}`;
@@ -320,9 +318,16 @@ function createAvatarThumbnail(session: AuthSession): HTMLElement {
     image.addEventListener("error", () => image.remove(), { once: true });
     avatar.append(image);
 
-    void resolveCachedAvatarUrl(session.user.avatar).then((avatarUrl) => {
-        image.src = avatarUrl;
-    });
+    void loadProfilePicSvgObjectUrl(session)
+        .then((avatarUrl) => {
+            image.src = avatarUrl;
+            image.addEventListener("load", () => {
+                window.setTimeout(() => URL.revokeObjectURL(avatarUrl), 30_000);
+            }, { once: true });
+        })
+        .catch(() => {
+            image.remove();
+        });
 
     avatar.append(fallback);
     return avatar;
