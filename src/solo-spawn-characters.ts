@@ -4,7 +4,7 @@ import { SPAWN_X, SPAWN_Z } from "./constants";
 import { findDrySpawnPosition } from "./functions";
 import type { WorldChunks } from "./types";
 
-const GAME_MODE_STORAGE_KEY = "minecraft:game-mode";
+const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 
 function isSinglePlayerMode(): boolean {
   try {

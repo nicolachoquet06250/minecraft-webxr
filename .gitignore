@@ -36,3 +36,7 @@ dev-dist
 
 *.sqlite3
 *.sqlite3-*
+
+certs/
+
+public/avatars/*.png

@@ -30,7 +30,7 @@ const DEFAULT_OPTIONS: GameOptions = {
     particlesLevel: "all",
 };
 
-const OPTIONS_STORAGE_KEY = "minecraft-webxr-options";
+const OPTIONS_STORAGE_KEY = "voxicraft-options";
 
 export function getGameOptions(): GameOptions {
     try {
@@ -81,15 +81,15 @@ function showDomOptionsMenu(
     onApply?: (options: GameOptions) => void
 ): void {
     const root = document.createElement("div");
-    root.className = `minecraft-options minecraft-options--${device === "vr" ? "desktop minecraft-options--vr" : device}`;
+    root.className = `voxicraft-options voxicraft-options--${device === "vr" ? "desktop voxicraft-options--vr" : device}`;
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-label", "Options de jeu");
 
     const content = document.createElement("div");
-    content.classList.add("minecraft-options__content");
+    content.classList.add("voxicraft-options__content");
 
     if (device === "desktop" || device === "vr") {
-        content.classList.add("minecraft-options__content--desktop");
+        content.classList.add("voxicraft-options__content--desktop");
     }
 
     let tempOptions = { ...currentOptions };
@@ -132,10 +132,10 @@ function showDomOptionsMenu(
 
 function createDesktopOptionsTitle(): HTMLElement {
     const header = document.createElement("header");
-    header.className = "minecraft-options__desktop-header";
+    header.className = "voxicraft-options__desktop-header";
 
     const title = document.createElement("h1");
-    title.className = "minecraft-options__title";
+    title.className = "voxicraft-options__title";
     title.textContent = "OPTIONS";
 
     header.append(title);
@@ -144,10 +144,10 @@ function createDesktopOptionsTitle(): HTMLElement {
 
 function createMobileOptionsHeader(): HTMLElement {
     const header = document.createElement("header");
-    header.className = "minecraft-options__mobile-header";
+    header.className = "voxicraft-options__mobile-header";
 
     const title = document.createElement("h1");
-    title.className = "minecraft-options__mobile-title";
+    title.className = "voxicraft-options__mobile-title";
     title.textContent = "OPTIONS";
 
     header.append(title);
@@ -160,10 +160,10 @@ function createOptionsPanel(
     updateOption: <K extends keyof GameOptions>(key: K, value: GameOptions[K]) => void
 ): HTMLElement {
     const panel = document.createElement("section");
-    panel.className = `minecraft-options__panel minecraft-options__panel--${device}`;
+    panel.className = `voxicraft-options__panel voxicraft-options__panel--${device}`;
 
     const scrollContainer = document.createElement("div");
-    scrollContainer.className = "minecraft-options__scroll";
+    scrollContainer.className = "voxicraft-options__scroll";
 
     // Vidéo
     const videoSection = createOptionSection("Vidéo");
@@ -235,10 +235,10 @@ function createOptionsPanel(
 
 function createOptionSection(title: string): HTMLElement {
     const section = document.createElement("div");
-    section.className = "minecraft-options__section";
+    section.className = "voxicraft-options__section";
 
     const heading = document.createElement("h2");
-    heading.className = "minecraft-options__section-title";
+    heading.className = "voxicraft-options__section-title";
     heading.textContent = title;
 
     section.append(heading);
@@ -255,19 +255,19 @@ function createSliderOption(
     onChange: (value: number) => void
 ): HTMLElement {
     const container = document.createElement("div");
-    container.className = "minecraft-options__option";
+    container.className = "voxicraft-options__option";
 
     const labelEl = document.createElement("label");
-    labelEl.className = "minecraft-options__option-label";
+    labelEl.className = "voxicraft-options__option-label";
     labelEl.textContent = label;
 
     const valueDisplay = document.createElement("span");
-    valueDisplay.className = "minecraft-options__option-value";
+    valueDisplay.className = "voxicraft-options__option-value";
     valueDisplay.textContent = `${value}${unit}`;
 
     const slider = document.createElement("input");
     slider.type = "range";
-    slider.className = "minecraft-options__slider";
+    slider.className = "voxicraft-options__slider";
     slider.min = String(min);
     slider.max = String(max);
     slider.step = String(step);
@@ -285,15 +285,15 @@ function createSliderOption(
 
 function createToggleOption(label: string, value: boolean, onChange: (value: boolean) => void): HTMLElement {
     const container = document.createElement("div");
-    container.className = "minecraft-options__option minecraft-options__option--toggle";
+    container.className = "voxicraft-options__option voxicraft-options__option--toggle";
 
     const labelEl = document.createElement("label");
-    labelEl.className = "minecraft-options__option-label";
+    labelEl.className = "voxicraft-options__option-label";
     labelEl.textContent = label;
 
     const toggle = document.createElement("button");
     toggle.type = "button";
-    toggle.className = `minecraft-options__toggle ${value ? "minecraft-options__toggle--on" : "minecraft-options__toggle--off"}`;
+    toggle.className = `voxicraft-options__toggle ${value ? "voxicraft-options__toggle--on" : "voxicraft-options__toggle--off"}`;
     toggle.setAttribute("aria-label", value ? "Activé" : "Désactivé");
     toggle.setAttribute("role", "switch");
     toggle.setAttribute("aria-checked", String(value));
@@ -301,7 +301,7 @@ function createToggleOption(label: string, value: boolean, onChange: (value: boo
     toggle.addEventListener("click", () => {
         const newValue = !value;
         value = newValue;
-        toggle.className = `minecraft-options__toggle ${newValue ? "minecraft-options__toggle--on" : "minecraft-options__toggle--off"}`;
+        toggle.className = `voxicraft-options__toggle ${newValue ? "voxicraft-options__toggle--on" : "voxicraft-options__toggle--off"}`;
         toggle.setAttribute("aria-label", newValue ? "Activé" : "Désactivé");
         toggle.setAttribute("aria-checked", String(newValue));
         onChange(newValue);
@@ -318,14 +318,14 @@ function createSelectOption(
     onChange: (value: string) => void
 ): HTMLElement {
     const container = document.createElement("div");
-    container.className = "minecraft-options__option";
+    container.className = "voxicraft-options__option";
 
     const labelEl = document.createElement("label");
-    labelEl.className = "minecraft-options__option-label";
+    labelEl.className = "voxicraft-options__option-label";
     labelEl.textContent = label;
 
     const select = document.createElement("select");
-    select.className = "minecraft-options__select";
+    select.className = "voxicraft-options__select";
     select.value = value;
 
     for (const opt of options) {
@@ -348,7 +348,7 @@ function createSelectOption(
 
 function createDesktopButtonPanel(onBack: () => void, onApply: () => void): HTMLElement {
     const panel = document.createElement("section");
-    panel.className = "minecraft-options__desktop-buttons";
+    panel.className = "voxicraft-options__desktop-buttons";
 
     const applyButton = createOptionsButton("Appliquer", false, onApply);
     const backButton = createOptionsButton("Retour", false, onBack);
@@ -359,7 +359,7 @@ function createDesktopButtonPanel(onBack: () => void, onApply: () => void): HTML
 
 function createMobileButtonPanel(onBack: () => void, onApply: () => void): HTMLElement {
     const panel = document.createElement("section");
-    panel.className = "minecraft-options__mobile-buttons";
+    panel.className = "voxicraft-options__mobile-buttons";
 
     const applyButton = createOptionsButton("Appliquer", false, onApply);
     const backButton = createOptionsButton("Retour", false, onBack);
@@ -370,7 +370,7 @@ function createMobileButtonPanel(onBack: () => void, onApply: () => void): HTMLE
 
 function createOptionsButton(label: string, disabled = false, onClick?: () => void): HTMLButtonElement {
     const button = document.createElement("button");
-    button.className = "minecraft-options__button";
+    button.className = "voxicraft-options__button";
     button.type = "button";
     button.textContent = label;
     button.disabled = disabled;

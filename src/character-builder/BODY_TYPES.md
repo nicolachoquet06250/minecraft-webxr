@@ -4,10 +4,10 @@
 
 ### Dimensions des Bras
 
-| Type | Largeur (X) | Hauteur (Y) | Profondeur (Z) | Unités Minecraft |
-|------|-------------|-------------|----------------|-------------------|
-| **Masculin (Steve)** | 0.25 | 0.75 | 0.25 | 4×12×4 |
-| **Féminin (Alex)** | 0.1875 | 0.75 | 0.25 | 3×12×4 |
+| Type                 | Largeur (X) | Hauteur (Y) | Profondeur (Z) | Unités voxel |
+|----------------------|-------------|-------------|----------------|------------------|
+| **Masculin (Steve)** | 0.25        | 0.75        | 0.25           | 4×12×4           |
+| **Féminin (Alex)**   | 0.1875      | 0.75        | 0.25           | 3×12×4           |
 
 ### Position des Bras
 
@@ -70,7 +70,7 @@ Les animations sont **identiques** pour les deux types. Les mêmes animations de
 
 ### Type Masculin (Steve)
 - Personnages robustes, guerriers
-- Style classique Minecraft
+- Style classique Voxicraft
 - Bras larges pour un look plus imposant
 
 ### Type Féminin (Alex)

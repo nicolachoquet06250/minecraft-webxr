@@ -48,6 +48,7 @@ import { initializeWebXRGameControls } from "./vr-mode";
 import { initializeVRCraftingOverlay } from "./vr-crafting-ui";
 import { isCraftingOverlayOpen } from "./ui-state";
 import { showMainMenu, type MainMenuLaunchOptions } from "./main-menu";
+import { getAuthSession } from "./auth-client";
 import { createWaterEffect } from "./water-effects";
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
@@ -92,20 +93,21 @@ registerSW({
 const AUTO_JUMP_PROBE_DISTANCE = 0.12;
 const AUTO_JUMP_STEP_HEIGHT = 1.05;
 const AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
+const SERVER_CHUNK_LOAD_TIMEOUT_MS = 5000;
 
 const wasmGlobalState = globalThis as typeof globalThis & {
-  __minecraftVoxelWasmPromise?: Promise<VoxelWasmModule>;
+  __voxicraftVoxelWasmPromise?: Promise<VoxelWasmModule>;
 };
 
 async function loadVoxelWasm(): Promise<VoxelWasmModule> {
-  wasmGlobalState.__minecraftVoxelWasmPromise ??= init(voxelWasmUrl)
+  wasmGlobalState.__voxicraftVoxelWasmPromise ??= init(voxelWasmUrl)
     .then(() => wasmModule as unknown as VoxelWasmModule)
     .catch((error) => {
-      wasmGlobalState.__minecraftVoxelWasmPromise = undefined;
+      wasmGlobalState.__voxicraftVoxelWasmPromise = undefined;
       throw error;
     });
 
-  return wasmGlobalState.__minecraftVoxelWasmPromise;
+  return wasmGlobalState.__voxicraftVoxelWasmPromise;
 }
 
 function debugBlockDistribution(blocks: Uint8Array): void {
@@ -132,17 +134,20 @@ type RemotePlayerVisual = {
 };
 
 function getOrCreateMultiplayerIdentity(): { lobbyId: string; nickname: string } {
-  const lobbyStorageKey = "minecraft:multiplayer:lobby";
-  const nicknameStorageKey = "minecraft:multiplayer:nickname";
+  const lobbyStorageKey = "voxicraft:multiplayer:lobby";
+  const nicknameStorageKey = "voxicraft:multiplayer:nickname";
 
   const lobbyIdFromStorage = window.localStorage.getItem(lobbyStorageKey)?.trim();
   const nicknameFromStorage = window.localStorage.getItem(nicknameStorageKey)?.trim();
+  const loggedInUsername = getAuthSession()?.user.username.trim();
 
   const lobbyId = lobbyIdFromStorage && lobbyIdFromStorage.length > 0
     ? lobbyIdFromStorage
     : "public";
 
-  let nickname = nicknameFromStorage && nicknameFromStorage.length > 0
+  let nickname = loggedInUsername && loggedInUsername.length > 0
+    ? loggedInUsername
+    : nicknameFromStorage && nicknameFromStorage.length > 0
     ? nicknameFromStorage
     : "";
 
@@ -265,14 +270,14 @@ function tryAutoJump(params: AutoJumpParams): void {
   player.grounded = false;
 }
 
-const canvas = document.querySelector("#minecraft");
+const canvas = document.querySelector("#voxicraft");
 
 if (!(canvas instanceof HTMLCanvasElement)) {
-  throw new Error("Canvas #minecraft introuvable");
+  throw new Error("Canvas #voxicraft introuvable");
 }
 
-const minecraftCanvas = canvas;
-const engine = new Engine(minecraftCanvas, true);
+const voxicraftCanvas = canvas;
+const engine = new Engine(voxicraftCanvas, true);
 let gameStarted = false;
 
 async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
@@ -306,7 +311,9 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     const droppedItems: DroppedItem[] = [];
     const remotePlayers = new Map<string, RemotePlayerVisual>();
     const requestedServerChunks = new Set<string>();
+    const pendingServerChunkResolvers = new Map<string, Array<() => void>>();
     let localPlayerId: string | null = null;
+    let localPlayer: PlayerPhysics | null = null;
 
     const upsertRemotePlayer = (playerState: PlayerPublicState): void => {
       if (playerState.player_id === localPlayerId) {
@@ -361,6 +368,44 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
       remotePlayers.delete(playerId);
     };
 
+    const resolveServerChunkWaiters = (key: string): void => {
+      const resolvers = pendingServerChunkResolvers.get(key);
+
+      if (!resolvers) {
+        return;
+      }
+
+      pendingServerChunkResolvers.delete(key);
+
+      for (const resolve of resolvers) {
+        resolve();
+      }
+    };
+
+    const movePlayerToSafeLoadedSpawn = (player: PlayerPhysics): void => {
+      if (player.position.y >= 0 && !hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, player.position)) {
+        return;
+      }
+
+      try {
+        const safeSpawn = findDrySpawnPosition(
+          worldChunks,
+          sizeX,
+          sizeY,
+          sizeZ,
+          player.position.x,
+          player.position.z,
+          64,
+        );
+
+        player.position.copyFromFloats(safeSpawn.x, safeSpawn.y, safeSpawn.z);
+        player.velocity.copyFromFloats(0, 0, 0);
+        player.grounded = false;
+      } catch {
+        // Les chunks autour du joueur ne sont pas encore assez chargés pour corriger sa position.
+      }
+    };
+
     const applyServerChunkData = (
       chunkX: number,
       chunkZ: number,
@@ -383,6 +428,12 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
           chunkZ,
           material: lightMaterial,
         });
+        resolveServerChunkWaiters(key);
+
+        if (localPlayer) {
+          movePlayerToSafeLoadedSpawn(localPlayer);
+        }
+
         return;
       }
 
@@ -404,6 +455,12 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
         blocks,
         mesh,
       });
+
+      resolveServerChunkWaiters(key);
+
+      if (localPlayer) {
+        movePlayerToSafeLoadedSpawn(localPlayer);
+      }
     };
 
     const applyServerBlockUpdate = (
@@ -488,41 +545,101 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
       },
     });
 
-    try {
-      await multiplayerClient.connect();
-      console.info("Multijoueur connecté");
-    } catch (error) {
-      console.warn("Connexion multijoueur indisponible, fallback solo local", error);
+    const requestServerChunkAndWait = (chunkX: number, chunkZ: number): Promise<void> => {
+      const key = getChunkKey(chunkX, chunkZ);
+
+      if (worldChunks.has(key)) {
+        return Promise.resolve();
+      }
+
+      return new Promise((resolve) => {
+        let resolveChunk: () => void;
+        const timeoutId = window.setTimeout(() => {
+          const resolvers = pendingServerChunkResolvers.get(key);
+          pendingServerChunkResolvers.set(
+            key,
+            resolvers?.filter((candidate) => candidate !== resolveChunk) ?? [],
+          );
+          requestedServerChunks.delete(key);
+          console.warn(`Chunk serveur ${key} non reçu après ${SERVER_CHUNK_LOAD_TIMEOUT_MS}ms`);
+          resolve();
+        }, SERVER_CHUNK_LOAD_TIMEOUT_MS);
+
+        resolveChunk = (): void => {
+          window.clearTimeout(timeoutId);
+          resolve();
+        };
+
+        const resolvers = pendingServerChunkResolvers.get(key) ?? [];
+        resolvers.push(resolveChunk);
+        pendingServerChunkResolvers.set(key, resolvers);
+
+        if (!requestedServerChunks.has(key)) {
+          requestedServerChunks.add(key);
+          multiplayerClient.requestChunk(chunkX, chunkZ);
+        }
+      });
+    };
+
+    const requestInitialServerChunksAround = async (centerChunkX: number, centerChunkZ: number): Promise<void> => {
+      const requests: Promise<void>[] = [];
+
+      for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
+        for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
+          requests.push(requestServerChunkAndWait(centerChunkX + offsetX, centerChunkZ + offsetZ));
+        }
+      }
+
+      await Promise.all(requests);
+    };
+
+    const generateLocalChunksAround = (centerChunkX: number, centerChunkZ: number): void => {
+      for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
+        for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
+          const chunkX = centerChunkX + offsetX;
+          const chunkZ = centerChunkZ + offsetZ;
+
+          const blocks = generate_chunk(chunkX, chunkZ, worldSeed);
+
+          debugBlockDistribution(blocks);
+
+          const mesh = createChunkMesh({
+            scene,
+            name: `chunk-${chunkX}-${chunkZ}`,
+            blocks,
+            sizeX,
+            sizeY,
+            sizeZ,
+            chunkX,
+            chunkZ,
+            material: lightMaterial,
+          });
+
+          worldChunks.set(getChunkKey(chunkX, chunkZ), {
+            chunkX,
+            chunkZ,
+            blocks,
+            mesh,
+          });
+        }
+      }
+    };
+
+    if (options.gameMode === "multiplayer") {
+      try {
+        await multiplayerClient.connect();
+        console.info("Multijoueur connecté");
+      } catch (error) {
+        console.warn("Connexion multijoueur indisponible, fallback solo local", error);
+      }
     }
 
-    for (let offsetZ = -INITIAL_CHUNK_RADIUS; offsetZ <= INITIAL_CHUNK_RADIUS; offsetZ++) {
-        for (let offsetX = -INITIAL_CHUNK_RADIUS; offsetX <= INITIAL_CHUNK_RADIUS; offsetX++) {
-            const chunkX = spawnChunkX + offsetX;
-            const chunkZ = spawnChunkZ + offsetZ;
+    if (multiplayerClient.isConnected()) {
+      await requestInitialServerChunksAround(spawnChunkX, spawnChunkZ);
+    }
 
-            const blocks = generate_chunk(chunkX, chunkZ, worldSeed);
-
-            debugBlockDistribution(blocks);
-
-            const mesh = createChunkMesh({
-                scene,
-                name: `chunk-${chunkX}-${chunkZ}`,
-                blocks,
-                sizeX,
-                sizeY,
-                sizeZ,
-                chunkX,
-                chunkZ,
-                material: lightMaterial,
-            });
-
-            worldChunks.set(getChunkKey(chunkX, chunkZ), {
-                chunkX,
-                chunkZ,
-                blocks,
-                mesh,
-            });
-        }
+    if (!worldChunks.has(getChunkKey(spawnChunkX, spawnChunkZ))) {
+      generateLocalChunksAround(spawnChunkX, spawnChunkZ);
     }
 
     initializePoppyModels({ scene, worldChunks, sizeX, sizeY, sizeZ });
@@ -544,6 +661,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     );
 
     const player = generatePlayer(spawn);
+    localPlayer = player;
 
     const requestServerChunksAroundPlayer = (): void => {
       if (!multiplayerClient.isConnected()) {
@@ -594,7 +712,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
     initializeEvents(
         engine,
         player,
-        minecraftCanvas,
+        voxicraftCanvas,
         scene,
         worldChunks,
         sizeX,
@@ -756,17 +874,24 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
         webXRControls.syncAfterPhysics();
 
-        ensureChunksAroundPlayer({
-            scene,
-            worldChunks,
-            wasm,
-            material: lightMaterial,
-            player,
-            sizeX,
-            sizeY,
-            sizeZ,
-        });
+        if (!multiplayerClient.isConnected()) {
+            ensureChunksAroundPlayer({
+                scene,
+                worldChunks,
+                wasm,
+                material: lightMaterial,
+                player,
+                sizeX,
+                sizeY,
+                sizeZ,
+            });
+        }
+
         requestServerChunksAroundPlayer();
+
+        if (multiplayerClient.isConnected() && player.position.y < -4) {
+          movePlayerToSafeLoadedSpawn(player);
+        }
 
         if (multiplayerClient.isConnected()) {
           transformSyncElapsed += deltaTime;
@@ -793,7 +918,7 @@ async function startGame(options: MainMenuLaunchOptions = {}): Promise<void> {
 
 await showMainMenu({
     engine,
-    canvas: minecraftCanvas,
+    canvas: voxicraftCanvas,
     onPlay: (options) => {
         void startGame(options);
     },

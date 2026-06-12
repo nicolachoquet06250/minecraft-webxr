@@ -2,7 +2,14 @@ mod protocol;
 mod state;
 mod stats;
 
-use std::{env, fs::OpenOptions, net::SocketAddr, sync::{Arc, Mutex}, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 use axum::{
     body::{Body, Bytes},
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, RawQuery, State},
@@ -23,7 +30,9 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::{error, info, warn};
 
 const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
-const DEFAULT_STATS_DATABASE_PATH: &str = "minecraft-xr-stats.sqlite3";
+const DEFAULT_STATS_DATABASE_PATH: &str = "voxicraft-stats.sqlite3";
+const DEFAULT_SSL_CERT_PATH: &str = "certs/localhost.pem";
+const DEFAULT_SSL_KEY_PATH: &str = "certs/localhost-key.pem";
 
 #[cfg(feature = "embed_front")]
 static FRONT_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../dist");
@@ -61,11 +70,12 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_ansi(false)
         .with_writer(log_writer)
-        .with_env_filter(env::var("RUST_LOG").unwrap_or_else(|_| "minecraft_server=info,tower_http=info,axum=info".to_string()))
+        .with_env_filter(env::var("RUST_LOG").unwrap_or_else(|_| "info,tower_http=info,axum=info".to_string()))
         .init();
 
     let mut host = env::var("SERVER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("SERVER_PORT").unwrap_or_else(|_| "3001".to_string());
+    let use_https = env_flag("USE_HTTPS");
     let seed = env::var("WORLD_SEED").ok().and_then(|value| value.parse::<u32>().ok()).unwrap_or(12345);
     let cors_client_domain = env::var("CORS_CLIENT_DOMAIN")
         .ok()
@@ -88,7 +98,9 @@ async fn main() {
     }
 
     let addr: SocketAddr = format!("{host}:{port}").parse().expect("invalid SERVER_HOST or SERVER_PORT");
-    println!("http://{}:{}", host, port);
+    let scheme = if use_https { "https" } else { "http" };
+
+    println!("{scheme}://{}:{}", host, port);
 
     let app_state = AppState {
         state: Arc::new(RwLock::new(ServerState::new(seed))),
@@ -100,10 +112,33 @@ async fn main() {
     let app = build_router(&cors_client_domain, app_state);
 
     info!(log_file = %log_file_path, "file logging enabled");
-    info!(%addr, seed, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, embedded_front = cfg!(feature = "embed_front"), "minecraft server started");
+    info!(%addr, seed, use_https, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, embedded_front = cfg!(feature = "embed_front"), "voxicraft server started");
 
-    let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind TCP listener");
-    axum::serve(listener, app).await.expect("server failed unexpectedly");
+    if use_https {
+        install_rustls_crypto_provider();
+
+        let tls_paths = ensure_ssl_certificate_files(&host).expect("failed to prepare SSL certificates");
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(
+            &tls_paths.cert_path,
+            &tls_paths.key_path,
+        )
+            .await
+            .expect("failed to load SSL certificates");
+
+        info!(
+            cert_path = %tls_paths.cert_path.display(),
+            key_path = %tls_paths.key_path.display(),
+            "HTTPS enabled"
+        );
+
+        axum_server::bind_rustls(addr, tls_config)
+            .serve(app.into_make_service())
+            .await
+            .expect("HTTPS server failed unexpectedly");
+    } else {
+        let listener = tokio::net::TcpListener::bind(addr).await.expect("failed to bind TCP listener");
+        axum::serve(listener, app).await.expect("HTTP server failed unexpectedly");
+    }
 }
 
 fn build_router(cors_client_domain: &str, app_state: AppState) -> Router {
@@ -132,12 +167,92 @@ fn load_env() {
     }
 }
 
+fn env_flag(name: &str) -> bool {
+    env::var(name)
+        .ok()
+        .map(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
+fn install_rustls_crypto_provider() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 fn default_stats_database_path() -> String {
     env::var("STATS_DATABASE_PATH")
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| DEFAULT_STATS_DATABASE_PATH.to_string())
+}
+
+struct SslPaths {
+    cert_path: PathBuf,
+    key_path: PathBuf,
+}
+
+fn ensure_ssl_certificate_files(host: &str) -> Result<SslPaths, Box<dyn std::error::Error + Send + Sync>> {
+    let cert_path = env_path("SSL_CERT_PATH", DEFAULT_SSL_CERT_PATH);
+    let key_path = env_path("SSL_KEY_PATH", DEFAULT_SSL_KEY_PATH);
+
+    if cert_path.exists() && key_path.exists() {
+        return Ok(SslPaths { cert_path, key_path });
+    }
+
+    generate_self_signed_certificate(host, &cert_path, &key_path)?;
+    Ok(SslPaths { cert_path, key_path })
+}
+
+fn env_path(name: &str, default_path: &str) -> PathBuf {
+    env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(default_path))
+}
+
+fn generate_self_signed_certificate(
+    host: &str,
+    cert_path: &Path,
+    key_path: &Path,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ensure_parent_dir(cert_path)?;
+    ensure_parent_dir(key_path)?;
+
+    let certified_key = rcgen::generate_simple_self_signed(certificate_subject_alt_names(host))?;
+    fs::write(cert_path, certified_key.cert.pem())?;
+    fs::write(key_path, certified_key.key_pair.serialize_pem())?;
+
+    Ok(())
+}
+
+fn certificate_subject_alt_names(host: &str) -> Vec<String> {
+    let mut names = vec![
+        "localhost".to_string(),
+        "127.0.0.1".to_string(),
+        "::1".to_string(),
+    ];
+    let normalized_host = host.trim().trim_start_matches('[').trim_end_matches(']');
+
+    if !normalized_host.is_empty()
+        && normalized_host != "0.0.0.0"
+        && normalized_host != "::"
+        && normalized_host != "[::]"
+        && !names.iter().any(|name| name == normalized_host)
+    {
+        names.push(normalized_host.to_string());
+    }
+
+    names
+}
+
+fn ensure_parent_dir(path: &Path) -> std::io::Result<()> {
+    if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)?;
+    }
+
+    Ok(())
 }
 
 fn run_migration_command(args: &[String]) -> Result<bool, String> {
@@ -187,12 +302,16 @@ fn migration_database_path(args: &[String]) -> Result<String, String> {
 }
 
 fn migration_usage() -> String {
-    "Usage: minecraft_server migrate <up|down> [--database <path>]".to_string()
+    "Usage: voxicraft_server migrate <up|down> [--database <path>]".to_string()
 }
 
 fn build_log_file_name() -> String {
     let date = Local::now().format("%Y%m%d");
-    format!("minecraft-xr-{date}.log")
+    format!("voxicraft-{date}.log")
+}
+
+fn format_log_datetime() -> String {
+    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 fn build_cors_layer(cors_client_domain: &str) -> CorsLayer {
@@ -270,7 +389,7 @@ fn embedded_file_response(path: &str, bytes: &'static [u8]) -> Response {
 async fn healthz() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "ok": true,
-        "service": "minecraft_server",
+        "service": "voxicraft_server",
         "version": env!("CARGO_PKG_VERSION"),
     }))
 }
@@ -498,6 +617,18 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                     };
 
                     let player_id_wire = player_id_to_wire(new_player_id);
+                    if let ServerMessage::PlayerJoined { lobby_id, player } = &joined_message {
+                        let connected_log_at = format_log_datetime();
+                        info!(
+                            nickname = %player.nickname,
+                            lobby_id = %lobby_id,
+                            connected_at = %connected_log_at,
+                            "Le joueur avec le pseudo {} s'est connecté le {}",
+                            player.nickname,
+                            connected_log_at,
+                        );
+                    }
+
                     let stats_session_id = match app_state.stats_db.lock() {
                         Ok(connection) => match stats::start_player_session(
                             &connection,
@@ -562,12 +693,22 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
         };
 
         if let Some(player) = removed_player {
+            let player_id_wire = player_id_to_wire(player.id);
+            let disconnected_log_at = format_log_datetime();
+            info!(
+                nickname = %player.nickname,
+                lobby_id = %player.lobby_id,
+                disconnected_at = %disconnected_log_at,
+                "Le joueur avec le pseudo {} s'est déconnecté le {}",
+                player.nickname,
+                disconnected_log_at,
+            );
+
             if let Some(session_id) = player.stats_session_id {
                 let disconnected_at = stats::now_rfc3339();
                 match app_state.stats_db.lock() {
                     Ok(connection) => {
                         if let Err(error) = stats::finish_player_session(&connection, session_id, &disconnected_at) {
-                            let player_id_wire = player_id_to_wire(player.id);
                             error!(%error, player_id = %player_id_wire, session_id, "failed to finish player stats session");
                         }
                     }

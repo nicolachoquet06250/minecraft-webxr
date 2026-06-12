@@ -1,6 +1,6 @@
 # Serveur multijoueur (Rust)
 
-Ce module fournit un serveur autoritaire pour Minecraft WebXR.
+Ce module fournit un serveur autoritaire pour Voxicraft WebXR.
 
 Objectifs de la premiere iteration :
 - valider l'etat du monde cote serveur ;
@@ -30,20 +30,20 @@ npm run server:build:windows
 
 Un workflow GitHub Actions build egalement automatiquement le serveur sur Linux et Windows et publie les artefacts :
 
-- `minecraft-server-linux-x86_64`
-- `minecraft-server-windows-x86_64`
+- `voxicraft-server-linux-x86_64`
+- `voxicraft-server-windows-x86_64`
 
 Le meme workflow publie aussi les builds dans GitHub Packages (GHCR) :
 
-- `ghcr.io/<owner>/minecraft-webxr-server-linux:<sha>`
-- `ghcr.io/<owner>/minecraft-webxr-server-windows:<sha>`
+- `ghcr.io/<owner>/voxicraft-server-linux:<sha>`
+- `ghcr.io/<owner>/voxicraft-server-windows:<sha>`
 
 Tags de branche maintenus :
 
-- `ghcr.io/<owner>/minecraft-webxr-server-linux:main-latest`
-- `ghcr.io/<owner>/minecraft-webxr-server-linux:staging-latest`
-- `ghcr.io/<owner>/minecraft-webxr-server-windows:main-latest`
-- `ghcr.io/<owner>/minecraft-webxr-server-windows:staging-latest`
+- `ghcr.io/<owner>/voxicraft-server-linux:main-latest`
+- `ghcr.io/<owner>/voxicraft-server-linux:staging-latest`
+- `ghcr.io/<owner>/voxicraft-server-windows:main-latest`
+- `ghcr.io/<owner>/voxicraft-server-windows:staging-latest`
 
 Variables d'environnement supportees :
 
@@ -52,14 +52,19 @@ Variables d'environnement supportees :
 - `WORLD_SEED` (defaut `12345`)
 - `CORS_CLIENT_DOMAIN` (defaut `https://central.voxicraft.fr`)
 - `AUTH_CENTRAL_BASE_URL` (defaut `https://central.voxicraft.fr`)
+- `USE_HTTPS` (defaut `false`) : active le service HTTPS si la valeur vaut `1`, `true`, `yes` ou `on`
+- `SSL_CERT_PATH` (defaut `certs/localhost.pem`) : chemin du certificat SSL
+- `SSL_KEY_PATH` (defaut `certs/localhost-key.pem`) : chemin de la cle privee SSL
 
 Le serveur charge automatiquement le fichier `.env` s'il est present.
+
+Quand `USE_HTTPS` est actif, le serveur genere automatiquement un certificat auto-signe si les fichiers `SSL_CERT_PATH` et `SSL_KEY_PATH` n'existent pas encore.
 
 ## Logs
 
 Le serveur ecrit les logs dans un fichier journalier a la racine du projet :
 
-- `minecraft-xr-yyyymmdd.log` (exemple `minecraft-xr-20260610.log`)
+- `voxicraft-yyyymmdd.log` (exemple `voxicraft-20260610.log`)
 
 ## Endpoints
 

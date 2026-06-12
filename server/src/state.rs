@@ -254,7 +254,7 @@ impl ServerState {
 
         if !self.chunks.contains_key(&coord) {
             let chunk = ChunkState {
-                blocks: generate_chunk(chunk_x, chunk_z, self.seed),
+                blocks: voxel_wasm::generate_chunk(chunk_x, chunk_z, self.seed),
                 chunk_version: 1,
             };
 
@@ -285,7 +285,7 @@ impl ServerState {
             .chunks
             .entry(ChunkCoord { x: chunk_x, z: chunk_z })
             .or_insert_with(|| ChunkState {
-                blocks: generate_chunk(chunk_x, chunk_z, self.seed),
+                blocks: voxel_wasm::generate_chunk(chunk_x, chunk_z, self.seed),
                 chunk_version: 1,
             });
 
@@ -341,48 +341,28 @@ fn div_floor(a: i32, b: i32) -> i32 {
     }
 }
 
-fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
-    let mut blocks = vec![0_u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
-    let sea_level = 42_i32;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    for local_x in 0..CHUNK_SIZE_X {
-        for local_z in 0..CHUNK_SIZE_Z {
-            let world_x = chunk_x * CHUNK_SIZE_X as i32 + local_x as i32;
-            let world_z = chunk_z * CHUNK_SIZE_Z as i32 + local_z as i32;
-            let noise_a = coord_noise(world_x, world_z, seed);
-            let noise_b = coord_noise(world_x / 2, world_z / 2, seed.wrapping_add(99));
-            let height = 24_i32 + (noise_a % 28) as i32 + (noise_b % 10) as i32;
-            let clamped_height = height.min(CHUNK_SIZE_Y as i32 - 1);
+    #[test]
+    fn generated_server_chunks_match_voxel_wasm_generator() {
+        let seed = 12345;
+        let mut state = ServerState::new(seed);
 
-            for y in 0..CHUNK_SIZE_Y {
-                let yi = y as i32;
-                let block = if yi > clamped_height {
-                    if yi <= sea_level { 17_u8 } else { 0_u8 }
-                } else if yi == clamped_height {
-                    if yi < sea_level { 14_u8 } else { 1_u8 }
-                } else if yi > clamped_height - 4 {
-                    2_u8
-                } else {
-                    6_u8
-                };
+        for (chunk_x, chunk_z) in [(0, 0), (1, 0), (0, 1), (-1, 2), (3, -4)] {
+            let server_chunk = state.get_or_create_chunk(chunk_x, chunk_z);
+            let wasm_chunk = voxel_wasm::generate_chunk(chunk_x, chunk_z, seed);
 
-                let idx = block_index(local_x, y, local_z);
-                blocks[idx] = block;
-            }
+            assert_eq!(server_chunk.blocks, wasm_chunk);
         }
     }
 
-    blocks
+    #[test]
+    fn server_chunk_dimensions_match_voxel_wasm_module() {
+        assert_eq!(CHUNK_SIZE_X, voxel_wasm::chunk_size_x());
+        assert_eq!(CHUNK_SIZE_Y, voxel_wasm::chunk_size_y());
+        assert_eq!(CHUNK_SIZE_Z, voxel_wasm::chunk_size_z());
+    }
 }
 
-fn coord_noise(x: i32, z: i32, seed: u32) -> u32 {
-    let mut value = seed as u64;
-    value ^= (x as i64 as u64).wrapping_mul(0x9E37_79B1_85EB_CA87);
-    value ^= (z as i64 as u64).wrapping_mul(0xC2B2_AE3D_27D4_EB4F);
-    value ^= value >> 33;
-    value = value.wrapping_mul(0xFF51_AFD7_ED55_8CCD);
-    value ^= value >> 33;
-    value = value.wrapping_mul(0xC4CE_B9FE_1A85_EC53);
-    value ^= value >> 33;
-    (value & 0xFFFF_FFFF) as u32
-}

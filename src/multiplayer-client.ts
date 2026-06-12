@@ -10,7 +10,7 @@ export type PlayerPublicState = {
   transform: PlayerTransformPayload;
 };
 
-const GAME_MODE_STORAGE_KEY = "minecraft:game-mode";
+const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 
 function isSinglePlayerMode(): boolean {
   try {
@@ -386,8 +386,7 @@ export function resolveDefaultWsUrl(): string {
   }
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname;
-  const port = import.meta.env.DEV ? ":3001" : "";
+  const host = import.meta.env.DEV ? window.location.host : window.location.hostname;
 
-  return `${protocol}//${host}${port}/ws`;
+  return `${protocol}//${host}/ws`;
 }

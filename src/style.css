@@ -7,7 +7,7 @@ body {
   overflow: hidden;
 }
 
-#minecraft {
+#voxicraft {
   width: 100%;
   height: 100%;
   display: block;
@@ -19,7 +19,7 @@ body {
     filter: brightness(0.72) saturate(0.9);
 }
 
-.minecraft-menu {
+.voxicraft-menu {
     position: fixed;
     inset: 0;
     z-index: 10;
@@ -34,7 +34,7 @@ body {
     user-select: none;
 }
 
-.minecraft-menu::before {
+.voxicraft-menu::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -45,32 +45,32 @@ body {
     image-rendering: pixelated;
 }
 
-.minecraft-menu--desktop::after {
+.voxicraft-menu--desktop::after {
     content: "";
     position: absolute;
     inset: 0;
     background: radial-gradient(circle at 50% 42%, transparent 0 22%, rgba(0, 0, 0, 0.32) 75%);
 }
 
-.minecraft-menu--desktop::before {
+.voxicraft-menu--desktop::before {
     background:
             linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.48)),
             url("/menus/desktop-1.png") center / cover no-repeat;
     image-rendering: auto;
 }
 
-.minecraft-menu__content {
+.voxicraft-menu__content {
     position: relative;
     z-index: 1;
     width: min(92vw, 640px);
     text-align: center;
 }
 
-.minecraft-menu__content.minecraft-menu__content--desktop {
+.voxicraft-menu__content.voxicraft-menu__content--desktop {
     translate: 0 -50%;
 }
 
-.minecraft-menu__desktop-header {
+.voxicraft-menu__desktop-header {
     position: relative;
     width: min(76vw, 760px);
     margin: clamp(-64px, -7vh, -34px) auto clamp(30px, 6vh, 58px);
@@ -78,7 +78,7 @@ body {
     text-shadow: 5px 5px 0 #151515, -3px -3px 0 #f4f4f4, 0 0 16px rgba(0, 0, 0, 0.55);
 }
 
-.minecraft-menu__title {
+.voxicraft-menu__title {
     margin: 0;
     color: #e1e1e1;
     font-family: Impact, "Arial Black", Haettenschweiler, sans-serif;
@@ -90,7 +90,7 @@ body {
     -webkit-text-stroke: 2px #161616;
 }
 
-.minecraft-menu__splash {
+.voxicraft-menu__splash {
     position: absolute;
     right: 42px;
     bottom: -16px;
@@ -103,25 +103,25 @@ body {
     transform: rotate(-18deg);
 }
 
-.minecraft-menu__desktop-panel,
-.minecraft-menu__mobile-panel {
+.voxicraft-menu__desktop-panel,
+.voxicraft-menu__mobile-panel {
     display: grid;
     gap: 10px;
     margin: 0 auto;
 }
 
-.minecraft-menu__desktop-panel {
+.voxicraft-menu__desktop-panel {
     width: min(100%, 440px);
     gap: 12px;
 }
 
-.minecraft-menu__button-row {
+.voxicraft-menu__button-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
 }
 
-.minecraft-menu__button {
+.voxicraft-menu__button {
     min-height: 42px;
     border: 2px solid #111;
     border-top-color: #cfcfcf;
@@ -136,40 +136,227 @@ body {
     text-shadow: 2px 2px 0 #222;
 }
 
-.minecraft-menu__button:not(:disabled):hover,
-.minecraft-menu__button:not(:disabled):focus-visible {
+.voxicraft-menu__button:not(:disabled):hover,
+.voxicraft-menu__button:not(:disabled):focus-visible {
     outline: 2px solid #fff46c;
     background:
             linear-gradient(rgba(255, 255, 255, 0.14), rgba(0, 0, 0, 0.08)),
             repeating-linear-gradient(90deg, #9a9a9a 0 2px, #828282 2px 4px);
 }
 
-.minecraft-menu__button:disabled {
+.voxicraft-menu__button:disabled {
     color: #b5b5b5;
     cursor: not-allowed;
     filter: grayscale(1) brightness(0.72);
 }
 
-.minecraft-menu--mobile {
+.voxicraft-menu__auth-corner {
+    position: absolute;
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(18px, env(safe-area-inset-bottom));
+    z-index: 2;
+}
+
+.voxicraft-menu__auth-button {
+    min-width: 188px;
+    padding: 0 14px;
+}
+
+.voxicraft-menu__auth-slot {
+    pointer-events: auto;
+}
+
+.voxicraft-menu__auth-slot .voxicraft-menu__auth-button {
+    width: 100%;
+}
+
+.voxicraft-menu__profile {
+    display: grid;
+    grid-template-columns: 42px minmax(0, auto) 36px;
+    align-items: center;
+    gap: 9px;
+    max-width: min(74vw, 310px);
+    min-height: 48px;
+    box-sizing: border-box;
+    padding: 5px 7px 5px 5px;
+    border: 2px solid #111;
+    border-top-color: #cfcfcf;
+    border-left-color: #cfcfcf;
+    box-shadow: inset -2px -3px 0 rgba(0, 0, 0, 0.42), inset 2px 2px 0 rgba(255, 255, 255, 0.28);
+    background:
+            linear-gradient(rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.18)),
+            repeating-linear-gradient(90deg, #6f6f6f 0 2px, #5f5f5f 2px 4px);
+}
+
+.voxicraft-menu__avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    overflow: hidden;
+    border: 2px solid #101010;
+    border-top-color: #eeeeee;
+    border-left-color: #eeeeee;
+    background: #262626;
+    image-rendering: pixelated;
+}
+
+.voxicraft-menu__avatar-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+
+.voxicraft-menu__avatar-fallback {
+    color: #fff;
+    font: 700 20px/1 "Arial Black", Arial, Helvetica, sans-serif;
+    text-shadow: 2px 2px 0 #111;
+}
+
+.voxicraft-menu__profile-name {
+    min-width: 0;
+    width: min-content;
+    padding-inline: 5px;
+    overflow: hidden;
+    color: #fff;
+    font: 700 18px/1 "Arial Black", Arial, Helvetica, sans-serif;
+    text-overflow: ellipsis;
+    text-shadow: 2px 2px 0 #222;
+    white-space: nowrap;
+}
+
+.voxicraft-menu__logout-button {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    border: 2px solid #111;
+    border-top-color: #dcdcdc;
+    border-left-color: #dcdcdc;
+    background:
+            linear-gradient(rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.18)),
+            repeating-linear-gradient(90deg, #8a8a8a 0 2px, #777 2px 4px);
+    box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.42), inset 1px 1px 0 rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+}
+
+.voxicraft-menu__logout-button::before {
+    content: "";
+    position: absolute;
+    left: 9px;
+    top: 8px;
+    width: 10px;
+    height: 10px;
+    border: 3px solid #fff;
+    border-right: 0;
+    box-shadow: 2px 2px 0 #222;
+}
+
+.voxicraft-menu__logout-button::after {
+    content: "";
+    position: absolute;
+    right: 7px;
+    top: 14px;
+    width: 12px;
+    height: 3px;
+    background: #fff;
+    box-shadow: 2px 2px 0 #222;
+}
+
+.voxicraft-menu__logout-button:hover,
+.voxicraft-menu__logout-button:focus-visible {
+    outline: 2px solid #fff46c;
+}
+
+.voxicraft-menu.is-login-open > :not(.voxicraft-login) {
+    display: none;
+}
+
+.voxicraft-login {
+    position: relative;
+    z-index: 4;
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    box-sizing: border-box;
+    padding: 24px;
+}
+
+.voxicraft-login__panel {
+    display: grid;
+    width: min(88vw, 430px);
+    gap: 12px;
+    padding: 22px;
+    border: 3px solid #111;
+    border-top-color: #d4d4d4;
+    border-left-color: #d4d4d4;
+    background: rgba(38, 38, 38, 0.94);
+    box-shadow: inset -4px -5px 0 rgba(0, 0, 0, 0.38), inset 3px 3px 0 rgba(255, 255, 255, 0.16), 0 10px 34px rgba(0, 0, 0, 0.58);
+}
+
+.voxicraft-login__title {
+    margin: 0 0 6px;
+    color: #fff;
+    font: 700 30px/1.1 "Arial Black", Arial, Helvetica, sans-serif;
+    text-align: center;
+    text-shadow: 2px 2px 0 #111;
+}
+
+.voxicraft-login__input {
+    min-height: 44px;
+    box-sizing: border-box;
+    border: 2px solid #121212;
+    border-top-color: #eeeeee;
+    border-left-color: #eeeeee;
+    padding: 0 12px;
+    background: #101010;
+    color: #fff;
+    font: 500 18px/1 Arial, Helvetica, sans-serif;
+    outline: none;
+}
+
+.voxicraft-login__input:focus {
+    border-color: #fff46c;
+}
+
+.voxicraft-login__error {
+    min-height: 22px;
+    margin: 0;
+    color: #ffb4a8;
+    font: 700 15px/1.25 Arial, Helvetica, sans-serif;
+    text-align: center;
+}
+
+.voxicraft-login__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.voxicraft-menu--mobile {
     place-items: stretch;
     background: #86c35b;
 }
 
-.minecraft-menu--mobile::before {
+.voxicraft-menu--mobile::before {
     background:
             linear-gradient(rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.18)),
             url("/menus/mobile-1.png") center / cover no-repeat;
     image-rendering: auto;
 }
 
-.minecraft-menu--mobile .minecraft-menu__content {
+.voxicraft-menu--mobile .voxicraft-menu__content {
     width: 100%;
     min-height: 100%;
     padding: max(22px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
     box-sizing: border-box;
 }
 
-.minecraft-menu__mobile-header {
+.voxicraft-menu__mobile-header {
     position: absolute;
     top: max(34px, env(safe-area-inset-top));
     left: 50%;
@@ -179,7 +366,7 @@ body {
     transform: translateX(-50%);
 }
 
-.minecraft-menu__mobile-title {
+.voxicraft-menu__mobile-title {
     margin: 0;
     color: #e1e1e1;
     font-family: Impact, "Arial Black", Haettenschweiler, sans-serif;
@@ -191,7 +378,7 @@ body {
     -webkit-text-stroke: 2px #161616;
 }
 
-.minecraft-menu__mobile-splash {
+.voxicraft-menu__mobile-splash {
     position: absolute;
     right: -10px;
     bottom: -12px;
@@ -204,14 +391,14 @@ body {
     transform: rotate(-18deg);
 }
 
-.minecraft-menu__mobile-panel {
+.voxicraft-menu__mobile-panel {
     position: absolute;
     inset: 0;
     width: auto;
     pointer-events: none;
 }
 
-.minecraft-menu__mobile-actions {
+.voxicraft-menu__mobile-actions {
     position: absolute;
     bottom: 40px;
     left: 50%;
@@ -223,7 +410,7 @@ body {
     pointer-events: auto;
 }
 
-.minecraft-menu--mobile .minecraft-menu__button {
+.voxicraft-menu--mobile .voxicraft-menu__button {
     min-height: 63px;
     border-radius: 0;
     border: 2px solid #101010;
@@ -237,23 +424,29 @@ body {
     text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.65);
 }
 
-.minecraft-menu--mobile .minecraft-menu__button:disabled {
+.voxicraft-menu--mobile .voxicraft-menu__button:disabled {
     background: rgba(150, 150, 150, 0.9);
     color: #5f5f5f;
     text-shadow: 1px 1px 0 rgba(220, 220, 220, 0.45);
 }
 
-.minecraft-menu__mobile-signin {
+.voxicraft-menu__mobile-signin {
     position: absolute;
     bottom: 10px;
     left: max(12px, env(safe-area-inset-left));
-    min-width: 0;
+    width: min(74vw, 310px);
+    min-width: 188px;
     min-height: 48px;
-    padding: 0 8px;
     pointer-events: auto;
 }
 
-.minecraft-menu__mobile-dressing-room {
+.voxicraft-menu__mobile-signin .voxicraft-menu__profile {
+    gap: 5px;
+    padding: 3px 5px 3px 3px;
+    width: fit-content;
+}
+
+.voxicraft-menu__mobile-dressing-room {
     position: absolute;
     right: max(84px, env(safe-area-inset-right));
     bottom: max(50px, env(safe-area-inset-bottom));
@@ -263,33 +456,66 @@ body {
     pointer-events: auto;
 }
 
+@media (orientation: landscape) {
+    .voxicraft-menu__mobile-panel {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+        box-sizing: border-box;
+        padding: 0 max(22px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+    }
+
+    .voxicraft-menu__mobile-actions,
+    .voxicraft-menu__mobile-signin {
+        position: static;
+        transform: none;
+        pointer-events: auto;
+    }
+
+    .voxicraft-menu__mobile-actions {
+        width: min(34vw, 330px);
+        min-width: 260px;
+        order: 1;
+    }
+
+    .voxicraft-menu__mobile-signin {
+        width: min(30vw, 260px);
+        min-width: 188px;
+        min-height: 0;
+        order: 2;
+    }
+}
+
 @media (orientation: portrait) {
-    .minecraft-menu--mobile::before {
+    .voxicraft-menu--mobile::before {
         background-position: center;
     }
 
-    .minecraft-menu__mobile-actions {
-        top: auto;
-        bottom: calc(max(24px, env(safe-area-inset-bottom)) + 132px);
+    .voxicraft-menu__mobile-actions {
+        top: 50%;
+        bottom: auto;
+        left: 50%;
         width: min(82vw, 360px);
         min-width: 0;
+        transform: translate(-50%, -50%);
+    }
+
+    .voxicraft-menu__mobile-signin {
+        top: auto;
+        bottom: max(24px, env(safe-area-inset-bottom));
+        left: 50%;
         transform: translateX(-50%);
     }
 
-    .minecraft-menu__mobile-signin {
-        top: auto;
-        bottom: max(74px, env(safe-area-inset-bottom));
-        transform: none;
-    }
-
-    .minecraft-menu__mobile-dressing-room {
+    .voxicraft-menu__mobile-dressing-room {
         right: max(14px, env(safe-area-inset-right));
         bottom: max(74px, env(safe-area-inset-bottom));
     }
 }
 
 /* Options Menu Styles */
-.minecraft-options {
+.voxicraft-options {
     position: fixed;
     inset: 0;
     z-index: 20;
@@ -302,7 +528,7 @@ body {
     user-select: none;
 }
 
-.minecraft-options::before {
+.voxicraft-options::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -313,28 +539,28 @@ body {
     image-rendering: pixelated;
 }
 
-.minecraft-options--desktop::after {
+.voxicraft-options--desktop::after {
     content: "";
     position: absolute;
     inset: 0;
     background: radial-gradient(circle at 50% 42%, transparent 0 22%, rgba(0, 0, 0, 0.42) 75%);
 }
 
-.minecraft-options--desktop::before {
+.voxicraft-options--desktop::before {
     background:
             linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.58)),
             url("/menus/desktop-1.png") center / cover no-repeat;
     image-rendering: auto;
 }
 
-.minecraft-options__content {
+.voxicraft-options__content {
     position: relative;
     z-index: 1;
     width: min(92vw, 720px);
     margin: 0 auto;
 }
 
-.minecraft-options__desktop-header {
+.voxicraft-options__desktop-header {
     position: relative;
     width: min(76vw, 760px);
     margin: clamp(-64px, -7vh, -34px) auto clamp(30px, 6vh, 48px);
@@ -343,7 +569,7 @@ body {
     translate: 0 100%;
 }
 
-.minecraft-options__title {
+.voxicraft-options__title {
     margin: 0;
     color: #e1e1e1;
     font-family: Impact, "Arial Black", Haettenschweiler, sans-serif;
@@ -355,7 +581,7 @@ body {
     -webkit-text-stroke: 2px #161616;
 }
 
-.minecraft-options__mobile-header {
+.voxicraft-options__mobile-header {
     position: absolute;
     top: max(34px, env(safe-area-inset-top));
     left: 50%;
@@ -365,7 +591,7 @@ body {
     transform: translateX(-50%);
 }
 
-.minecraft-options__mobile-title {
+.voxicraft-options__mobile-title {
     margin: 0;
     color: #e1e1e1;
     font-family: Impact, "Arial Black", Haettenschweiler, sans-serif;
@@ -377,7 +603,7 @@ body {
     -webkit-text-stroke: 2px #161616;
 }
 
-.minecraft-options__panel {
+.voxicraft-options__panel {
     position: relative;
     background: rgba(0, 0, 0, 0.42);
     border: 2px solid rgba(255, 255, 255, 0.18);
@@ -387,50 +613,50 @@ body {
     overflow: hidden;
 }
 
-.minecraft-options__panel.minecraft-options__panel--desktop {
+.voxicraft-options__panel.voxicraft-options__panel--desktop {
     max-height: calc(100vh - 300px);
     overflow-y: auto;
 }
 
-.minecraft-options__panel--mobile {
+.voxicraft-options__panel--mobile {
     max-height: calc(100vh - 200px);
     margin-top: 110px;
     overflow-y: auto;
 }
 
-.minecraft-options__scroll {
+.voxicraft-options__scroll {
     overflow-y: auto;
     overflow-x: hidden;
     max-height: 100%;
     padding-right: 8px;
 }
 
-.minecraft-options__scroll::-webkit-scrollbar {
+.voxicraft-options__scroll::-webkit-scrollbar {
     width: 8px;
 }
 
-.minecraft-options__scroll::-webkit-scrollbar-track {
+.voxicraft-options__scroll::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.3);
 }
 
-.minecraft-options__scroll::-webkit-scrollbar-thumb {
+.voxicraft-options__scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.35);
     border-radius: 4px;
 }
 
-.minecraft-options__scroll::-webkit-scrollbar-thumb:hover {
+.voxicraft-options__scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.48);
 }
 
-.minecraft-options__section {
+.voxicraft-options__section {
     margin-bottom: 24px;
 }
 
-.minecraft-options__section:last-child {
+.voxicraft-options__section:last-child {
     margin-bottom: 0;
 }
 
-.minecraft-options__section-title {
+.voxicraft-options__section-title {
     margin: 0 0 14px 0;
     color: #fff;
     font-size: 18px;
@@ -441,7 +667,7 @@ body {
     padding-bottom: 8px;
 }
 
-.minecraft-options__option {
+.voxicraft-options__option {
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 12px;
@@ -453,18 +679,18 @@ body {
     border-radius: 4px;
 }
 
-.minecraft-options__option--toggle {
+.voxicraft-options__option--toggle {
     grid-template-columns: 1fr auto;
 }
 
-.minecraft-options__option-label {
+.voxicraft-options__option-label {
     color: #fff;
     font-size: 15px;
     font-weight: 500;
     grid-column: 1;
 }
 
-.minecraft-options__option-value {
+.voxicraft-options__option-value {
     color: #ffeb3b;
     font-size: 15px;
     font-weight: 600;
@@ -472,7 +698,7 @@ body {
     grid-row: 1;
 }
 
-.minecraft-options__slider {
+.voxicraft-options__slider {
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
@@ -485,7 +711,7 @@ body {
     cursor: pointer;
 }
 
-.minecraft-options__slider::-webkit-slider-thumb {
+.voxicraft-options__slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 18px;
@@ -497,7 +723,7 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.48);
 }
 
-.minecraft-options__slider::-moz-range-thumb {
+.voxicraft-options__slider::-moz-range-thumb {
     width: 18px;
     height: 18px;
     background: #fff;
@@ -507,15 +733,15 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.48);
 }
 
-.minecraft-options__slider:hover::-webkit-slider-thumb {
+.voxicraft-options__slider:hover::-webkit-slider-thumb {
     background: #ffeb3b;
 }
 
-.minecraft-options__slider:hover::-moz-range-thumb {
+.voxicraft-options__slider:hover::-moz-range-thumb {
     background: #ffeb3b;
 }
 
-.minecraft-options__toggle {
+.voxicraft-options__toggle {
     position: relative;
     width: 60px;
     height: 28px;
@@ -526,7 +752,7 @@ body {
     transition: all 0.2s;
 }
 
-.minecraft-options__toggle::before {
+.voxicraft-options__toggle::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -537,7 +763,7 @@ body {
     transition: all 0.2s;
 }
 
-.minecraft-options__toggle::after {
+.voxicraft-options__toggle::after {
     content: '';
     position: absolute;
     top: 3px;
@@ -553,44 +779,44 @@ body {
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.minecraft-options__toggle--off::before {
+.voxicraft-options__toggle--off::before {
     background: 
         linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.2)),
         repeating-linear-gradient(90deg, #6b6b6b 0 2px, #5a5a5a 2px 4px);
 }
 
-.minecraft-options__toggle--off::after {
+.voxicraft-options__toggle--off::after {
     left: 3px;
     background: 
         linear-gradient(rgba(255, 255, 255, 0.15), rgba(0, 0, 0, 0.15)),
         repeating-linear-gradient(90deg, #8a8a8a 0 2px, #777 2px 4px);
 }
 
-.minecraft-options__toggle--on::before {
+.voxicraft-options__toggle--on::before {
     background: 
         linear-gradient(rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.15)),
         repeating-linear-gradient(90deg, #4caf50 0 2px, #43a047 2px 4px);
 }
 
-.minecraft-options__toggle--on::after {
+.voxicraft-options__toggle--on::after {
     left: calc(100% - 25px);
     background: 
         linear-gradient(rgba(255, 255, 255, 0.15), rgba(0, 0, 0, 0.15)),
         repeating-linear-gradient(90deg, #66bb6a 0 2px, #4caf50 2px 4px);
 }
 
-.minecraft-options__toggle:hover::after {
+.voxicraft-options__toggle:hover::after {
     box-shadow: 
         inset -1px -1px 0 rgba(0, 0, 0, 0.3),
         inset 1px 1px 0 rgba(255, 255, 255, 0.3),
         2px 2px 5px rgba(0, 0, 0, 0.5);
 }
 
-.minecraft-options__toggle:active::after {
+.voxicraft-options__toggle:active::after {
     transform: scale(0.96);
 }
 
-.minecraft-options__select {
+.voxicraft-options__select {
     padding: 8px 12px;
     border: 2px solid #333;
     border-radius: 4px;
@@ -602,25 +828,25 @@ body {
     min-width: 140px;
 }
 
-.minecraft-options__select:hover {
+.voxicraft-options__select:hover {
     background: #fff;
 }
 
-.minecraft-options__desktop-buttons {
+.voxicraft-options__desktop-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-top: 20px;
 }
 
-.minecraft-options__mobile-buttons {
+.voxicraft-options__mobile-buttons {
     display: flex;
     flex-direction: column;
     gap: 12px;
     margin-top: 20px;
 }
 
-.minecraft-options__button {
+.voxicraft-options__button {
     min-height: 42px;
     border: 2px solid #111;
     border-top-color: #cfcfcf;
@@ -635,27 +861,27 @@ body {
     text-shadow: 2px 2px 0 #222;
 }
 
-.minecraft-options__button:hover,
-.minecraft-options__button:focus-visible {
+.voxicraft-options__button:hover,
+.voxicraft-options__button:focus-visible {
     outline: 2px solid #fff46c;
     background:
             linear-gradient(rgba(255, 255, 255, 0.14), rgba(0, 0, 0, 0.08)),
             repeating-linear-gradient(90deg, #9a9a9a 0 2px, #828282 2px 4px);
 }
 
-.minecraft-options--mobile {
+.voxicraft-options--mobile {
     place-items: stretch;
     background: #86c35b;
 }
 
-.minecraft-options--mobile::before {
+.voxicraft-options--mobile::before {
     background:
             linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.38)),
             url("/menus/mobile-1.png") center / cover no-repeat;
     image-rendering: auto;
 }
 
-.minecraft-options--mobile .minecraft-options__content {
+.voxicraft-options--mobile .voxicraft-options__content {
     width: 100%;
     min-height: 100%;
     padding: max(22px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
@@ -665,13 +891,13 @@ body {
     align-items: flex-start;
 }
 
-.minecraft-options--mobile .minecraft-options__panel--mobile {
+.voxicraft-options--mobile .voxicraft-options__panel--mobile {
     flex: 1;
     margin-top: 120px;
     max-height: calc(100vh - 160px);
 }
 
-.minecraft-options__mobile-buttons {
+.voxicraft-options__mobile-buttons {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -680,7 +906,7 @@ body {
     width: 140px;
 }
 
-.minecraft-options--mobile .minecraft-options__button {
+.voxicraft-options--mobile .voxicraft-options__button {
     min-height: 56px;
     border-radius: 0;
     border: 2px solid #101010;
@@ -695,25 +921,25 @@ body {
 }
 
 @media (orientation: landscape) {
-    .minecraft-options--mobile .minecraft-options__content {
+    .voxicraft-options--mobile .voxicraft-options__content {
         flex-direction: row;
     }
 
-    .minecraft-options__panel.minecraft-options__panel--mobile {
+    .voxicraft-options__panel.voxicraft-options__panel--mobile {
         max-height: calc(100vh - 200px);
     }
 }
 
 @media (orientation: portrait) {
-    .minecraft-options--mobile .minecraft-options__content {
+    .voxicraft-options--mobile .voxicraft-options__content {
         flex-direction: column;
     }
 
-    .minecraft-options__panel.minecraft-options__panel--mobile {
+    .voxicraft-options__panel.voxicraft-options__panel--mobile {
         margin-top: 60px;
     }
 
-    .minecraft-options__mobile-buttons {
+    .voxicraft-options__mobile-buttons {
         width: 100%;
         margin-top: 0;
     }

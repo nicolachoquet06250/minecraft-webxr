@@ -1,6 +1,6 @@
 /**
  * Système générique de construction de personnages cubiques
- * Permet de créer des personnages type Minecraft avec des parties du corps définies par des matrices de couleur
+ * Permet de créer des personnages cubiques Voxicraft avec des parties du corps définies par des matrices de couleur
  */
 
 export type ColorPalette = {

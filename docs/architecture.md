@@ -6,7 +6,7 @@
 
 ## Architecture globale
 
-Minecraft WebXR est organisé autour de deux couches principales.
+Voxicraft est organisé autour de deux couches principales.
 
 ```mermaid
 flowchart LR
