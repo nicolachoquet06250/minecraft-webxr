@@ -85,12 +85,11 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
   return session;
 }
 
-export function resolveProfilePicSvgUrl(): string {
-  return `${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}?t=${Date.now()}`;
-}
-
 export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<string> {
-  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}`, {
+  const url = `${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}?t=${Date.now()}`;
+  console.debug("[Voxicraft] Chargement de la photo de profil", url);
+
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       Accept: "image/svg+xml",
@@ -100,7 +99,7 @@ export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<
   });
 
   if (!response.ok) {
-    throw new Error("Impossible de récupérer l'image de profil");
+    throw new Error(`Impossible de récupérer l'image de profil (${response.status})`);
   }
 
   const contentType = response.headers.get("Content-Type") || "image/svg+xml";
