@@ -83,6 +83,27 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
   return session;
 }
 
+export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<string> {
+  const response = await fetch(`${resolveRelayAuthApiBaseUrl()}/me/profile-pic.svg`, {
+    method: "GET",
+    headers: {
+      Accept: "image/svg+xml",
+      Authorization: `Bearer ${session.token}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Impossible de récupérer l'image de profil");
+  }
+
+  const contentType = response.headers.get("Content-Type") || "image/svg+xml";
+  const blob = await response.blob();
+  const typedBlob = blob.type ? blob : new Blob([blob], { type: contentType });
+
+  return URL.createObjectURL(typedBlob);
+}
+
 function saveAuthSession(session: AuthSession): void {
   window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, session.token);
   window.localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
