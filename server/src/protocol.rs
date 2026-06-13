@@ -14,8 +14,6 @@ pub struct PlayerTransform {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerPublicState {
     pub player_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub user_id: Option<String>,
     pub nickname: String,
     pub transform: PlayerTransform,
 }
@@ -26,8 +24,6 @@ pub enum ClientMessage {
     Hello {
         lobby_id: String,
         nickname: String,
-        #[serde(default)]
-        user_id: Option<String>,
         #[serde(default)]
         gender: Option<String>,
     },
