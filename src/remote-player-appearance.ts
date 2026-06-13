@@ -8,6 +8,7 @@ import {
   StandardMaterial,
 } from "@babylonjs/core";
 import { getAuthSession } from "./auth-client";
+import type { PlayerPublicState } from "./multiplayer-client";
 import { createTextureFromMatrix, getAllBodyParts, type TextureMatrix } from "~/character-builder";
 
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
@@ -15,7 +16,6 @@ const MATRIX_COLOR_ENDPOINT_SUFFIX = "/matrix-color";
 const NAMEPLATE_WIDTH = 1.35;
 const NAMEPLATE_HEIGHT = 0.34;
 const NAMEPLATE_Y = 2.35;
-const TEXTURE_SCALE = 16;
 
 const BODY_PART_NAMES = [
   "head",
@@ -31,6 +31,38 @@ const FACE_NAMES = ["front", "back", "top", "bottom", "right", "left"] as const;
 type BodyPartName = typeof BODY_PART_NAMES[number];
 type FaceName = typeof FACE_NAMES[number];
 type BodyPartTextureMap = Map<BodyPartName, Partial<Record<FaceName, TextureMatrix>>>;
+
+const queuedRemotePlayerStates: PlayerPublicState[] = [];
+
+export function queueRemotePlayerAppearanceState(playerState: PlayerPublicState): void {
+  queuedRemotePlayerStates.push(playerState);
+}
+
+export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void {
+  const playerState = queuedRemotePlayerStates.shift();
+
+  if (!playerState) {
+    return;
+  }
+
+  createRemotePlayerNameplate(scene, playerState.nickname, rootMesh);
+
+  const matrixColorUserId = resolveMatrixColorUserId(playerState);
+
+  if (!matrixColorUserId) {
+    return;
+  }
+
+  void loadRemotePlayerMatrixColor(matrixColorUserId)
+    .then((payload) => {
+      if (payload) {
+        applyRemotePlayerMatrixColor(scene, rootMesh, payload);
+      }
+    })
+    .catch((error: unknown) => {
+      console.warn("[Voxicraft] Matrice de couleur distante indisponible", matrixColorUserId, error);
+    });
+}
 
 export async function loadRemotePlayerMatrixColor(userId: string): Promise<unknown | null> {
   const session = getAuthSession();
@@ -135,7 +167,7 @@ export function createRemotePlayerNameplate(scene: Scene, nickname: string, pare
   context.fillText(label, 256, 65, 448);
   texture.hasAlpha = true;
   texture.update();
-  texture.updateSamplingMode(TEXTURE_SCALE);
+  texture.updateSamplingMode(1);
 
   const material = new StandardMaterial(`remote-player-nameplate-material-${parent.uniqueId}`, scene);
   material.diffuseTexture = texture;
@@ -157,6 +189,18 @@ export function createRemotePlayerNameplate(scene: Scene, nickname: string, pare
   plane.isPickable = false;
 
   return plane;
+}
+
+function resolveMatrixColorUserId(playerState: PlayerPublicState): string | null {
+  const stateWithOptionalCentralId = playerState as PlayerPublicState & { user_id?: string | null };
+  const userId = stateWithOptionalCentralId.user_id?.trim();
+
+  if (userId) {
+    return userId;
+  }
+
+  const nickname = playerState.nickname.trim();
+  return nickname.length > 0 ? nickname : null;
 }
 
 function extractBodyPartTextures(payload: unknown): BodyPartTextureMap {
