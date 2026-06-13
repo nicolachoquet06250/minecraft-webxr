@@ -542,17 +542,33 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<ServerMessage>();
 
     let writer = tokio::spawn(async move {
-        while let Some(message) = out_rx.recv().await {
-            let text = match serde_json::to_string(&message) {
-                Ok(text) => text,
-                Err(error) => {
-                    error!(%error, "unable to serialize outbound websocket message");
-                    continue;
-                }
-            };
+        let mut heartbeat = tokio::time::interval(tokio::time::Duration::from_secs(25));
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-            if ws_sender.send(Message::Text(text.into())).await.is_err() {
-                break;
+        loop {
+            tokio::select! {
+                outbound = out_rx.recv() => {
+                    let Some(message) = outbound else {
+                        break;
+                    };
+
+                    let text = match serde_json::to_string(&message) {
+                        Ok(text) => text,
+                        Err(error) => {
+                            error!(%error, "unable to serialize outbound websocket message");
+                            continue;
+                        }
+                    };
+
+                    if ws_sender.send(Message::Text(text.into())).await.is_err() {
+                        break;
+                    }
+                }
+                _ = heartbeat.tick() => {
+                    if ws_sender.send(Message::Ping(Bytes::new())).await.is_err() {
+                        break;
+                    }
+                }
             }
         }
     });
@@ -795,5 +811,6 @@ fn now_ms() -> u64 {
     let Ok(duration) = SystemTime::now().duration_since(UNIX_EPOCH) else {
         return 0;
     };
+
     duration.as_millis() as u64
 }
