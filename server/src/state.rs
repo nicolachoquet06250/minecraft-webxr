@@ -22,7 +22,6 @@ pub struct ChunkState {
 #[derive(Debug, Clone)]
 pub struct PlayerState {
     pub id: u64,
-    pub user_id: Option<String>,
     pub lobby_id: String,
     pub nickname: String,
     pub gender: String,
@@ -46,7 +45,6 @@ pub struct LobbySummary {
 #[derive(Debug, Clone, Serialize)]
 pub struct ConnectedPlayerSummary {
     pub player_id: String,
-    pub user_id: Option<String>,
     pub lobby_id: String,
     pub nickname: String,
     pub gender: String,
@@ -119,7 +117,6 @@ impl ServerState {
             .values()
             .map(|player| ConnectedPlayerSummary {
                 player_id: player_id_to_wire(player.id),
-                user_id: player.user_id.clone(),
                 lobby_id: player.lobby_id.clone(),
                 nickname: player.nickname.clone(),
                 gender: player.gender.clone(),
@@ -136,7 +133,6 @@ impl ServerState {
         &mut self,
         lobby_id: String,
         nickname: String,
-        user_id: Option<String>,
         gender: String,
         connected_at: String,
         stats_session_id: Option<i64>,
@@ -147,7 +143,6 @@ impl ServerState {
 
         let player = PlayerState {
             id: player_id,
-            user_id,
             lobby_id: lobby_id.clone(),
             nickname,
             gender,
@@ -244,7 +239,6 @@ impl ServerState {
                 if let Some(player) = self.players.get(player_id) {
                     players.push(PlayerPublicState {
                         player_id: player_id_to_wire(player.id),
-                        user_id: player.user_id.clone(),
                         nickname: player.nickname.clone(),
                         transform: player.transform.clone(),
                     });
