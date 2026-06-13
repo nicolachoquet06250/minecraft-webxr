@@ -51,6 +51,11 @@ export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void
   const matrixColorUserId = resolveMatrixColorUserId(playerState);
 
   if (!matrixColorUserId) {
+    console.warn(
+      "[Voxicraft] Impossible de charger la matrice de couleur: identifiant central manquant",
+      playerState.player_id,
+      playerState.nickname,
+    );
     return;
   }
 
@@ -191,15 +196,8 @@ export function createRemotePlayerNameplate(scene: Scene, nickname: string, pare
 }
 
 function resolveMatrixColorUserId(playerState: PlayerPublicState): string | null {
-  const stateWithOptionalCentralId = playerState as PlayerPublicState & { user_id?: string | null };
-  const userId = stateWithOptionalCentralId.user_id?.trim();
-
-  if (userId) {
-    return userId;
-  }
-
-  const nickname = playerState.nickname.trim();
-  return nickname.length > 0 ? nickname : null;
+  const userId = playerState.user_id?.trim();
+  return userId && userId.length > 0 ? userId : null;
 }
 
 function extractBodyPartTextures(payload: unknown): BodyPartTextureMap {
