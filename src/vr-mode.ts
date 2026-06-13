@@ -2,7 +2,7 @@ import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import type { Camera } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, MOVE_SPEED, pressedKeys } from "./constants";
 import { hasCollisionAt } from "./functions";
-import { toggleInGameMenu } from "./ingame-menu";
+import { isInGameMenuOpen, toggleInGameMenu } from "./ingame-menu";
 import { isCraftingOverlayOpen } from "./ui-state";
 import type { PlayerPhysics, WorldChunks } from "./types";
 import { isVRMode } from "./mobile-controls";
@@ -134,19 +134,19 @@ export async function initializeWebXRGameControls(
 
   const controls: WebXRGameControls = {
     isActive: isXRActive,
-    getMoveDirection: () => moveDirection.clone(),
+    getMoveDirection: () => isInGameMenuOpen() ? Vector3.Zero() : moveDirection.clone(),
     getControllerRay: (handedness) => {
-      if (!isXRActive()) return null;
+      if (!isXRActive() || isInGameMenuOpen()) return null;
 
       return getControllerRay(handedness === "left" ? leftController : rightController);
     },
     isTriggerPressed: (handedness) => {
-      if (!isXRActive()) return false;
+      if (!isXRActive() || isInGameMenuOpen()) return false;
 
       return isTriggerPressed(handedness === "left" ? leftController : rightController);
     },
     isBButtonPressed: (handedness) => {
-      if (!isXRActive()) return false;
+      if (!isXRActive() || isInGameMenuOpen()) return false;
 
       return isBButtonPressed(handedness === "left" ? leftController : rightController);
     },
@@ -164,6 +164,12 @@ export async function initializeWebXRGameControls(
       }
 
       leftMenuButtonWasPressed = leftMenuButtonPressed;
+
+      if (isInGameMenuOpen()) {
+        moveDirection = Vector3.Zero();
+        clearVRMovementKeys();
+        return;
+      }
 
       if (isCraftingOverlayOpen()) {
         moveDirection = Vector3.Zero();
