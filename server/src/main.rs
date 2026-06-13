@@ -596,7 +596,7 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                 };
 
                 if active_player_id.is_none() {
-                    let ClientMessage::Hello { lobby_id, nickname, gender } = client_message else {
+                    let ClientMessage::Hello { lobby_id, nickname, user_id, gender } = client_message else {
                         let _ = out_tx.send(ServerMessage::Error {
                             code: "hello_required".to_string(),
                             message: "Le premier message doit etre hello".to_string(),
@@ -612,6 +612,7 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                         let result = state.register_player(
                             lobby_id,
                             nickname,
+                            user_id.clone(),
                             normalized_gender.clone(),
                             connected_at.clone(),
                             None,
@@ -620,6 +621,7 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
 
                         let joined_player = PlayerPublicState {
                             player_id: player_id_to_wire(result.player.id),
+                            user_id: result.player.user_id.clone(),
                             nickname: result.player.nickname.clone(),
                             transform: result.player.transform.clone(),
                         };
