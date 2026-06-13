@@ -9,7 +9,7 @@ import {
 } from "@babylonjs/core";
 import { getAuthSession } from "./auth-client";
 import type { PlayerPublicState } from "./multiplayer-client";
-import { createTextureFromMatrix, getAllBodyParts, type TextureMatrix } from "~/character-builder";
+import { createTextureFromMatrix, getAllBodyParts, type ColorPalette, type TextureMatrix } from "~/character-builder";
 
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
 const MATRIX_COLOR_ENDPOINT_SUFFIX = "/matrix-color";
@@ -32,6 +32,10 @@ type BodyPartName = typeof BODY_PART_NAMES[number];
 type FaceName = typeof FACE_NAMES[number];
 type BodyPartTextureMap = Map<BodyPartName, Partial<Record<FaceName, TextureMatrix>>>;
 type NameplateContext = ReturnType<DynamicTexture["getContext"]>;
+type MatrixCandidate = {
+  readonly value: unknown;
+  readonly palette?: ColorPalette;
+};
 
 const queuedRemotePlayerStates: PlayerPublicState[] = [];
 
@@ -63,7 +67,7 @@ export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void
     .then((payload) => {
       if (payload && !applyRemotePlayerMatrixColor(scene, rootMesh, payload)) {
         console.warn(
-          "[Voxicraft] Le champ texture_data ne contient aucune texture applicable",
+          "[Voxicraft] texture_data ne contient aucune matrice de couleur applicable",
           matrixColorUserId,
           payload,
         );
@@ -120,19 +124,19 @@ export function applyRemotePlayerMatrixColor(scene: Scene, rootMesh: Mesh, paylo
     }
 
     FACE_NAMES.forEach((faceName, faceIndex) => {
-      const textureData = faces[faceName];
+      const matrixData = faces[faceName];
       const material = partMesh.material instanceof MultiMaterial
         ? partMesh.material.subMaterials[faceIndex]
         : null;
 
-      if (!textureData || !(material instanceof StandardMaterial)) {
+      if (!matrixData || !(material instanceof StandardMaterial)) {
         return;
       }
 
       const texture = createTextureFromMatrix(
         scene,
-        `${rootMesh.name}_${partName}_${faceName}_remote_custom`,
-        textureData,
+        `${rootMesh.name}_${partName}_${faceName}_remote_matrix`,
+        matrixData,
       );
       const previousDiffuseTexture = material.diffuseTexture;
       const previousOpacityTexture = material.opacityTexture;
@@ -207,46 +211,66 @@ function resolveMatrixColorUserId(playerState: PlayerPublicState): string | null
 function extractBodyPartTextures(payload: unknown): BodyPartTextureMap {
   const textureMap: BodyPartTextureMap = new Map();
 
-  for (const candidate of getPayloadCandidates(payload)) {
-    collectCharacterModelTextures(candidate, textureMap);
-    collectNestedTextures(candidate, textureMap);
-    collectFlatTextures(candidate, textureMap);
+  for (const candidate of getTextureDataCandidates(payload)) {
+    collectCharacterModelTextures(candidate.value, textureMap, candidate.palette);
+    collectNestedTextures(candidate.value, textureMap, candidate.palette);
+    collectFlatTextures(candidate.value, textureMap, candidate.palette);
   }
 
   return textureMap;
 }
 
-function getPayloadCandidates(payload: unknown): unknown[] {
-  if (!isRecord(payload)) {
-    return [payload];
+function getTextureDataCandidates(payload: unknown): MatrixCandidate[] {
+  const candidates: MatrixCandidate[] = [];
+  const root = parseMaybeJson(payload);
+
+  if (!isRecord(root)) {
+    candidates.push({ value: root });
+    return candidates;
   }
 
-  const textureData = payload.texture_data ?? payload.textureData;
-  const textureDataRecord = isRecord(textureData) ? textureData : null;
-  const avatarRecord = isRecord(payload.avatar) ? payload.avatar : null;
+  const textureData = parseMaybeJson(root.texture_data ?? root.textureData);
+  const avatar = isRecord(root.avatar) ? root.avatar : null;
+  const avatarTextureData = avatar ? parseMaybeJson(avatar.texture_data ?? avatar.textureData) : null;
 
-  return [
-    textureData,
-    textureDataRecord?.steveModelTextures,
-    textureDataRecord?.steve_model_textures,
-    textureDataRecord?.modelTextures,
-    textureDataRecord?.textures,
-    payload,
-    payload.matrix_color,
-    payload.matrixColor,
-    payload.color_matrix,
-    payload.colorMatrix,
-    avatarRecord?.texture_data,
-    avatarRecord?.textureData,
-    avatarRecord?.matrix_color,
-    avatarRecord?.matrixColor,
-    payload.character,
-    payload.model,
-    payload.textures,
-  ].filter((candidate) => candidate !== undefined && candidate !== null);
+  pushMatrixCandidates(candidates, textureData);
+  pushMatrixCandidates(candidates, avatarTextureData);
+  pushMatrixCandidates(candidates, root.matrix_color ?? root.matrixColor ?? root.color_matrix ?? root.colorMatrix);
+  pushMatrixCandidates(candidates, avatar?.matrix_color ?? avatar?.matrixColor);
+  pushMatrixCandidates(candidates, root);
+
+  return candidates;
 }
 
-function collectCharacterModelTextures(candidate: unknown, textureMap: BodyPartTextureMap): void {
+function pushMatrixCandidates(candidates: MatrixCandidate[], value: unknown): void {
+  const parsedValue = parseMaybeJson(value);
+
+  if (parsedValue === undefined || parsedValue === null) {
+    return;
+  }
+
+  if (!isRecord(parsedValue)) {
+    candidates.push({ value: parsedValue });
+    return;
+  }
+
+  const palette = extractPalette(parsedValue);
+
+  candidates.push({ value: parsedValue, palette });
+  candidates.push({ value: parsedValue.steveModelTextures, palette });
+  candidates.push({ value: parsedValue.alexModelTextures, palette });
+  candidates.push({ value: parsedValue.steve_model_textures, palette });
+  candidates.push({ value: parsedValue.alex_model_textures, palette });
+  candidates.push({ value: parsedValue.modelTextures, palette });
+  candidates.push({ value: parsedValue.model_textures, palette });
+  candidates.push({ value: parsedValue.textures, palette });
+}
+
+function collectCharacterModelTextures(
+  candidate: unknown,
+  textureMap: BodyPartTextureMap,
+  fallbackPalette?: ColorPalette,
+): void {
   const bodyParts = Array.isArray(candidate)
     ? candidate
     : isRecord(candidate) && Array.isArray(candidate.bodyParts)
@@ -268,28 +292,40 @@ function collectCharacterModelTextures(candidate: unknown, textureMap: BodyPartT
       continue;
     }
 
-    collectFaces(partName, part.textures, textureMap);
+    collectFaces(partName, part.textures, textureMap, extractPalette(part) ?? fallbackPalette);
   }
 }
 
-function collectNestedTextures(candidate: unknown, textureMap: BodyPartTextureMap): void {
+function collectNestedTextures(
+  candidate: unknown,
+  textureMap: BodyPartTextureMap,
+  fallbackPalette?: ColorPalette,
+): void {
   if (!isRecord(candidate)) {
     return;
   }
+
+  const palette = extractPalette(candidate) ?? fallbackPalette;
 
   for (const partName of BODY_PART_NAMES) {
     const faces = candidate[partName];
 
     if (isRecord(faces)) {
-      collectFaces(partName, faces, textureMap);
+      collectFaces(partName, faces, textureMap, extractPalette(faces) ?? palette);
     }
   }
 }
 
-function collectFlatTextures(candidate: unknown, textureMap: BodyPartTextureMap): void {
+function collectFlatTextures(
+  candidate: unknown,
+  textureMap: BodyPartTextureMap,
+  fallbackPalette?: ColorPalette,
+): void {
   if (!isRecord(candidate)) {
     return;
   }
+
+  const palette = extractPalette(candidate) ?? fallbackPalette;
 
   for (const [key, value] of Object.entries(candidate)) {
     const [partName, faceName] = key.split(".");
@@ -300,7 +336,7 @@ function collectFlatTextures(candidate: unknown, textureMap: BodyPartTextureMap)
       continue;
     }
 
-    const texture = normalizeTextureMatrix(value);
+    const texture = normalizeTextureMatrix(value, palette);
 
     if (!texture) {
       continue;
@@ -310,9 +346,16 @@ function collectFlatTextures(candidate: unknown, textureMap: BodyPartTextureMap)
   }
 }
 
-function collectFaces(partName: BodyPartName, faces: Record<string, unknown>, textureMap: BodyPartTextureMap): void {
+function collectFaces(
+  partName: BodyPartName,
+  faces: Record<string, unknown>,
+  textureMap: BodyPartTextureMap,
+  fallbackPalette?: ColorPalette,
+): void {
+  const palette = extractPalette(faces) ?? fallbackPalette;
+
   for (const faceName of FACE_NAMES) {
-    const texture = normalizeTextureMatrix(faces[faceName]);
+    const texture = normalizeTextureMatrix(faces[faceName], palette);
 
     if (texture) {
       setFaceTexture(textureMap, partName, faceName, texture);
@@ -320,8 +363,14 @@ function collectFaces(partName: BodyPartName, faces: Record<string, unknown>, te
   }
 }
 
-function normalizeTextureMatrix(value: unknown): TextureMatrix | null {
-  if (!isRecord(value) || !isRecord(value.palette) || !Array.isArray(value.matrix)) {
+function normalizeTextureMatrix(value: unknown, fallbackPalette?: ColorPalette): TextureMatrix | null {
+  if (!isRecord(value) || !Array.isArray(value.matrix)) {
+    return null;
+  }
+
+  const palette = extractPalette(value) ?? fallbackPalette;
+
+  if (!palette) {
     return null;
   }
 
@@ -339,11 +388,33 @@ function normalizeTextureMatrix(value: unknown): TextureMatrix | null {
   }
 
   return {
-    palette: value.palette as TextureMatrix["palette"],
+    palette,
     width,
     height,
     matrix,
   };
+}
+
+function extractPalette(value: unknown): ColorPalette | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const palette = value.palette ?? value.stevePalette ?? value.alexPalette;
+
+  return isRecord(palette) ? palette as ColorPalette : undefined;
+}
+
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
 }
 
 function setFaceTexture(
