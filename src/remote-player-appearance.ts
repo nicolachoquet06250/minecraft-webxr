@@ -31,6 +31,7 @@ const FACE_NAMES = ["front", "back", "top", "bottom", "right", "left"] as const;
 type BodyPartName = typeof BODY_PART_NAMES[number];
 type FaceName = typeof FACE_NAMES[number];
 type BodyPartTextureMap = Map<BodyPartName, Partial<Record<FaceName, TextureMatrix>>>;
+type NameplateContext = ReturnType<DynamicTexture["getContext"]>;
 
 const queuedRemotePlayerStates: PlayerPublicState[] = [];
 
@@ -160,11 +161,9 @@ export function createRemotePlayerNameplate(scene: Scene, nickname: string, pare
   strokeRoundedRect(context, 12, 22, 488, 84, 18);
   context.fillStyle = "#ffffff";
   context.font = "700 42px Arial, Helvetica, sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
   context.shadowColor = "rgba(0, 0, 0, 0.85)";
   context.shadowBlur = 4;
-  context.fillText(label, 256, 65, 448);
+  context.fillText(label, 48, 78, 416);
   texture.hasAlpha = true;
   texture.update();
   texture.updateSamplingMode(1);
@@ -370,7 +369,7 @@ function resolveCentralAuthApiBaseUrl(): string {
 }
 
 function drawRoundedRect(
-  context: CanvasRenderingContext2D,
+  context: NameplateContext,
   x: number,
   y: number,
   width: number,
@@ -384,7 +383,7 @@ function drawRoundedRect(
 }
 
 function strokeRoundedRect(
-  context: CanvasRenderingContext2D,
+  context: NameplateContext,
   x: number,
   y: number,
   width: number,
@@ -396,7 +395,7 @@ function strokeRoundedRect(
 }
 
 function roundedRectPath(
-  context: CanvasRenderingContext2D,
+  context: NameplateContext,
   x: number,
   y: number,
   width: number,
