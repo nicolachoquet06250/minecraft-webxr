@@ -4,7 +4,8 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 
 use crate::protocol::{
-    CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, PlayerPublicState, PlayerTransform, ServerMessage,
+    CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, ConnectedPlayerPublicState, PlayerPublicState,
+    PlayerTransform, ServerMessage,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -43,16 +44,7 @@ pub struct LobbySummary {
     pub players: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ConnectedPlayerSummary {
-    pub player_id: String,
-    pub user_id: Option<String>,
-    pub lobby_id: String,
-    pub nickname: String,
-    pub gender: String,
-    pub connected_at: String,
-    pub transform: PlayerTransform,
-}
+pub type ConnectedPlayerSummary = ConnectedPlayerPublicState;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ServerSummary {
@@ -73,10 +65,12 @@ pub struct ServerState {
     pub seed: u32,
     pub world_version: u64,
     next_player_id: u64,
+    next_central_session_id: u64,
     chunks: HashMap<ChunkCoord, ChunkState>,
     players: HashMap<u64, PlayerState>,
     lobbies: HashMap<String, LobbyState>,
     sessions: HashMap<u64, mpsc::UnboundedSender<ServerMessage>>,
+    central_sessions: HashMap<u64, mpsc::UnboundedSender<ServerMessage>>,
 }
 
 impl ServerState {
@@ -85,10 +79,12 @@ impl ServerState {
             seed,
             world_version: 0,
             next_player_id: 1,
+            next_central_session_id: 1,
             chunks: HashMap::new(),
             players: HashMap::new(),
             lobbies: HashMap::new(),
             sessions: HashMap::new(),
+            central_sessions: HashMap::new(),
         }
     }
 
@@ -114,22 +110,47 @@ impl ServerState {
     }
 
     pub fn connected_players_summary(&self) -> Vec<ConnectedPlayerSummary> {
-        let mut players: Vec<ConnectedPlayerSummary> = self
+        self.connected_players_public_state()
+    }
+
+    pub fn connected_players_public_state(&self) -> Vec<ConnectedPlayerPublicState> {
+        let mut players: Vec<ConnectedPlayerPublicState> = self
             .players
             .values()
-            .map(|player| ConnectedPlayerSummary {
-                player_id: player_id_to_wire(player.id),
-                user_id: player.user_id.clone(),
-                lobby_id: player.lobby_id.clone(),
-                nickname: player.nickname.clone(),
-                gender: player.gender.clone(),
-                connected_at: player.connected_at.clone(),
-                transform: player.transform.clone(),
-            })
+            .map(|player| self.connected_player_public_state(player))
             .collect();
 
         players.sort_by(|a, b| a.connected_at.cmp(&b.connected_at));
         players
+    }
+
+    pub fn connected_player_public_state(&self, player: &PlayerState) -> ConnectedPlayerPublicState {
+        ConnectedPlayerPublicState {
+            player_id: player_id_to_wire(player.id),
+            user_id: player.user_id.clone(),
+            lobby_id: player.lobby_id.clone(),
+            nickname: player.nickname.clone(),
+            gender: player.gender.clone(),
+            connected_at: player.connected_at.clone(),
+            transform: player.transform.clone(),
+        }
+    }
+
+    pub fn register_central_session(&mut self, tx: mpsc::UnboundedSender<ServerMessage>) -> u64 {
+        let central_session_id = self.next_central_session_id;
+        self.next_central_session_id = self.next_central_session_id.saturating_add(1);
+        self.central_sessions.insert(central_session_id, tx);
+        central_session_id
+    }
+
+    pub fn remove_central_session(&mut self, central_session_id: u64) {
+        self.central_sessions.remove(&central_session_id);
+    }
+
+    pub fn broadcast_to_central(&self, message: &ServerMessage) {
+        for tx in self.central_sessions.values() {
+            let _ = tx.send(message.clone());
+        }
     }
 
     pub fn register_player(
