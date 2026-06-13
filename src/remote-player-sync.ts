@@ -6,6 +6,8 @@ import type { PlayerPublicState, PlayerTransformPayload } from "./multiplayer-cl
 const REMOTE_TRANSFORM_SMOOTHING_SPEED = 18;
 const REMOTE_TRANSFORM_SNAP_DISTANCE_SQUARED = 16;
 const REMOTE_PLAYER_STALE_MS = 10_000;
+const REMOTE_WALK_SPEED_THRESHOLD = 0.05;
+const REMOTE_WALK_DISTANCE_THRESHOLD_SQUARED = 0.0004;
 
 type RemotePlayerVisual = {
   mesh: import("@babylonjs/core").Mesh;
@@ -16,6 +18,7 @@ type RemotePlayerVisual = {
   };
   current: PlayerTransformPayload;
   target: PlayerTransformPayload;
+  previousAppliedPosition: [number, number, number];
   lastReceivedAtMs: number;
   lastAppliedAtMs: number;
 };
@@ -57,12 +60,13 @@ export function createRemotePlayerSyncManager(
         animator,
         current: cloneTransform(playerState.transform),
         target: cloneTransform(playerState.transform),
+        previousAppliedPosition: [...playerState.transform.position] as [number, number, number],
         lastReceivedAtMs: now,
         lastAppliedAtMs: now,
       };
       remotePlayers.set(playerState.player_id, remote);
       applyTransform(remote, remote.current);
-      updateAnimation(remote, remote.current);
+      updateAnimation(remote);
       return;
     }
 
@@ -115,7 +119,8 @@ export function createRemotePlayerSyncManager(
 
       remote.lastAppliedAtMs = now;
       applyTransform(remote, remote.current);
-      updateAnimation(remote, remote.current);
+      updateAnimation(remote);
+      remote.previousAppliedPosition = [...remote.current.position] as [number, number, number];
     }
   };
 
@@ -159,12 +164,17 @@ function applyTransform(remote: RemotePlayerVisual, transform: PlayerTransformPa
   remote.mesh.rotation.y = transform.rotation[0];
 }
 
-function updateAnimation(remote: RemotePlayerVisual, transform: PlayerTransformPayload): void {
-  const speed = Math.hypot(transform.velocity[0], transform.velocity[2]);
-  const targetAnimation = speed > 0.15 ? "walk" : "idle";
+function updateAnimation(remote: RemotePlayerVisual): void {
+  const horizontalVelocitySpeed = Math.hypot(remote.target.velocity[0], remote.target.velocity[2]);
+  const targetDistanceSquared = squaredDistance(remote.current.position, remote.target.position);
+  const appliedDistanceSquared = squaredDistance(remote.previousAppliedPosition, remote.current.position);
+  const isMoving = horizontalVelocitySpeed > REMOTE_WALK_SPEED_THRESHOLD
+    || targetDistanceSquared > REMOTE_WALK_DISTANCE_THRESHOLD_SQUARED
+    || appliedDistanceSquared > REMOTE_WALK_DISTANCE_THRESHOLD_SQUARED;
+  const targetAnimation = isMoving ? "walk" : "idle";
 
   if (remote.animator.getCurrentAnimation() !== targetAnimation) {
-    remote.animator.play(targetAnimation);
+    remote.animator.play(targetAnimation, true);
   }
 }
 
