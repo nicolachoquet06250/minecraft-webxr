@@ -15,6 +15,7 @@ export type PlayerPublicState = {
 };
 
 const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
+let activeMultiplayerClient: MultiplayerClient | null = null;
 
 function isSinglePlayerMode(): boolean {
   try {
@@ -181,6 +182,10 @@ export class MultiplayerClient {
   private connected = false;
   private localPlayerId: string | null = null;
 
+  static disconnectActiveSession(): void {
+    activeMultiplayerClient?.disconnect();
+  }
+
   constructor(options: MultiplayerClientOptions) {
     this.wsUrl = options.wsUrl;
     this.lobbyId = options.lobbyId;
@@ -247,6 +252,7 @@ export class MultiplayerClient {
 
           this.connected = true;
           this.localPlayerId = welcome.playerId;
+          activeMultiplayerClient = this;
           this.handlers.onWelcome?.(welcome);
 
           if (!settled) {
@@ -275,6 +281,10 @@ export class MultiplayerClient {
         this.connected = false;
         this.localPlayerId = null;
 
+        if (activeMultiplayerClient === this) {
+          activeMultiplayerClient = null;
+        }
+
         if (!settled) {
           settled = true;
           window.clearTimeout(timeoutHandle);
@@ -289,6 +299,11 @@ export class MultiplayerClient {
   disconnect(): void {
     this.connected = false;
     this.localPlayerId = null;
+
+    if (activeMultiplayerClient === this) {
+      activeMultiplayerClient = null;
+    }
+
     this.socket?.close();
     this.socket = null;
   }
