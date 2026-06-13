@@ -1,3 +1,4 @@
+import { getAuthSession } from "./auth-client";
 import { queueRemotePlayerAppearanceState } from "./remote-player-appearance";
 
 export type PlayerTransformPayload = {
@@ -184,7 +185,7 @@ export class MultiplayerClient {
     this.wsUrl = options.wsUrl;
     this.lobbyId = options.lobbyId;
     this.nickname = options.nickname;
-    this.userId = options.userId?.trim() || null;
+    this.userId = options.userId?.trim() || getAuthSession()?.user.id?.trim() || null;
     this.handlers = options.handlers ?? {};
   }
 
