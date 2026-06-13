@@ -574,6 +574,7 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
     });
 
     let mut active_player_id: Option<u64> = None;
+    let mut active_central_session_id: Option<u64> = None;
 
     while let Some(incoming) = ws_receiver.next().await {
         let Ok(frame) = incoming else {
@@ -595,100 +596,126 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                     }
                 };
 
-                if active_player_id.is_none() {
-                    let ClientMessage::Hello { lobby_id, nickname, user_id, gender } = client_message else {
-                        let _ = out_tx.send(ServerMessage::Error {
-                            code: "hello_required".to_string(),
-                            message: "Le premier message doit etre hello".to_string(),
-                        });
-                        continue;
-                    };
+                if active_player_id.is_none() && active_central_session_id.is_none() {
+                    match client_message {
+                        ClientMessage::Hello { lobby_id, nickname, user_id, gender } => {
+                            let normalized_gender = stats::normalize_gender(gender.as_deref());
+                            let connected_at = stats::now_rfc3339();
 
-                    let normalized_gender = stats::normalize_gender(gender.as_deref());
-                    let connected_at = stats::now_rfc3339();
+                            let (new_player_id, welcome_message, lobby_state_message, joined_message, central_joined_message) = {
+                                let mut state = app_state.state.write().await;
+                                let result = state.register_player(
+                                    lobby_id,
+                                    nickname,
+                                    user_id.clone(),
+                                    normalized_gender.clone(),
+                                    connected_at.clone(),
+                                    None,
+                                    out_tx.clone(),
+                                );
 
-                    let (new_player_id, welcome_message, lobby_state_message, joined_message) = {
-                        let mut state = app_state.state.write().await;
-                        let result = state.register_player(
-                            lobby_id,
-                            nickname,
-                            user_id.clone(),
-                            normalized_gender.clone(),
-                            connected_at.clone(),
-                            None,
-                            out_tx.clone(),
-                        );
+                                let joined_player = PlayerPublicState {
+                                    player_id: player_id_to_wire(result.player.id),
+                                    user_id: result.player.user_id.clone(),
+                                    nickname: result.player.nickname.clone(),
+                                    transform: result.player.transform.clone(),
+                                };
 
-                        let joined_player = PlayerPublicState {
-                            player_id: player_id_to_wire(result.player.id),
-                            user_id: result.player.user_id.clone(),
-                            nickname: result.player.nickname.clone(),
-                            transform: result.player.transform.clone(),
-                        };
+                                let joined_message = ServerMessage::PlayerJoined {
+                                    lobby_id: result.player.lobby_id.clone(),
+                                    player: joined_player,
+                                };
+                                let central_joined_message = ServerMessage::CentralPlayerConnected {
+                                    player: state.connected_player_public_state(&result.player),
+                                    world_version: state.world_version,
+                                };
 
-                        let joined_message = ServerMessage::PlayerJoined {
-                            lobby_id: result.player.lobby_id.clone(),
-                            player: joined_player,
-                        };
+                                (result.player.id, result.welcome, result.lobby_state, joined_message, central_joined_message)
+                            };
 
-                        (result.player.id, result.welcome, result.lobby_state, joined_message)
-                    };
-
-                    let player_id_wire = player_id_to_wire(new_player_id);
-                    if let ServerMessage::PlayerJoined { lobby_id, player } = &joined_message {
-                        let connected_log_at = format_log_datetime();
-                        info!(
-                            nickname = %player.nickname,
-                            lobby_id = %lobby_id,
-                            connected_at = %connected_log_at,
-                            "Le joueur avec le pseudo {} s'est connecté le {}",
-                            player.nickname,
-                            connected_log_at,
-                        );
-                    }
-
-                    let stats_session_id = match app_state.stats_db.lock() {
-                        Ok(connection) => match stats::start_player_session(
-                            &connection,
-                            &player_id_wire,
-                            match &joined_message { ServerMessage::PlayerJoined { lobby_id, .. } => lobby_id, _ => "unknown" },
-                            match &joined_message { ServerMessage::PlayerJoined { player, .. } => &player.nickname, _ => "unknown" },
-                            &normalized_gender,
-                            &connected_at,
-                        ) {
-                            Ok(session_id) => Some(session_id),
-                            Err(error) => {
-                                error!(%error, player_id = %player_id_wire, "failed to create player stats session");
-                                None
+                            let player_id_wire = player_id_to_wire(new_player_id);
+                            if let ServerMessage::PlayerJoined { lobby_id, player } = &joined_message {
+                                let connected_log_at = format_log_datetime();
+                                info!(
+                                    nickname = %player.nickname,
+                                    lobby_id = %lobby_id,
+                                    connected_at = %connected_log_at,
+                                    "Le joueur avec le pseudo {} s'est connecté le {}",
+                                    player.nickname,
+                                    connected_log_at,
+                                );
                             }
-                        },
-                        Err(error) => {
-                            error!(%error, "stats SQLite mutex poisoned");
-                            None
+
+                            let stats_session_id = match app_state.stats_db.lock() {
+                                Ok(connection) => match stats::start_player_session(
+                                    &connection,
+                                    &player_id_wire,
+                                    match &joined_message { ServerMessage::PlayerJoined { lobby_id, .. } => lobby_id, _ => "unknown" },
+                                    match &joined_message { ServerMessage::PlayerJoined { player, .. } => &player.nickname, _ => "unknown" },
+                                    &normalized_gender,
+                                    &connected_at,
+                                ) {
+                                    Ok(session_id) => Some(session_id),
+                                    Err(error) => {
+                                        error!(%error, player_id = %player_id_wire, "failed to create player stats session");
+                                        None
+                                    }
+                                },
+                                Err(error) => {
+                                    error!(%error, "stats SQLite mutex poisoned");
+                                    None
+                                }
+                            };
+
+                            if let Some(session_id) = stats_session_id {
+                                let mut state = app_state.state.write().await;
+                                state.set_player_stats_session_id(new_player_id, session_id);
+                            }
+
+                            let _ = out_tx.send(welcome_message);
+                            let _ = out_tx.send(lobby_state_message);
+
+                            {
+                                let state = app_state.state.read().await;
+                                if let ServerMessage::PlayerJoined { ref lobby_id, .. } = joined_message {
+                                    state.broadcast_to_lobby(lobby_id, &joined_message, Some(new_player_id));
+                                }
+                                state.broadcast_to_central(&central_joined_message);
+                            }
+
+                            active_player_id = Some(new_player_id);
+                            continue;
                         }
-                    };
+                        ClientMessage::CentralSubscribe { server_id, .. } => {
+                            let (central_session_id, snapshot_message) = {
+                                let mut state = app_state.state.write().await;
+                                let central_session_id = state.register_central_session(out_tx.clone());
+                                let snapshot_message = ServerMessage::CentralConnectedPlayers {
+                                    players: state.connected_players_public_state(),
+                                    world_version: state.world_version,
+                                };
+                                (central_session_id, snapshot_message)
+                            };
 
-                    if let Some(session_id) = stats_session_id {
-                        let mut state = app_state.state.write().await;
-                        state.set_player_stats_session_id(new_player_id, session_id);
-                    }
-
-                    let _ = out_tx.send(welcome_message);
-                    let _ = out_tx.send(lobby_state_message);
-
-                    {
-                        let state = app_state.state.read().await;
-                        if let ServerMessage::PlayerJoined { ref lobby_id, .. } = joined_message {
-                            state.broadcast_to_lobby(lobby_id, &joined_message, Some(new_player_id));
+                            info!(central_session_id, server_id = ?server_id, "central websocket subscribed");
+                            let _ = out_tx.send(snapshot_message);
+                            active_central_session_id = Some(central_session_id);
+                            continue;
+                        }
+                        _ => {
+                            let _ = out_tx.send(ServerMessage::Error {
+                                code: "hello_or_central_subscribe_required".to_string(),
+                                message: "Le premier message doit etre hello ou central_subscribe".to_string(),
+                            });
+                            continue;
                         }
                     }
-
-                    active_player_id = Some(new_player_id);
-                    continue;
                 }
 
                 if let Some(player_id) = active_player_id {
                     process_player_message(&app_state, &out_tx, player_id, client_message).await;
+                } else if active_central_session_id.is_some() {
+                    process_central_message(&out_tx, client_message).await;
                 }
             }
             Message::Close(_) => break,
@@ -704,6 +731,12 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
                     state.broadcast_to_lobby(&lobby_id, &left_message, None);
                     let lobby_state = state.lobby_state_message(&lobby_id);
                     state.broadcast_to_lobby(&lobby_id, &lobby_state, None);
+                    let central_left_message = ServerMessage::CentralPlayerDisconnected {
+                        player_id: player_id_to_wire(player.id),
+                        lobby_id: lobby_id.clone(),
+                        world_version: state.world_version,
+                    };
+                    state.broadcast_to_central(&central_left_message);
                     Some(player)
                 }
                 None => None,
@@ -736,7 +769,36 @@ async fn handle_socket(socket: WebSocket, app_state: AppState) {
         }
     }
 
+    if let Some(central_session_id) = active_central_session_id {
+        let mut state = app_state.state.write().await;
+        state.remove_central_session(central_session_id);
+        info!(central_session_id, "central websocket disconnected");
+    }
+
     writer.abort();
+}
+
+async fn process_central_message(
+    out_tx: &mpsc::UnboundedSender<ServerMessage>,
+    message: ClientMessage,
+) {
+    match message {
+        ClientMessage::CentralSubscribe { .. } => {
+            let _ = out_tx.send(ServerMessage::Error {
+                code: "central_already_subscribed".to_string(),
+                message: "Le central est deja abonne au canal joueurs".to_string(),
+            });
+        }
+        ClientMessage::Ping { client_time_ms } => {
+            let _ = out_tx.send(ServerMessage::Pong { server_time_ms: now_ms(), client_time_ms });
+        }
+        _ => {
+            let _ = out_tx.send(ServerMessage::Error {
+                code: "central_message_not_allowed".to_string(),
+                message: "Message non autorise sur le canal central".to_string(),
+            });
+        }
+    }
 }
 
 async fn process_player_message(
@@ -750,6 +812,12 @@ async fn process_player_message(
             let _ = out_tx.send(ServerMessage::Error {
                 code: "already_joined".to_string(),
                 message: "Le joueur est deja enregistre".to_string(),
+            });
+        }
+        ClientMessage::CentralSubscribe { .. } => {
+            let _ = out_tx.send(ServerMessage::Error {
+                code: "player_cannot_subscribe_as_central".to_string(),
+                message: "Un joueur connecte ne peut pas ouvrir le canal central".to_string(),
             });
         }
         ClientMessage::RequestChunk { chunk_x, chunk_z } => {
