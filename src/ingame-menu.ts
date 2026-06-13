@@ -211,7 +211,7 @@ function ensureMenuStyle(): void {
 
     .voxicraft-ingame-menu__header {
       position: relative;
-      width: min(82vw, 560px);
+      width: 100%;
       margin: 0 auto clamp(22px, 5vh, 44px);
       text-align: center;
       text-shadow: 5px 5px 0 #151515, -3px -3px 0 #f4f4f4, 0 0 16px rgba(0, 0, 0, 0.55);
@@ -234,8 +234,8 @@ function ensureMenuStyle(): void {
 
     .voxicraft-ingame-menu__splash {
       position: absolute;
-      right: clamp(8px, 8vw, 52px);
-      bottom: -18px;
+      right: 20px;
+      bottom: -5px;
       width: max-content;
       margin: 0;
       color: #ffff55;
