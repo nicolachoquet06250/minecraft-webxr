@@ -1,5 +1,5 @@
 import { getAuthSession } from "./auth-client";
-import { queueRemotePlayerAppearanceState } from "./remote-player-appearance";
+import { queueRemotePlayerAppearanceState, setRemotePlayerMiningState } from "./remote-player-appearance";
 
 export type PlayerTransformPayload = {
   position: [number, number, number];
@@ -14,7 +14,31 @@ export type PlayerPublicState = {
   transform: PlayerTransformPayload;
 };
 
+export type MultiplayerSyncEvent =
+  | {
+      kind: "block_breaking";
+      action: "start" | "progress" | "cancel" | "finish";
+      x: number;
+      y: number;
+      z: number;
+      blockId: number;
+      progress: number;
+      stage: number;
+    }
+  | {
+      kind: "drop_spawned";
+      dropId: string;
+      blockId: number;
+      position: [number, number, number];
+      velocity: [number, number, number];
+    }
+  | {
+      kind: "drop_picked_up";
+      dropId: string;
+    };
+
 const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
+const SYNC_CHAT_PREFIX = "__voxicraft_sync__:";
 let activeMultiplayerClient: MultiplayerClient | null = null;
 
 function isSinglePlayerMode(): boolean {
@@ -139,6 +163,12 @@ type ClientMessage =
       payload: PlayerTransformPayload;
     }
   | {
+      type: "chat";
+      payload: {
+        message: string;
+      };
+    }
+  | {
       type: "ping";
       payload: {
         client_time_ms: number;
@@ -184,6 +214,10 @@ export class MultiplayerClient {
 
   static disconnectActiveSession(): void {
     activeMultiplayerClient?.disconnect();
+  }
+
+  static syncEvent(event: MultiplayerSyncEvent): void {
+    activeMultiplayerClient?.sendSyncEvent(event);
   }
 
   constructor(options: MultiplayerClientOptions) {
@@ -346,6 +380,15 @@ export class MultiplayerClient {
     });
   }
 
+  private sendSyncEvent(event: MultiplayerSyncEvent): void {
+    this.sendRaw({
+      type: "chat",
+      payload: {
+        message: `${SYNC_CHAT_PREFIX}${JSON.stringify(event)}`,
+      },
+    });
+  }
+
   private parseServerMessage(raw: unknown): ServerMessage | null {
     if (typeof raw !== "string") {
       return null;
@@ -385,6 +428,7 @@ export class MultiplayerClient {
         this.handlers.onPlayerJoined?.(message.payload.player);
         return;
       case "player_left":
+        setRemotePlayerMiningState(message.payload.player_id, false);
         this.handlers.onPlayerLeft?.(message.payload.player_id);
         return;
       case "chunk_data":
@@ -409,11 +453,38 @@ export class MultiplayerClient {
         this.handlers.onError?.(message.payload.code, message.payload.message);
         return;
       case "chat":
+        this.dispatchSyncChat(message.payload.player_id, message.payload.message);
+        return;
       case "pong":
       case "welcome":
         return;
       default:
         return;
+    }
+  }
+
+  private dispatchSyncChat(playerId: string, message: string): void {
+    if (!message.startsWith(SYNC_CHAT_PREFIX)) {
+      return;
+    }
+
+    try {
+      const event = JSON.parse(message.slice(SYNC_CHAT_PREFIX.length)) as MultiplayerSyncEvent;
+
+      if (event.kind === "block_breaking") {
+        setRemotePlayerMiningState(playerId, event.action === "start" || event.action === "progress");
+      } else if (event.kind === "drop_picked_up") {
+        setRemotePlayerMiningState(playerId, false);
+      }
+
+      window.dispatchEvent(new CustomEvent("voxicraft:multiplayer-sync", {
+        detail: {
+          playerId,
+          event,
+        },
+      }));
+    } catch (error) {
+      console.warn("[Voxicraft] Sync multijoueur invalide", error);
     }
   }
 }
