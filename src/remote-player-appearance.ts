@@ -61,8 +61,12 @@ export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void
 
   void loadRemotePlayerMatrixColor(matrixColorUserId)
     .then((payload) => {
-      if (payload) {
-        applyRemotePlayerMatrixColor(scene, rootMesh, payload);
+      if (payload && !applyRemotePlayerMatrixColor(scene, rootMesh, payload)) {
+        console.warn(
+          "[Voxicraft] Le champ texture_data ne contient aucune texture applicable",
+          matrixColorUserId,
+          payload,
+        );
       }
     })
     .catch((error: unknown) => {
@@ -217,15 +221,25 @@ function getPayloadCandidates(payload: unknown): unknown[] {
     return [payload];
   }
 
+  const textureData = payload.texture_data ?? payload.textureData;
+  const textureDataRecord = isRecord(textureData) ? textureData : null;
+  const avatarRecord = isRecord(payload.avatar) ? payload.avatar : null;
+
   return [
+    textureData,
+    textureDataRecord?.steveModelTextures,
+    textureDataRecord?.steve_model_textures,
+    textureDataRecord?.modelTextures,
+    textureDataRecord?.textures,
     payload,
     payload.matrix_color,
     payload.matrixColor,
     payload.color_matrix,
     payload.colorMatrix,
-    payload.avatar,
-    isRecord(payload.avatar) ? payload.avatar.matrix_color : undefined,
-    isRecord(payload.avatar) ? payload.avatar.matrixColor : undefined,
+    avatarRecord?.texture_data,
+    avatarRecord?.textureData,
+    avatarRecord?.matrix_color,
+    avatarRecord?.matrixColor,
     payload.character,
     payload.model,
     payload.textures,
