@@ -36,8 +36,15 @@ type MatrixCandidate = {
   readonly value: unknown;
   readonly palette?: ColorPalette;
 };
+type RemoteAnimator = {
+  play: (animationName: string, loop?: boolean, speed?: number) => void;
+  getCurrentAnimation: () => string | null;
+};
 
 const queuedRemotePlayerStates: PlayerPublicState[] = [];
+const remoteMeshPlayerIds = new Map<number, string>();
+const remotePlayerAnimators = new Map<string, RemoteAnimator>();
+const remoteMiningPlayerIds = new Set<string>();
 
 export function queueRemotePlayerAppearanceState(playerState: PlayerPublicState): void {
   queuedRemotePlayerStates.push(playerState);
@@ -50,6 +57,7 @@ export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void
     return;
   }
 
+  remoteMeshPlayerIds.set(rootMesh.uniqueId, playerState.player_id);
   createRemotePlayerNameplate(scene, playerState.nickname, rootMesh);
 
   const matrixColorUserId = resolveMatrixColorUserId(playerState);
@@ -76,6 +84,40 @@ export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void
     .catch((error: unknown) => {
       console.warn("[Voxicraft] Matrice de couleur distante indisponible", matrixColorUserId, error);
     });
+}
+
+export function attachRemotePlayerAnimator(rootMesh: Mesh, animator: RemoteAnimator): void {
+  const playerId = remoteMeshPlayerIds.get(rootMesh.uniqueId);
+
+  if (!playerId) {
+    return;
+  }
+
+  remotePlayerAnimators.set(playerId, animator);
+
+  if (remoteMiningPlayerIds.has(playerId) && animator.getCurrentAnimation() !== "mine") {
+    animator.play("mine", true);
+  }
+}
+
+export function setRemotePlayerMiningState(playerId: string, isMining: boolean): void {
+  if (isMining) {
+    remoteMiningPlayerIds.add(playerId);
+  } else {
+    remoteMiningPlayerIds.delete(playerId);
+  }
+
+  const animator = remotePlayerAnimators.get(playerId);
+
+  if (!animator || !isMining || animator.getCurrentAnimation() === "mine") {
+    return;
+  }
+
+  animator.play("mine", true);
+}
+
+export function isRemotePlayerMining(playerId: string): boolean {
+  return remoteMiningPlayerIds.has(playerId);
 }
 
 export async function loadRemotePlayerMatrixColor(userId: string): Promise<unknown | null> {
