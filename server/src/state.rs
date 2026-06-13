@@ -4,6 +4,7 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 
 use crate::protocol::{
+    forget_player_public_user_id, remember_player_public_user_id, take_pending_hello_user_id,
     CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, PlayerPublicState, PlayerTransform, ServerMessage,
 };
 
@@ -136,7 +137,6 @@ impl ServerState {
         &mut self,
         lobby_id: String,
         nickname: String,
-        user_id: Option<String>,
         gender: String,
         connected_at: String,
         stats_session_id: Option<i64>,
@@ -144,6 +144,7 @@ impl ServerState {
     ) -> RegisterPlayerResult {
         let player_id = self.next_player_id;
         self.next_player_id = self.next_player_id.saturating_add(1);
+        let user_id = take_pending_hello_user_id();
 
         let player = PlayerState {
             id: player_id,
@@ -158,6 +159,7 @@ impl ServerState {
 
         self.players.insert(player_id, player.clone());
         self.sessions.insert(player_id, tx);
+        remember_player_public_user_id(&player_id_to_wire(player_id), player.user_id.clone());
 
         let lobby = self
             .lobbies
@@ -212,6 +214,7 @@ impl ServerState {
     pub fn remove_player(&mut self, player_id: u64) -> Option<(PlayerState, String, ServerMessage)> {
         let player = self.players.remove(&player_id)?;
         self.sessions.remove(&player_id);
+        forget_player_public_user_id(&player_id_to_wire(player_id));
 
         if let Some(lobby) = self.lobbies.get_mut(&player.lobby_id) {
             lobby.players.remove(&player_id);
@@ -242,9 +245,10 @@ impl ServerState {
         if let Some(lobby) = self.lobbies.get(lobby_id) {
             for player_id in &lobby.players {
                 if let Some(player) = self.players.get(player_id) {
+                    let wire_player_id = player_id_to_wire(player.id);
+                    remember_player_public_user_id(&wire_player_id, player.user_id.clone());
                     players.push(PlayerPublicState {
-                        player_id: player_id_to_wire(player.id),
-                        user_id: player.user_id.clone(),
+                        player_id: wire_player_id,
                         nickname: player.nickname.clone(),
                         transform: player.transform.clone(),
                     });
