@@ -1,6 +1,6 @@
 # Serveur multijoueur (Rust)
 
-Ce module fournit un serveur autoritaire pour Minecraft WebXR.
+Ce module fournit un serveur autoritaire pour Voxicraft WebXR.
 
 Objectifs de la premiere iteration :
 - valider l'etat du monde cote serveur ;
@@ -30,41 +30,57 @@ npm run server:build:windows
 
 Un workflow GitHub Actions build egalement automatiquement le serveur sur Linux et Windows et publie les artefacts :
 
-- `minecraft-server-linux-x86_64`
-- `minecraft-server-windows-x86_64`
+- `voxicraft-server-linux-x86_64`
+- `voxicraft-server-windows-x86_64`
 
 Le meme workflow publie aussi les builds dans GitHub Packages (GHCR) :
 
-- `ghcr.io/<owner>/minecraft-webxr-server-linux:<sha>`
-- `ghcr.io/<owner>/minecraft-webxr-server-windows:<sha>`
+- `ghcr.io/<owner>/voxicraft-server-linux:<sha>`
+- `ghcr.io/<owner>/voxicraft-server-windows:<sha>`
 
 Tags de branche maintenus :
 
-- `ghcr.io/<owner>/minecraft-webxr-server-linux:main-latest`
-- `ghcr.io/<owner>/minecraft-webxr-server-linux:staging-latest`
-- `ghcr.io/<owner>/minecraft-webxr-server-windows:main-latest`
-- `ghcr.io/<owner>/minecraft-webxr-server-windows:staging-latest`
+- `ghcr.io/<owner>/voxicraft-server-linux:main-latest`
+- `ghcr.io/<owner>/voxicraft-server-linux:staging-latest`
+- `ghcr.io/<owner>/voxicraft-server-windows:main-latest`
+- `ghcr.io/<owner>/voxicraft-server-windows:staging-latest`
 
 Variables d'environnement supportees :
 
 - `SERVER_HOST` (defaut `0.0.0.0`)
 - `SERVER_PORT` (defaut `3001`)
 - `WORLD_SEED` (defaut `12345`)
-- `CORS_CLIENT_DOMAIN` (optionnel, ex. `https://votre-domaine.fr`)
+- `CORS_CLIENT_DOMAIN` (defaut `https://central.voxicraft.fr`)
+- `AUTH_CENTRAL_BASE_URL` (defaut `https://central.voxicraft.fr`)
+- `USE_HTTPS` (defaut `false`) : active le service HTTPS si la valeur vaut `1`, `true`, `yes` ou `on`
+- `SSL_CERT_PATH` (defaut `certs/localhost.pem`) : chemin du certificat SSL
+- `SSL_KEY_PATH` (defaut `certs/localhost-key.pem`) : chemin de la cle privee SSL
 
 Le serveur charge automatiquement le fichier `.env` s'il est present.
+
+Quand `USE_HTTPS` est actif, le serveur genere automatiquement un certificat auto-signe si les fichiers `SSL_CERT_PATH` et `SSL_KEY_PATH` n'existent pas encore.
 
 ## Logs
 
 Le serveur ecrit les logs dans un fichier journalier a la racine du projet :
 
-- `minecraft-xr-yyyymmdd.log` (exemple `minecraft-xr-20260610.log`)
+- `voxicraft-yyyymmdd.log` (exemple `voxicraft-20260610.log`)
 
 ## Endpoints
 
-- `GET /healthz` : verification basique
+- `GET /health` : verification basique (utilisee par central.voxicraft.fr)
+- `GET /healthz` : alias de compatibilite
 - `GET /state` : snapshot JSON du serveur (lobbies, joueurs, chunks charges, version monde)
 - `GET /ws` : endpoint WebSocket principal
+
+Proxy authentification (vers `AUTH_CENTRAL_BASE_URL`) :
+
+- `POST /auth/register` et `POST /api/auth/register`
+- `POST /auth/login` et `POST /api/auth/login`
+- `GET /auth/discord/url` et `GET /api/auth/discord/url`
+- `GET /auth/discord/callback` et `GET /api/auth/discord/callback`
+
+Le serveur relaie le code HTTP et le corps de reponse du serveur central.
 
 ## Protocole WebSocket JSON
 

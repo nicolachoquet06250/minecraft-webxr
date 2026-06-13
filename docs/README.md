@@ -2,7 +2,7 @@
 
 ---
 
-# Documentation technique - Minecraft WebXR
+# Documentation technique - voxicraft WebXR
 
 Cette documentation décrit l'architecture technique du projet, les principaux modules TypeScript, la partie Rust/WebAssembly, les systèmes de rendu, les interactions de gameplay et les contrôles par type de device.
 
@@ -23,7 +23,7 @@ Cette documentation décrit l'architecture technique du projet, les principaux m
 
 ## Objectif du projet
 
-Minecraft WebXR est un clone de Minecraft jouable dans le navigateur. Le projet combine :
+Voxicraft est un clone de Minecraft jouable dans le navigateur. Le projet combine :
 
 - un frontend TypeScript basé sur Babylon.js ;
 - une génération de monde écrite en Rust et compilée en WebAssembly ;

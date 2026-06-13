@@ -2,6 +2,7 @@ import { Axis, Ray, Scene, Vector3, WebXRState } from "@babylonjs/core";
 import type { Camera } from "@babylonjs/core";
 import { EYE_HEIGHT, JUMP_VELOCITY, MOVE_SPEED, pressedKeys } from "./constants";
 import { hasCollisionAt } from "./functions";
+import { isInGameMenuOpen, toggleInGameMenu } from "./ingame-menu";
 import { isCraftingOverlayOpen } from "./ui-state";
 import type { PlayerPhysics, WorldChunks } from "./types";
 import { isVRMode } from "./mobile-controls";
@@ -13,6 +14,18 @@ const VR_BODY_YAW_EVENT = "vr-body-yaw-change";
 const VR_EYE_HEIGHT = EYE_HEIGHT - 0.42;
 const VR_AUTO_JUMP_MIN_HORIZONTAL_PROGRESS = 0.01;
 const POINTER_RAY_MESH_NAME_PATTERN = /laser|ray|pointer|selection/i;
+
+const MENU_BUTTON_COMPONENT_IDS = [
+  "menu-button",
+  "xr-standard-button-menu",
+  "button-menu",
+  "menu",
+  "select-button",
+  "xr-standard-button-select",
+  "button-select",
+  "thumbstick",
+  "xr-standard-thumbstick",
+] as const;
 
 type WebXRNavigator = Navigator & {
   xr?: {
@@ -112,6 +125,7 @@ export async function initializeWebXRGameControls(
   let headOffset = Vector3.Zero();
   let bodyYaw = normalizeAngle(player.yaw);
   let moveDirection = Vector3.Zero();
+  let leftMenuButtonWasPressed = false;
   const nonXRCamera = scene.activeCamera;
 
   const isXRActive = (): boolean => {
@@ -120,19 +134,19 @@ export async function initializeWebXRGameControls(
 
   const controls: WebXRGameControls = {
     isActive: isXRActive,
-    getMoveDirection: () => moveDirection.clone(),
+    getMoveDirection: () => isInGameMenuOpen() ? Vector3.Zero() : moveDirection.clone(),
     getControllerRay: (handedness) => {
-      if (!isXRActive()) return null;
+      if (!isXRActive() || isInGameMenuOpen()) return null;
 
       return getControllerRay(handedness === "left" ? leftController : rightController);
     },
     isTriggerPressed: (handedness) => {
-      if (!isXRActive()) return false;
+      if (!isXRActive() || isInGameMenuOpen()) return false;
 
       return isTriggerPressed(handedness === "left" ? leftController : rightController);
     },
     isBButtonPressed: (handedness) => {
-      if (!isXRActive()) return false;
+      if (!isXRActive() || isInGameMenuOpen()) return false;
 
       return isBButtonPressed(handedness === "left" ? leftController : rightController);
     },
@@ -142,6 +156,20 @@ export async function initializeWebXRGameControls(
     },
     syncBeforePhysics: (deltaTimeSeconds: number) => {
       if (!isXRActive() || !xrExperience) return;
+
+      const leftMenuButtonPressed = isMenuButtonPressed(leftController);
+
+      if (leftMenuButtonPressed && !leftMenuButtonWasPressed) {
+        toggleInGameMenu();
+      }
+
+      leftMenuButtonWasPressed = leftMenuButtonPressed;
+
+      if (isInGameMenuOpen()) {
+        moveDirection = Vector3.Zero();
+        clearVRMovementKeys();
+        return;
+      }
 
       if (isCraftingOverlayOpen()) {
         moveDirection = Vector3.Zero();
@@ -182,6 +210,7 @@ export async function initializeWebXRGameControls(
         if (active && xrExperience) {
           clearVRMovementKeys();
           moveDirection = Vector3.Zero();
+          leftMenuButtonWasPressed = false;
           alignXRCameraFromNonVR(xrExperience.baseExperience.camera, nonXRCamera);
           bodyYaw = getYawFromNonVRCamera(nonXRCamera) ?? normalizeAngle(player.yaw);
           player.yaw = bodyYaw;
@@ -193,6 +222,7 @@ export async function initializeWebXRGameControls(
 
         clearVRMovementKeys();
         moveDirection = Vector3.Zero();
+        leftMenuButtonWasPressed = false;
       });
 
       xrExperience.input.onControllerAddedObservable.add((controller) => {
@@ -211,6 +241,7 @@ export async function initializeWebXRGameControls(
       xrExperience.input.onControllerRemovedObservable.add((controller) => {
         if (leftController === controller) {
           leftController = null;
+          leftMenuButtonWasPressed = false;
         }
 
         if (rightController === controller) {
@@ -404,6 +435,18 @@ function isBButtonPressed(controller: XRControllerLike | null): boolean {
   return Boolean(bButton?.pressed || (bButton?.value ?? 0) > 0.65);
 }
 
+function isMenuButtonPressed(controller: XRControllerLike | null): boolean {
+  for (const componentId of MENU_BUTTON_COMPONENT_IDS) {
+    const component = controller?.motionController?.getComponent?.(componentId);
+
+    if (component?.pressed || (component?.value ?? 0) > 0.65) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function moveVRHorizontallyWithCollision(
   player: PlayerPhysics,
   deltaMove: Vector3,
@@ -519,7 +562,7 @@ function rotateHorizontalVector(vector: Vector3, yaw: number): Vector3 {
 function syncXRCameraPositionToPlayer(
   camera: { position: Vector3 },
   player: PlayerPhysics,
-  headOffset: Vector3,
+  offset: Vector3,
 ): void {
-  camera.position.copyFrom(getPlayerEyesPosition(player).add(headOffset));
+  camera.position.copyFrom(getPlayerEyesPosition(player).add(offset));
 }

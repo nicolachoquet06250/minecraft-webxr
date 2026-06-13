@@ -10,6 +10,7 @@ import type {
   CharacterPhysicsController,
   CharacterSvgRenderOptions,
 } from "~/character-builder";
+import { attachRemotePlayerAnimator, decorateNextRemotePlayerMesh } from "../remote-player-appearance";
 import { steveModel } from "./steve-model";
 import { steveAnimations } from "./steve-animations";
 
@@ -28,12 +29,22 @@ export function createSteve(
   animator: CharacterAnimator;
   physics: CharacterPhysicsController | null;
 } {
+  const isRemoteMultiplayer = isRemoteMultiplayerCharacter(buildOptions);
+
   // Construire le personnage
   const steveMesh = buildCharacter(scene, steveModel, position, buildOptions);
+
+  if (isRemoteMultiplayer) {
+    decorateNextRemotePlayerMesh(scene, steveMesh);
+  }
 
   // Créer l'animator et charger les animations
   const animator = new CharacterAnimator(steveMesh, scene);
   animator.loadAnimations(steveAnimations);
+
+  if (isRemoteMultiplayer) {
+    attachRemotePlayerAnimator(steveMesh, animator);
+  }
 
   const physics = getCharacterPhysics(steveMesh);
 
@@ -57,4 +68,12 @@ export function createSteveSvg(
     buildOptions,
     svgOptions,
   );
+}
+
+function isRemoteMultiplayerCharacter(buildOptions?: BuildCharacterOptions): boolean {
+  return typeof buildOptions?.physics === "object"
+    && buildOptions.physics !== null
+    && buildOptions.physics.externalControl === true
+    && buildOptions.physics.gravityEnabled === false
+    && buildOptions.physics.collisionsEnabled === false;
 }

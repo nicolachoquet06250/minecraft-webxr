@@ -244,10 +244,10 @@ En production, l'application doit donc être servie en HTTPS.
 
 Le README référence :
 
-| Environnement | URL |
-|---------------|-----|
-| Staging | `https://staging.minecraft-xr.nicovers06.fr` |
-| Production | `https://minecraft-xr.nicovers06.fr` |
+| Environnement | URL                                          |
+|---------------|----------------------------------------------|
+| Staging       | `https://staging.minecraft-xr.nicovers06.fr` |
+| Production    | `https://minecraft-xr.nicovers06.fr`         |
 
 La branche `staging` sert aux prochaines updates demandées.
 

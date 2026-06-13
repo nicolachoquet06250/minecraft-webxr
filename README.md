@@ -1,4 +1,4 @@
-# Minecraft WebXR
+# Voxicraft
 
 Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (WebAssembly)**, conçu pour fonctionner dans le navigateur avec un support expérimental pour la Réalité Virtuelle (WebXR) et les contrôles mobiles.
 
@@ -38,7 +38,6 @@ Un clone de Minecraft open-source développé avec **Babylon.js** et **Rust (Web
 -   **Serveur Multi-joueur** : Rust (serveur autoritaire WebSocket)
 -   **Mathématiques & Bruit** : `noise` crate (Rust)
 -   **PWA** : `vite-plugin-pwa`
--   **Tests & Outillage** : TypeScript, Playwright, Cargo tests
 
 ## 📦 Installation & Développement
 

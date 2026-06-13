@@ -34,9 +34,9 @@ dev-dist
 */**/.env.*
 !*/**/.env.example
 
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
+*.sqlite3
+*.sqlite3-*
+
+certs/
+
+public/avatars/*.png

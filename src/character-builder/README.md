@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-Ce système générique permet de créer des personnages cubiques de style Minecraft avec des textures définies par des matrices de couleurs. Le système gère **deux types de corps** : masculin (bras larges) et féminin (bras fins), inspirés de Steve et Alex.
+Ce système générique permet de créer des personnages cubiques de style Voxicraft avec des textures définies par des matrices de couleurs. Le système gère **deux types de corps** : masculin (bras larges) et féminin (bras fins), inspirés de Steve et Alex.
 
 ## Architecture
 

@@ -1,9 +1,9 @@
 use noise::{NoiseFn, Perlin};
 use wasm_bindgen::prelude::*;
 
-const CHUNK_SIZE_X: usize = 16;
-const CHUNK_SIZE_Y: usize = 96;
-const CHUNK_SIZE_Z: usize = 16;
+pub const CHUNK_SIZE_X: usize = 16;
+pub const CHUNK_SIZE_Y: usize = 96;
+pub const CHUNK_SIZE_Z: usize = 16;
 
 #[wasm_bindgen]
 #[repr(u8)]

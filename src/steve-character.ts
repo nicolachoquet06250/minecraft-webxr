@@ -161,7 +161,7 @@ export function createSteveCharacter(scene: Scene, position: Vector3): Mesh {
     left: createTextureFromMatrix(scene, "head_left", steveModelTextures.head.left),
   };
 
-  // Tête (8x8x8 unités Minecraft = 0.5x0.5x0.5 unités jeu)
+  // Tête (8x8x8 unités voxel = 0.5x0.5x0.5 unités jeu)
   const head = createCuboidMesh(scene, "steve_head", 0.5, 0.5, 0.5, headTextures);
   head.position = new Vector3(0, 1.625, 0); // 1.75 - 0.125 pour centrer à mi-hauteur
   head.parent = steve;

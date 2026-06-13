@@ -14,14 +14,41 @@ pub struct PlayerTransform {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerPublicState {
     pub player_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
     pub nickname: String,
+    pub transform: PlayerTransform,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectedPlayerPublicState {
+    pub player_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    pub lobby_id: String,
+    pub nickname: String,
+    pub gender: String,
+    pub connected_at: String,
     pub transform: PlayerTransform,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload", rename_all = "snake_case")]
 pub enum ClientMessage {
-    Hello { lobby_id: String, nickname: String },
+    Hello {
+        lobby_id: String,
+        nickname: String,
+        #[serde(default)]
+        user_id: Option<String>,
+        #[serde(default)]
+        gender: Option<String>,
+    },
+    CentralSubscribe {
+        #[serde(default)]
+        server_id: Option<String>,
+        #[serde(default)]
+        token: Option<String>,
+    },
     RequestChunk { chunk_x: i32, chunk_z: i32 },
     SetBlock {
         world_x: i32,
@@ -59,6 +86,19 @@ pub enum ServerMessage {
     PlayerLeft {
         lobby_id: String,
         player_id: String,
+    },
+    CentralConnectedPlayers {
+        players: Vec<ConnectedPlayerPublicState>,
+        world_version: u64,
+    },
+    CentralPlayerConnected {
+        player: ConnectedPlayerPublicState,
+        world_version: u64,
+    },
+    CentralPlayerDisconnected {
+        player_id: String,
+        lobby_id: String,
+        world_version: u64,
     },
     ChunkData {
         chunk_x: i32,
