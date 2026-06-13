@@ -1,3 +1,5 @@
+import { queueRemotePlayerAppearanceState } from "./remote-player-appearance";
+
 export type PlayerTransformPayload = {
   position: [number, number, number];
   rotation: [number, number];
@@ -176,6 +178,7 @@ export class MultiplayerClient {
   private readonly handlers: MultiplayerClientHandlers;
   private socket: WebSocket | null = null;
   private connected = false;
+  private localPlayerId: string | null = null;
 
   constructor(options: MultiplayerClientOptions) {
     this.wsUrl = options.wsUrl;
@@ -197,6 +200,8 @@ export class MultiplayerClient {
     if (this.socket && this.connected) {
       return Promise.reject(new Error("WebSocket déjà connecté"));
     }
+
+    this.localPlayerId = null;
 
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -240,6 +245,7 @@ export class MultiplayerClient {
           };
 
           this.connected = true;
+          this.localPlayerId = welcome.playerId;
           this.handlers.onWelcome?.(welcome);
 
           if (!settled) {
@@ -266,6 +272,7 @@ export class MultiplayerClient {
 
       socket.addEventListener("close", () => {
         this.connected = false;
+        this.localPlayerId = null;
 
         if (!settled) {
           settled = true;
@@ -280,6 +287,7 @@ export class MultiplayerClient {
 
   disconnect(): void {
     this.connected = false;
+    this.localPlayerId = null;
     this.socket?.close();
     this.socket = null;
   }
@@ -342,12 +350,22 @@ export class MultiplayerClient {
     this.socket.send(JSON.stringify(message));
   }
 
+  private queueRemoteAppearance(player: PlayerPublicState): void {
+    if (player.player_id !== this.localPlayerId) {
+      queueRemotePlayerAppearanceState(player);
+    }
+  }
+
   private dispatchMessage(message: ServerMessage): void {
     switch (message.type) {
       case "lobby_state":
+        for (const player of message.payload.players) {
+          this.queueRemoteAppearance(player);
+        }
         this.handlers.onLobbyState?.(message.payload.players);
         return;
       case "player_joined":
+        this.queueRemoteAppearance(message.payload.player);
         this.handlers.onPlayerJoined?.(message.payload.player);
         return;
       case "player_left":
