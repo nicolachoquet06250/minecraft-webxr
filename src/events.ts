@@ -9,7 +9,7 @@ import { placeBlock } from "./textured-world";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 import { initializeSoloSpawnCharacters } from "./solo-spawn-characters";
-import { initializeInGameMenu } from "./ingame-menu";
+import { initializeInGameMenu, isInGameMenuOpen } from "./ingame-menu";
 import { initializeMultiplayerWorldSync } from "./multiplayer-world-sync";
 
 const MIN_PITCH = -Math.PI / 2 + 0.05;
@@ -54,6 +54,17 @@ function clearMovementKeys(): void {
 }
 
 function handleKeyDown(event: KeyboardEvent) {
+  if (isInGameMenuOpen()) {
+    clearMovementKeys();
+    cancelBlockBreaking();
+
+    if (event.code !== "Escape") {
+      event.preventDefault();
+    }
+
+    return;
+  }
+
   if (isCraftingOverlayOpen()) {
     clearMovementKeys();
     cancelBlockBreaking();
@@ -84,7 +95,7 @@ function handleKeyUp(event: KeyboardEvent) {
 
 function handleMouseMove(canvas: HTMLCanvasElement, player: PlayerPhysics): (e: MouseEvent) => any {
     return function (event) {
-        if (isCraftingOverlayOpen()) {
+        if (isInGameMenuOpen() || isCraftingOverlayOpen()) {
             return;
         }
 
@@ -171,7 +182,7 @@ export default function (
       return;
     }
 
-    if (primaryBreakButtonPressed && !isCraftingOverlayOpen() && !isMobileMode()) {
+    if (primaryBreakButtonPressed && !isInGameMenuOpen() && !isCraftingOverlayOpen() && !isMobileMode()) {
       startBlockBreaking(breakingParams);
     }
   });
@@ -181,7 +192,7 @@ export default function (
   });
 
   canvas.addEventListener("pointerdown", async (event) => {
-    if (isCraftingOverlayOpen()) {
+    if (isInGameMenuOpen() || isCraftingOverlayOpen()) {
       clearMovementKeys();
       cancelBlockBreaking();
       return;
