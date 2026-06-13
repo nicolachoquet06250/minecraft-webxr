@@ -9,6 +9,7 @@ import { placeBlock } from "./textured-world";
 import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 import { initializeSoloSpawnCharacters } from "./solo-spawn-characters";
+import { initializeInGameMenu } from "./ingame-menu";
 
 const MIN_PITCH = -Math.PI / 2 + 0.05;
 const MAX_PITCH = Math.PI / 2 - 0.05;
@@ -140,6 +141,7 @@ export default function (
   droppedItems: DroppedItem[],
 ) {
   initializeSoloSpawnCharacters({ scene, worldChunks, sizeX, sizeY, sizeZ });
+  initializeInGameMenu();
 
   new ResizeObserver(handleResize(engine)).observe(window.document.body);
 
