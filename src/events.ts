@@ -10,6 +10,7 @@ import { isMobileMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 import { initializeSoloSpawnCharacters } from "./solo-spawn-characters";
 import { initializeInGameMenu } from "./ingame-menu";
+import { initializeMultiplayerWorldSync } from "./multiplayer-world-sync";
 
 const MIN_PITCH = -Math.PI / 2 + 0.05;
 const MAX_PITCH = Math.PI / 2 - 0.05;
@@ -155,6 +156,7 @@ export default function (
     material,
     droppedItems,
   );
+  initializeMultiplayerWorldSync(breakingParams);
   let primaryBreakButtonPressed = false;
 
   window.addEventListener("keydown", handleKeyDown);
