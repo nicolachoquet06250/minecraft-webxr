@@ -36,6 +36,10 @@ export function initializeInGameMenu(): void {
   window.addEventListener("orientationchange", updateMobileBurgerVisibility);
 }
 
+export function isInGameMenuOpen(): boolean {
+  return menuOpen;
+}
+
 export function openInGameMenu(): void {
   if (menuOpen || document.getElementById(MENU_ID)) {
     return;
