@@ -213,17 +213,21 @@ function ensureMenuStyle(): void {
       position: relative;
       width: min(82vw, 560px);
       margin: 0 auto clamp(22px, 5vh, 44px);
+      text-align: center;
       text-shadow: 5px 5px 0 #151515, -3px -3px 0 #f4f4f4, 0 0 16px rgba(0, 0, 0, 0.55);
     }
 
     .voxicraft-ingame-menu__title {
-      margin: 0;
+      display: block;
+      width: 100%;
+      margin: 0 auto;
       color: #e1e1e1;
       font-family: Impact, "Arial Black", Haettenschweiler, sans-serif;
       font-size: clamp(56px, 10vw, 104px);
       font-weight: 900;
       letter-spacing: 0.02em;
       line-height: 0.78;
+      text-align: center;
       text-transform: uppercase;
       -webkit-text-stroke: 2px #161616;
     }
