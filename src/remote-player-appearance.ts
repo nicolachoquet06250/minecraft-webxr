@@ -67,7 +67,7 @@ export function decorateNextRemotePlayerMesh(scene: Scene, rootMesh: Mesh): void
     .then((payload) => {
       if (payload && !applyRemotePlayerMatrixColor(scene, rootMesh, payload)) {
         console.warn(
-          "[Voxicraft] texture_data ne contient aucune matrice de couleur applicable",
+          "[Voxicraft] texture_data.parts ne contient aucune matrice de couleur applicable",
           matrixColorUserId,
           payload,
         );
@@ -256,6 +256,7 @@ function pushMatrixCandidates(candidates: MatrixCandidate[], value: unknown): vo
 
   const palette = extractPalette(parsedValue);
 
+  candidates.push({ value: parsedValue.parts, palette });
   candidates.push({ value: parsedValue, palette });
   candidates.push({ value: parsedValue.steveModelTextures, palette });
   candidates.push({ value: parsedValue.alexModelTextures, palette });
