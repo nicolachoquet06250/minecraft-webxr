@@ -6,6 +6,7 @@ export type PlayerTransformPayload = {
 
 export type PlayerPublicState = {
   player_id: string;
+  user_id?: string | null;
   nickname: string;
   transform: PlayerTransformPayload;
 };
@@ -110,6 +111,7 @@ type ClientMessage =
       payload: {
         lobby_id: string;
         nickname: string;
+        user_id?: string | null;
       };
     }
   | {
@@ -162,6 +164,7 @@ type MultiplayerClientOptions = {
   wsUrl: string;
   lobbyId: string;
   nickname: string;
+  userId?: string | null;
   handlers?: MultiplayerClientHandlers;
 };
 
@@ -169,6 +172,7 @@ export class MultiplayerClient {
   private readonly wsUrl: string;
   private readonly lobbyId: string;
   private readonly nickname: string;
+  private readonly userId: string | null;
   private readonly handlers: MultiplayerClientHandlers;
   private socket: WebSocket | null = null;
   private connected = false;
@@ -177,6 +181,7 @@ export class MultiplayerClient {
     this.wsUrl = options.wsUrl;
     this.lobbyId = options.lobbyId;
     this.nickname = options.nickname;
+    this.userId = options.userId?.trim() || null;
     this.handlers = options.handlers ?? {};
   }
 
@@ -214,6 +219,7 @@ export class MultiplayerClient {
           payload: {
             lobby_id: this.lobbyId,
             nickname: this.nickname,
+            user_id: this.userId,
           },
         });
       });
