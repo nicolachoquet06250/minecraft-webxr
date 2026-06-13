@@ -10,6 +10,7 @@ import type {
   CharacterPhysicsController,
   CharacterSvgRenderOptions,
 } from "~/character-builder";
+import { decorateNextRemotePlayerMesh } from "../remote-player-appearance";
 import { steveModel } from "./steve-model";
 import { steveAnimations } from "./steve-animations";
 
@@ -30,6 +31,7 @@ export function createSteve(
 } {
   // Construire le personnage
   const steveMesh = buildCharacter(scene, steveModel, position, buildOptions);
+  decorateNextRemotePlayerMesh(scene, steveMesh);
 
   // Créer l'animator et charger les animations
   const animator = new CharacterAnimator(steveMesh, scene);
