@@ -16,6 +16,7 @@
 10. **[character-system.md](./character-system.md)** - ✨ Système de personnages (Steve, Alex, Custom)
 11. **[character-svg-export.md](./character-svg-export.md)** - 📸 Export SVG en perspective des personnages
 12. **[pwa-assets.md](./pwa-assets.md)** - PWA, assets et déploiement
+13. **[mods.md](./mods.md)** - ⚠️ Mods et plugins expérimentaux
 
 ### Documentation de mise à jour
 
@@ -69,20 +70,28 @@ Documentation destinée aux joueurs dans le dossier `game-guide/` :
 4. [blocks-items-crafting.md](./blocks-items-crafting.md) - Comprendre les données
 5. [character-system.md](./character-system.md) - Système de personnages
 6. [gameplay-interactions.md](./gameplay-interactions.md) - Interactions
+7. [mods.md](./mods.md) - ⚠️ Mods expérimentaux
 
 ### Pour contribuer au système de personnages
 
 1. [character-system.md](./character-system.md) - Vue d'ensemble du système
-2. `../CHARACTER_SYSTEM_SUMMARY.md` - Documentation complète
-3. `../src/character-builder/README.md` - Détails techniques
-4. `../src/character-builder/BODY_TYPES.md` - Différences anatomiques
-5. `../src/characters/examples.ts` - Exemples de code
+2. `CHARACTER_SYSTEM_SUMMARY.md` - Documentation complète
+3. `src/character-builder/README.md` - Détails techniques
+4. `src/character-builder/BODY_TYPES.md` - Différences anatomiques
+5. `src/characters/examples.ts` - Exemples de code
 
 ### Pour ajouter du contenu (blocs, items, crafts)
 
 1. [blocks-items-crafting.md](./blocks-items-crafting.md) - Comprendre le système
 2. [world-generation.md](./world-generation.md) - Génération procédurale
 3. [rendering-and-effects.md](./rendering-and-effects.md) - Rendu des textures
+
+### Pour créer un mod expérimental
+
+1. [mods.md](./mods.md) - Format du manifest, routes publiques et sécurité
+2. `mods/example-client-mod/mod.json` - Exemple de manifest client
+3. `mods/example-client-mod/client/mod.js` - Exemple de script client
+4. `src/mods/types.ts` - Types exposés au runtime client
 
 ### Pour les joueurs
 
@@ -103,6 +112,9 @@ Documentation destinée aux joueurs dans le dossier `game-guide/` :
 - [world-generation.md](./world-generation.md)
 - [character-system.md](./character-system.md)
 
+### Mods et extensibilité
+- [mods.md](./mods.md) - ⚠️ Expérimental
+
 ### Rendu & Interactions
 - [rendering-and-effects.md](./rendering-and-effects.md)
 - [gameplay-interactions.md](./gameplay-interactions.md)
@@ -114,6 +126,23 @@ Documentation destinée aux joueurs dans le dossier `game-guide/` :
 - [game-guide/](./game-guide/)
 
 ## 🆕 Dernières Mises à Jour
+
+### Juin 2026 - Système de mods expérimental
+
+**Fichiers créés :**
+- `mods.md` - Documentation technique du système de mods/plugins expérimentaux
+
+**Fichiers mis à jour :**
+- `README.md` - Ajout du chapitre mods au sommaire
+- `INDEX.md` - Ajout du parcours de lecture pour créer un mod
+- `pwa-assets.md` - Navigation vers la page mods
+
+**Nouveautés documentées :**
+- ⚠️ Flag expérimental du système de mods
+- ⚠️ Structure `mods/<id>/mod.json`
+- ⚠️ Routes publiques `/api/mods/manifest` et `/mods/{id}/...`
+- ⚠️ Allow-list des fichiers client exposés
+- ⚠️ Limites actuelles et prochaines étapes
 
 ### Juin 2026 - Système de Personnages
 
@@ -164,6 +193,6 @@ Pour mettre à jour la documentation :
 
 ---
 
-**Index mis à jour le** : 10 juin 2026  
-**Total de fichiers documentés** : 21 fichiers markdown + ressources visuelles  
+**Index mis à jour le** : 14 juin 2026  
+**Total de fichiers documentés** : 23 fichiers markdown + ressources visuelles  
 **Navigation** : Tous les fichiers sont interconnectés

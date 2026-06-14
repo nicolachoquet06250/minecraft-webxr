@@ -1,4 +1,4 @@
-[⬅️ Précédent](./character-svg-export.md) | [Sommaire](./README.md)
+[⬅️ Précédent](./character-svg-export.md) | [Sommaire](./README.md) | [Suivant ➡️](./mods.md)
 
 ---
 
@@ -337,4 +337,4 @@ Pour ajouter une image d'item :
 
 ---
 
-[⬅️ Précédent](./character-system.md) | [Sommaire](./README.md)
+[⬅️ Précédent](./character-svg-export.md) | [Sommaire](./README.md) | [Suivant ➡️](./mods.md)
