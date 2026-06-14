@@ -1,10 +1,11 @@
 # Système de mods VoxiCraft
 
-Cette page décrit la première architecture cible du système de mods/plugins VoxiCraft.
+> **Statut : expérimental**  
+> Cette page est conservée comme note technique détaillée. La page principale de documentation est disponible ici : [`../mods.md`](../mods.md).
 
 ## Objectif
 
-Le serveur VoxiCraft doit rester un binaire stable, mais il doit pouvoir découvrir des mods placés à côté de l'exécutable dans un répertoire `mods/`.
+Le serveur VoxiCraft reste un binaire stable, mais il peut découvrir des mods placés à côté de l'exécutable dans un répertoire `mods/`.
 
 Un mod peut contenir :
 
@@ -26,6 +27,8 @@ mods/
       mod.d.ts
       assets/
 ```
+
+Le dossier `client/assets/` est optionnel. S'il est déclaré dans `mod.json` mais qu'il n'existe pas encore, le mod reste chargé. Les fichiers absents sous ce dossier répondront simplement `404`.
 
 ## Manifest
 
@@ -61,15 +64,48 @@ mods/
 
 ## Partie serveur
 
-Le serveur Rust doit :
+Le serveur Rust :
 
-1. scanner le dossier `mods/` ;
-2. lire chaque `mod.json` ;
-3. valider les chemins déclarés ;
-4. exposer uniquement les métadonnées utiles au client ;
-5. charger plus tard les entrées `server/mod.wasm` via un runtime WASM.
+1. scanne le dossier `mods/` ;
+2. lit chaque `mod.json` ;
+3. valide les chemins déclarés ;
+4. expose uniquement les métadonnées utiles au client ;
+5. expose uniquement les fichiers déclarés dans le bloc `client` ;
+6. prépare la découverte des entrées `server/mod.wasm` pour un futur runtime WASM.
 
-Le fichier `server/src/mods.rs` contient la première version du registre de mods. Il sait déjà lire les manifests, filtrer les mods côté client et résoudre les fichiers client servis par HTTP.
+Le fichier `server/src/mods.rs` contient le registre de mods. Il lit les manifests, filtre les mods côté client et résout les fichiers client servis par HTTP.
+
+## Routes publiques
+
+Les routes de chargement des mods sont publiques afin de fonctionner aussi en mode solo sans connexion utilisateur :
+
+```txt
+GET /api/mods/manifest
+GET /mods/{mod_id}/client/mod.js
+GET /mods/{mod_id}/client/mod.d.ts
+GET /mods/{mod_id}/client/assets/...
+```
+
+## Sécurité HTTP
+
+La route `/mods/{*path}` ne sert pas tout le dossier du mod.
+
+Elle autorise uniquement :
+
+```txt
+client.entry
+client.types
+client.assets/*
+```
+
+Elle refuse notamment :
+
+```txt
+mod.json
+server/mod.wasm
+../...
+fichiers non déclarés hors client.assets
+```
 
 ## Partie client
 
@@ -126,12 +162,17 @@ export type VoxiCraftClientModContext = {
 }
 ```
 
+## Limites expérimentales
+
+- Le runtime serveur WASM n'est pas encore exécuté.
+- Les permissions sont documentées mais pas encore entièrement appliquées.
+- Le hot reload des mods reste à implémenter.
+- L'API client peut encore changer.
+- Le manifest n'est pas encore versionné.
+
 ## À faire ensuite
 
-- Brancher `server/src/mods.rs` dans `server/src/main.rs`.
-- Ajouter les routes :
-  - `GET /api/mods/manifest` ;
-  - `GET /mods/{mod_id}/...`.
-- Brancher `ClientModManager` dans `src/main.ts` après l'initialisation du monde.
 - Ajouter le hot reload via websocket.
-- Ajouter le runtime serveur WASM (`wasmtime` ou équivalent) avec ABI stable.
+- Ajouter le runtime serveur WASM avec ABI stable.
+- Ajouter une UI de diagnostic des mods chargés.
+- Ajouter des tests automatisés sur la résolution sécurisée des fichiers client.
