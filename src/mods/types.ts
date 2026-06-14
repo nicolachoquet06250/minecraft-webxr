@@ -1,4 +1,4 @@
-import type * as BABYLON from "@babylonjs/core";
+import type { Engine, Scene } from "@babylonjs/core";
 import type { PlayerPhysics, WorldChunks, DroppedItem, VoxelWasmModule } from "~/types";
 
 export type VoxiCraftModSide = "client" | "server" | "both";
@@ -58,10 +58,10 @@ export type VoxiCraftClientEventBus = {
 };
 
 export type VoxiCraftClientModContext = {
-  readonly BABYLON: typeof BABYLON;
+  readonly BABYLON: typeof import("@babylonjs/core");
   readonly manifest: VoxiCraftClientModManifest;
-  readonly scene: BABYLON.Scene;
-  readonly engine: BABYLON.Engine;
+  readonly scene: Scene;
+  readonly engine: Engine;
   readonly player: PlayerPhysics;
   readonly worldChunks: WorldChunks;
   readonly droppedItems: DroppedItem[];
