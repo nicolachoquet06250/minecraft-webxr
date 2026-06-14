@@ -16,6 +16,14 @@ export type PlayerPublicState = {
 
 export type MultiplayerSyncEvent =
   | {
+      kind: "identity_request";
+    }
+  | {
+      kind: "player_identity";
+      nickname: string;
+      userId?: string | null;
+    }
+  | {
       kind: "block_breaking";
       action: "start" | "progress" | "cancel" | "finish";
       x: number;
@@ -39,6 +47,11 @@ export type MultiplayerSyncEvent =
 
 const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 const SYNC_CHAT_PREFIX = "__voxicraft_sync__:";
+const HEARTBEAT_INTERVAL_MS = 10_000;
+const HEARTBEAT_TIMEOUT_MS = 30_000;
+const RECONNECT_BASE_DELAY_MS = 750;
+const RECONNECT_MAX_DELAY_MS = 8_000;
+const CONNECT_TIMEOUT_MS = 5_000;
 let activeMultiplayerClient: MultiplayerClient | null = null;
 
 function isSinglePlayerMode(): boolean {
@@ -47,6 +60,14 @@ function isSinglePlayerMode(): boolean {
   } catch {
     return false;
   }
+}
+
+function defaultTransform(): PlayerTransformPayload {
+  return {
+    position: [0, 0, 0],
+    rotation: [0, 0],
+    velocity: [0, 0, 0],
+  };
 }
 
 export type ServerMessage =
@@ -192,6 +213,7 @@ export type MultiplayerClientHandlers = {
   onPlayerTransform?: (playerId: string, transform: PlayerTransformPayload) => void;
   onError?: (code: string, message: string) => void;
   onClose?: () => void;
+  onReconnect?: () => void;
 };
 
 type MultiplayerClientOptions = {
@@ -208,9 +230,19 @@ export class MultiplayerClient {
   private readonly nickname: string;
   private readonly userId: string | null;
   private readonly handlers: MultiplayerClientHandlers;
+  private readonly knownPlayers = new Map<string, PlayerPublicState>();
+  private readonly pendingTransforms = new Map<string, PlayerTransformPayload>();
   private socket: WebSocket | null = null;
   private connected = false;
   private localPlayerId: string | null = null;
+  private shouldReconnect = false;
+  private reconnectAttempts = 0;
+  private reconnectTimerId: number | null = null;
+  private heartbeatTimerId: number | null = null;
+  private watchdogTimerId: number | null = null;
+  private lastPongAt = 0;
+  private lifecycleListenersInstalled = false;
+  private manualDisconnect = false;
 
   static disconnectActiveSession(): void {
     activeMultiplayerClient?.disconnect();
@@ -232,7 +264,7 @@ export class MultiplayerClient {
     return this.connected;
   }
 
-  connect(timeoutMs = 5000): Promise<MultiplayerWelcome> {
+  connect(timeoutMs = CONNECT_TIMEOUT_MS): Promise<MultiplayerWelcome> {
     if (isSinglePlayerMode()) {
       return Promise.reject(new Error("Mode solo local: WebSocket désactivé"));
     }
@@ -241,6 +273,72 @@ export class MultiplayerClient {
       return Promise.reject(new Error("WebSocket déjà connecté"));
     }
 
+    this.shouldReconnect = true;
+    this.manualDisconnect = false;
+    this.installLifecycleListeners();
+
+    return this.openSocket(timeoutMs);
+  }
+
+  disconnect(): void {
+    this.shouldReconnect = false;
+    this.manualDisconnect = true;
+    this.stopHeartbeat();
+    this.clearReconnectTimer();
+    this.connected = false;
+    this.localPlayerId = null;
+    this.knownPlayers.clear();
+    this.pendingTransforms.clear();
+
+    if (activeMultiplayerClient === this) {
+      activeMultiplayerClient = null;
+    }
+
+    this.socket?.close(1000, "client_disconnect");
+    this.socket = null;
+  }
+
+  requestChunk(chunkX: number, chunkZ: number): void {
+    this.sendRaw({
+      type: "request_chunk",
+      payload: {
+        chunk_x: chunkX,
+        chunk_z: chunkZ,
+      },
+    });
+  }
+
+  setBlock(worldX: number, worldY: number, worldZ: number, blockId: number): void {
+    this.sendRaw({
+      type: "set_block",
+      payload: {
+        world_x: worldX,
+        world_y: worldY,
+        world_z: worldZ,
+        block_id: blockId,
+      },
+    });
+  }
+
+  sendTransform(transform: PlayerTransformPayload): void {
+    this.sendRaw({
+      type: "player_transform",
+      payload: transform,
+    });
+  }
+
+  sendPing(clientTimeMs = Date.now()): void {
+    this.sendRaw({
+      type: "ping",
+      payload: {
+        client_time_ms: clientTimeMs,
+      },
+    });
+  }
+
+  private openSocket(timeoutMs = CONNECT_TIMEOUT_MS): Promise<MultiplayerWelcome> {
+    this.clearReconnectTimer();
+    this.stopHeartbeat();
     this.localPlayerId = null;
 
     return new Promise((resolve, reject) => {
@@ -284,10 +382,20 @@ export class MultiplayerClient {
             chunkSize: message.payload.chunk_size,
           };
 
+          const wasReconnecting = this.reconnectAttempts > 0;
           this.connected = true;
           this.localPlayerId = welcome.playerId;
+          this.reconnectAttempts = 0;
+          this.lastPongAt = Date.now();
           activeMultiplayerClient = this;
+          this.startHeartbeat();
           this.handlers.onWelcome?.(welcome);
+          this.broadcastIdentity();
+          this.requestPeerIdentities();
+
+          if (wasReconnecting) {
+            this.handlers.onReconnect?.();
+          }
 
           if (!settled) {
             settled = true;
@@ -312,8 +420,10 @@ export class MultiplayerClient {
       });
 
       socket.addEventListener("close", () => {
+        const wasConnected = this.connected;
         this.connected = false;
         this.localPlayerId = null;
+        this.stopHeartbeat();
 
         if (activeMultiplayerClient === this) {
           activeMultiplayerClient = null;
@@ -325,58 +435,126 @@ export class MultiplayerClient {
           reject(new Error("Connexion WebSocket fermée avant welcome"));
         }
 
-        this.handlers.onClose?.();
+        if (wasConnected) {
+          this.handlers.onClose?.();
+        }
+
+        if (!this.manualDisconnect && this.shouldReconnect && !isSinglePlayerMode()) {
+          this.scheduleReconnect();
+        }
       });
     });
   }
 
-  disconnect(): void {
-    this.connected = false;
-    this.localPlayerId = null;
-
-    if (activeMultiplayerClient === this) {
-      activeMultiplayerClient = null;
+  private scheduleReconnect(): void {
+    if (this.reconnectTimerId !== null || document.visibilityState === "hidden") {
+      return;
     }
 
-    this.socket?.close();
-    this.socket = null;
+    const delay = Math.min(
+      RECONNECT_MAX_DELAY_MS,
+      RECONNECT_BASE_DELAY_MS * 2 ** this.reconnectAttempts,
+    );
+    this.reconnectAttempts += 1;
+
+    this.reconnectTimerId = window.setTimeout(() => {
+      this.reconnectTimerId = null;
+      void this.openSocket(CONNECT_TIMEOUT_MS).catch((error) => {
+        console.warn("[Voxicraft] Reconnexion multijoueur impossible", error);
+        this.scheduleReconnect();
+      });
+    }, delay);
   }
 
-  requestChunk(chunkX: number, chunkZ: number): void {
-    this.sendRaw({
-      type: "request_chunk",
-      payload: {
-        chunk_x: chunkX,
-        chunk_z: chunkZ,
-      },
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimerId === null) {
+      return;
+    }
+
+    window.clearTimeout(this.reconnectTimerId);
+    this.reconnectTimerId = null;
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.lastPongAt = Date.now();
+
+    this.heartbeatTimerId = window.setInterval(() => {
+      this.sendPing(Date.now());
+    }, HEARTBEAT_INTERVAL_MS);
+
+    this.watchdogTimerId = window.setInterval(() => {
+      if (!this.connected || !this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      if (Date.now() - this.lastPongAt > HEARTBEAT_TIMEOUT_MS) {
+        console.warn("[Voxicraft] WebSocket multijoueur inactif, reconnexion forcée");
+        this.socket.close(4000, "heartbeat_timeout");
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+
+    this.sendPing(Date.now());
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimerId !== null) {
+      window.clearInterval(this.heartbeatTimerId);
+      this.heartbeatTimerId = null;
+    }
+
+    if (this.watchdogTimerId !== null) {
+      window.clearInterval(this.watchdogTimerId);
+      this.watchdogTimerId = null;
+    }
+  }
+
+  private installLifecycleListeners(): void {
+    if (this.lifecycleListenersInstalled) {
+      return;
+    }
+
+    this.lifecycleListenersInstalled = true;
+
+    document.addEventListener("visibilitychange", () => {
+      if (!this.shouldReconnect || this.manualDisconnect) {
+        return;
+      }
+
+      if (document.visibilityState === "hidden") {
+        this.socket?.close(1001, "page_hidden");
+        return;
+      }
+
+      if (!this.connected) {
+        this.reconnectAttempts = 0;
+        this.scheduleReconnect();
+      }
+    });
+
+    window.addEventListener("pagehide", () => {
+      if (!this.manualDisconnect) {
+        this.socket?.close(1001, "page_hidden");
+      }
+    });
+
+    window.addEventListener("online", () => {
+      if (this.shouldReconnect && !this.connected && !this.manualDisconnect) {
+        this.reconnectAttempts = 0;
+        this.scheduleReconnect();
+      }
     });
   }
 
-  setBlock(worldX: number, worldY: number, worldZ: number, blockId: number): void {
-    this.sendRaw({
-      type: "set_block",
-      payload: {
-        world_x: worldX,
-        world_y: worldY,
-        world_z: worldZ,
-        block_id: blockId,
-      },
-    });
+  private requestPeerIdentities(): void {
+    this.sendSyncEvent({ kind: "identity_request" });
   }
 
-  sendTransform(transform: PlayerTransformPayload): void {
-    this.sendRaw({
-      type: "player_transform",
-      payload: transform,
-    });
-  }
-
-  sendPing(clientTimeMs: number): void {
-    this.sendRaw({
-      type: "ping",
-      payload: {
-        client_time_ms: clientTimeMs,
-      },
+  private broadcastIdentity(): void {
+    this.sendSyncEvent({
+      kind: "player_identity",
+      nickname: this.nickname,
+      userId: this.userId,
     });
   }
 
@@ -409,6 +587,22 @@ export class MultiplayerClient {
     this.socket.send(JSON.stringify(message));
   }
 
+  private rememberPlayer(player: PlayerPublicState): PlayerPublicState {
+    const previous = this.knownPlayers.get(player.player_id);
+    const pendingTransform = this.pendingTransforms.get(player.player_id);
+    const merged: PlayerPublicState = {
+      ...previous,
+      ...player,
+      nickname: player.nickname || previous?.nickname || "",
+      user_id: player.user_id ?? previous?.user_id ?? null,
+      transform: pendingTransform ?? player.transform ?? previous?.transform ?? defaultTransform(),
+    };
+
+    this.pendingTransforms.delete(player.player_id);
+    this.knownPlayers.set(player.player_id, merged);
+    return merged;
+  }
+
   private queueRemoteAppearance(player: PlayerPublicState): void {
     if (player.player_id !== this.localPlayerId) {
       queueRemotePlayerAppearanceState(player);
@@ -417,17 +611,36 @@ export class MultiplayerClient {
 
   private dispatchMessage(message: ServerMessage): void {
     switch (message.type) {
-      case "lobby_state":
-        for (const player of message.payload.players) {
+      case "lobby_state": {
+        const players: PlayerPublicState[] = [];
+
+        for (const rawPlayer of message.payload.players) {
+          const wasKnown = this.knownPlayers.has(rawPlayer.player_id);
+          const player = this.rememberPlayer(rawPlayer);
+          players.push(player);
+
+          if (!wasKnown) {
+            this.queueRemoteAppearance(player);
+          }
+        }
+
+        this.handlers.onLobbyState?.(players);
+        return;
+      }
+      case "player_joined": {
+        const wasKnown = this.knownPlayers.has(message.payload.player.player_id);
+        const player = this.rememberPlayer(message.payload.player);
+
+        if (!wasKnown) {
           this.queueRemoteAppearance(player);
         }
-        this.handlers.onLobbyState?.(message.payload.players);
+
+        this.handlers.onPlayerJoined?.(player);
         return;
-      case "player_joined":
-        this.queueRemoteAppearance(message.payload.player);
-        this.handlers.onPlayerJoined?.(message.payload.player);
-        return;
+      }
       case "player_left":
+        this.knownPlayers.delete(message.payload.player_id);
+        this.pendingTransforms.delete(message.payload.player_id);
         setRemotePlayerMiningState(message.payload.player_id, false);
         this.handlers.onPlayerLeft?.(message.payload.player_id);
         return;
@@ -446,9 +659,21 @@ export class MultiplayerClient {
           message.payload.block_id,
         );
         return;
-      case "player_transform":
+      case "player_transform": {
+        const knownPlayer = this.knownPlayers.get(message.payload.player_id);
+
+        if (!knownPlayer) {
+          this.pendingTransforms.set(message.payload.player_id, message.payload.transform);
+          return;
+        }
+
+        this.knownPlayers.set(message.payload.player_id, {
+          ...knownPlayer,
+          transform: message.payload.transform,
+        });
         this.handlers.onPlayerTransform?.(message.payload.player_id, message.payload.transform);
         return;
+      }
       case "error":
         this.handlers.onError?.(message.payload.code, message.payload.message);
         return;
@@ -456,6 +681,8 @@ export class MultiplayerClient {
         this.dispatchSyncChat(message.payload.player_id, message.payload.message);
         return;
       case "pong":
+        this.lastPongAt = Date.now();
+        return;
       case "welcome":
         return;
       default:
@@ -471,7 +698,11 @@ export class MultiplayerClient {
     try {
       const event = JSON.parse(message.slice(SYNC_CHAT_PREFIX.length)) as MultiplayerSyncEvent;
 
-      if (event.kind === "block_breaking") {
+      if (event.kind === "identity_request") {
+        this.broadcastIdentity();
+      } else if (event.kind === "player_identity") {
+        this.applyPeerIdentity(playerId, event);
+      } else if (event.kind === "block_breaking") {
         setRemotePlayerMiningState(playerId, event.action === "start" || event.action === "progress");
       } else if (event.kind === "drop_picked_up") {
         setRemotePlayerMiningState(playerId, false);
@@ -485,6 +716,29 @@ export class MultiplayerClient {
       }));
     } catch (error) {
       console.warn("[Voxicraft] Sync multijoueur invalide", error);
+    }
+  }
+
+  private applyPeerIdentity(
+    playerId: string,
+    event: Extract<MultiplayerSyncEvent, { kind: "player_identity" }>,
+  ): void {
+    if (playerId === this.localPlayerId) {
+      return;
+    }
+
+    const wasKnown = this.knownPlayers.has(playerId);
+    const hadPendingTransform = this.pendingTransforms.has(playerId);
+    const player = this.rememberPlayer({
+      player_id: playerId,
+      user_id: event.userId ?? null,
+      nickname: event.nickname,
+      transform: this.pendingTransforms.get(playerId) ?? defaultTransform(),
+    });
+
+    if (!wasKnown && hadPendingTransform) {
+      this.queueRemoteAppearance(player);
+      this.handlers.onPlayerJoined?.(player);
     }
   }
 }
