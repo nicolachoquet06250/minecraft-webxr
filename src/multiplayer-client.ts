@@ -43,6 +43,7 @@ const HEARTBEAT_INTERVAL_MS = 10_000;
 const HEARTBEAT_TIMEOUT_MS = 30_000;
 const RECONNECT_BASE_DELAY_MS = 750;
 const RECONNECT_MAX_DELAY_MS = 8_000;
+const CONNECT_TIMEOUT_MS = 5_000;
 let activeMultiplayerClient: MultiplayerClient | null = null;
 
 function isSinglePlayerMode(): boolean {
@@ -246,7 +247,7 @@ export class MultiplayerClient {
     return this.connected;
   }
 
-  connect(timeoutMs = 5000): Promise<MultiplayerWelcome> {
+  connect(timeoutMs = CONNECT_TIMEOUT_MS): Promise<MultiplayerWelcome> {
     if (isSinglePlayerMode()) {
       return Promise.reject(new Error("Mode solo local: WebSocket désactivé"));
     }
@@ -317,7 +318,7 @@ export class MultiplayerClient {
     });
   }
 
-  private openSocket(timeoutMs): Promise<MultiplayerWelcome> {
+  private openSocket(timeoutMs = CONNECT_TIMEOUT_MS): Promise<MultiplayerWelcome> {
     this.clearReconnectTimer();
     this.stopHeartbeat();
     this.localPlayerId = null;
@@ -363,6 +364,7 @@ export class MultiplayerClient {
             chunkSize: message.payload.chunk_size,
           };
 
+          const wasReconnecting = this.reconnectAttempts > 0;
           this.connected = true;
           this.localPlayerId = welcome.playerId;
           this.reconnectAttempts = 0;
@@ -371,12 +373,14 @@ export class MultiplayerClient {
           this.startHeartbeat();
           this.handlers.onWelcome?.(welcome);
 
+          if (wasReconnecting) {
+            this.handlers.onReconnect?.();
+          }
+
           if (!settled) {
             settled = true;
             window.clearTimeout(timeoutHandle);
             resolve(welcome);
-          } else {
-            this.handlers.onReconnect?.();
           }
 
           return;
@@ -435,7 +439,7 @@ export class MultiplayerClient {
 
     this.reconnectTimerId = window.setTimeout(() => {
       this.reconnectTimerId = null;
-      void this.openSocket().catch((error) => {
+      void this.openSocket(CONNECT_TIMEOUT_MS).catch((error) => {
         console.warn("[Voxicraft] Reconnexion multijoueur impossible", error);
         this.scheduleReconnect();
       });
@@ -574,18 +578,29 @@ export class MultiplayerClient {
   private dispatchMessage(message: ServerMessage): void {
     switch (message.type) {
       case "lobby_state": {
-        const players = message.payload.players.map((player) => this.rememberPlayer(player));
+        const players: PlayerPublicState[] = [];
 
-        for (const player of players) {
-          this.queueRemoteAppearance(player);
+        for (const rawPlayer of message.payload.players) {
+          const wasKnown = this.knownPlayers.has(rawPlayer.player_id);
+          const player = this.rememberPlayer(rawPlayer);
+          players.push(player);
+
+          if (!wasKnown) {
+            this.queueRemoteAppearance(player);
+          }
         }
 
         this.handlers.onLobbyState?.(players);
         return;
       }
       case "player_joined": {
+        const wasKnown = this.knownPlayers.has(message.payload.player.player_id);
         const player = this.rememberPlayer(message.payload.player);
-        this.queueRemoteAppearance(player);
+
+        if (!wasKnown) {
+          this.queueRemoteAppearance(player);
+        }
+
         this.handlers.onPlayerJoined?.(player);
         return;
       }
