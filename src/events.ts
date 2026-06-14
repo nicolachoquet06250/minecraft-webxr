@@ -11,6 +11,7 @@ import { isCraftingOverlayOpen } from "./ui-state";
 import { initializeSoloSpawnCharacters } from "./solo-spawn-characters";
 import { initializeInGameMenu, isInGameMenuOpen } from "./ingame-menu";
 import { initializeMultiplayerWorldSync } from "./multiplayer-world-sync";
+import { initializeClientModsRuntime } from "./mods/bootstrap-runtime";
 
 const MIN_PITCH = -Math.PI / 2 + 0.05;
 const MAX_PITCH = Math.PI / 2 - 0.05;
@@ -168,6 +169,15 @@ export default function (
     droppedItems,
   );
   initializeMultiplayerWorldSync(breakingParams);
+  void initializeClientModsRuntime({
+    scene,
+    engine,
+    player,
+    worldChunks,
+    droppedItems,
+  }).catch((error) => {
+    console.warn("[mods] impossible d'initialiser les mods client", error);
+  });
   let primaryBreakButtonPressed = false;
 
   window.addEventListener("keydown", handleKeyDown);
