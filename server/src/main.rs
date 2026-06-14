@@ -114,6 +114,7 @@ async fn main() {
         stats_db: Arc::new(Mutex::new(stats_connection)),
         auth_http_client: reqwest::Client::new(),
         auth_central_base_url,
+        mods_registry,
     };
 
     let app = build_router(&cors_client_domain, app_state);
