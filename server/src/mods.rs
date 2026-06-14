@@ -172,6 +172,13 @@ impl ModRegistry {
         let loaded_mod = self.loaded_mods
             .iter()
             .find(|loaded_mod| loaded_mod.manifest.id == mod_id)?;
+        let client = loaded_mod.manifest.client.as_ref()?;
+
+        if !is_client_file_allowed(client, &relative_path) {
+            warn!(mod_id = %loaded_mod.manifest.id, requested_path = %relative_path, "client mod file rejected by manifest allow-list");
+            return None;
+        }
+
         let file_path = loaded_mod.root_path.join(relative_path);
 
         if file_path.is_file() {
@@ -242,6 +249,7 @@ fn validate_manifest(mod_path: &Path, manifest: ModManifest) -> Result<ModManife
 
         if let Some(assets) = &client.assets {
             validate_safe_relative_path(assets, "client.assets")?;
+            validate_relative_existing_dir(mod_path, assets, "client.assets")?;
         }
     }
 
@@ -271,6 +279,37 @@ fn client_visible_manifest(loaded_mod: &LoadedModMetadata) -> Option<ClientVisib
     })
 }
 
+fn is_client_file_allowed(client: &ClientModManifest, relative_path: &str) -> bool {
+    if paths_are_equal(relative_path, &client.entry) {
+        return true;
+    }
+
+    if client
+        .types
+        .as_deref()
+        .is_some_and(|types| paths_are_equal(relative_path, types))
+    {
+        return true;
+    }
+
+    client
+        .assets
+        .as_deref()
+        .is_some_and(|assets| path_is_inside_dir(relative_path, assets))
+}
+
+fn paths_are_equal(left: &str, right: &str) -> bool {
+    Path::new(left) == Path::new(right.trim_matches('/'))
+}
+
+fn path_is_inside_dir(path: &str, dir: &str) -> bool {
+    let normalized_dir = dir.trim_matches('/');
+
+    !normalized_dir.is_empty()
+        && Path::new(path).starts_with(Path::new(normalized_dir))
+        && Path::new(path) != Path::new(normalized_dir)
+}
+
 fn validate_relative_existing_file(mod_path: &Path, relative_path: &str, field: &str) -> Result<(), String> {
     validate_safe_relative_path(relative_path, field)?;
 
@@ -278,6 +317,16 @@ fn validate_relative_existing_file(mod_path: &Path, relative_path: &str, field: 
 
     if !file_path.is_file() {
         return Err(format!("{field} pointe vers un fichier introuvable: {}", file_path.display()));
+    }
+
+    Ok(())
+}
+
+fn validate_relative_existing_dir(mod_path: &Path, relative_path: &str, field: &str) -> Result<(), String> {
+    let dir_path = mod_path.join(relative_path);
+
+    if !dir_path.is_dir() {
+        return Err(format!("{field} pointe vers un dossier introuvable: {}", dir_path.display()));
     }
 
     Ok(())
