@@ -2,6 +2,9 @@ mod protocol;
 mod state;
 mod stats;
 
+mod mods;
+mod mods_http;
+
 use std::{
     env,
     fs::{self, OpenOptions},
@@ -43,11 +46,15 @@ struct AppState {
     stats_db: Arc<Mutex<Connection>>,
     auth_http_client: reqwest::Client,
     auth_central_base_url: String,
+    mods_registry: Arc<std::sync::RwLock<mods::ModRegistry>>,
 }
 
 #[tokio::main]
 async fn main() {
     load_env();
+
+    let mods_dir = env_path("MODS_DIR", mods::DEFAULT_MODS_DIR);
+    let mods_registry = Arc::new(std::sync::RwLock::new(mods::ModRegistry::scan(&mods_dir)));
 
     let args = env::args().collect::<Vec<_>>();
     match run_migration_command(&args) {
@@ -147,10 +154,12 @@ fn build_router(cors_client_domain: &str, app_state: AppState) -> Router {
         .route("/state", get(state_snapshot))
         .route("/stats", get(stats_snapshot))
         .route("/ws", get(ws_handler))
+        .route("/mods/{*path}", get(mods_http::client_mod_file))
         .route("/api/auth/register", post(auth_register_proxy))
         .route("/api/auth/login", post(auth_login_proxy))
         .route("/api/auth/discord/url", get(auth_discord_url_proxy))
-        .route("/api/auth/discord/callback", get(auth_discord_callback_proxy));
+        .route("/api/auth/discord/callback", get(auth_discord_callback_proxy))
+        .route("/api/mods/manifest", get(mods_http::client_mods_manifest));
 
     #[cfg(feature = "embed_front")]
     let router = router.fallback(get(embedded_front_handler));
