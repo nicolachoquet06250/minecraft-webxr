@@ -1,5 +1,3 @@
-use std::sync::{Arc, RwLock};
-
 use axum::{
     body::Body,
     extract::{Path, State},
@@ -11,15 +9,10 @@ use mime_guess::from_path;
 use tokio::fs;
 use tracing::warn;
 
-use crate::mods::ModRegistry;
+use crate::AppState;
 
-#[derive(Clone)]
-pub struct ModsHttpState {
-    pub registry: Arc<RwLock<ModRegistry>>,
-}
-
-pub async fn client_mods_manifest(State(state): State<ModsHttpState>) -> Response {
-    let registry = match state.registry.read() {
+pub async fn client_mods_manifest(State(app_state): State<AppState>) -> Response {
+    let registry = match app_state.mods_registry.read() {
         Ok(registry) => registry,
         Err(error) => {
             warn!(%error, "mods registry lock poisoned");
@@ -31,11 +24,11 @@ pub async fn client_mods_manifest(State(state): State<ModsHttpState>) -> Respons
 }
 
 pub async fn client_mod_file(
-    State(state): State<ModsHttpState>,
+    State(app_state): State<AppState>,
     Path(request_path): Path<String>,
 ) -> Response {
     let file_path = {
-        let registry = match state.registry.read() {
+        let registry = match app_state.mods_registry.read() {
             Ok(registry) => registry,
             Err(error) => {
                 warn!(%error, "mods registry lock poisoned");
