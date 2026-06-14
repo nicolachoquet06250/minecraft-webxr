@@ -16,6 +16,14 @@ export type PlayerPublicState = {
 
 export type MultiplayerSyncEvent =
   | {
+      kind: "identity_request";
+    }
+  | {
+      kind: "player_identity";
+      nickname: string;
+      userId?: string | null;
+    }
+  | {
       kind: "block_breaking";
       action: "start" | "progress" | "cancel" | "finish";
       x: number;
@@ -52,6 +60,14 @@ function isSinglePlayerMode(): boolean {
   } catch {
     return false;
   }
+}
+
+function defaultTransform(): PlayerTransformPayload {
+  return {
+    position: [0, 0, 0],
+    rotation: [0, 0],
+    velocity: [0, 0, 0],
+  };
 }
 
 export type ServerMessage =
@@ -215,6 +231,7 @@ export class MultiplayerClient {
   private readonly userId: string | null;
   private readonly handlers: MultiplayerClientHandlers;
   private readonly knownPlayers = new Map<string, PlayerPublicState>();
+  private readonly pendingTransforms = new Map<string, PlayerTransformPayload>();
   private socket: WebSocket | null = null;
   private connected = false;
   private localPlayerId: string | null = null;
@@ -271,6 +288,7 @@ export class MultiplayerClient {
     this.connected = false;
     this.localPlayerId = null;
     this.knownPlayers.clear();
+    this.pendingTransforms.clear();
 
     if (activeMultiplayerClient === this) {
       activeMultiplayerClient = null;
@@ -372,6 +390,8 @@ export class MultiplayerClient {
           activeMultiplayerClient = this;
           this.startHeartbeat();
           this.handlers.onWelcome?.(welcome);
+          this.broadcastIdentity();
+          this.requestPeerIdentities();
 
           if (wasReconnecting) {
             this.handlers.onReconnect?.();
@@ -526,6 +546,18 @@ export class MultiplayerClient {
     });
   }
 
+  private requestPeerIdentities(): void {
+    this.sendSyncEvent({ kind: "identity_request" });
+  }
+
+  private broadcastIdentity(): void {
+    this.sendSyncEvent({
+      kind: "player_identity",
+      nickname: this.nickname,
+      userId: this.userId,
+    });
+  }
+
   private sendSyncEvent(event: MultiplayerSyncEvent): void {
     this.sendRaw({
       type: "chat",
@@ -557,14 +589,16 @@ export class MultiplayerClient {
 
   private rememberPlayer(player: PlayerPublicState): PlayerPublicState {
     const previous = this.knownPlayers.get(player.player_id);
+    const pendingTransform = this.pendingTransforms.get(player.player_id);
     const merged: PlayerPublicState = {
       ...previous,
       ...player,
       nickname: player.nickname || previous?.nickname || "",
       user_id: player.user_id ?? previous?.user_id ?? null,
-      transform: player.transform ?? previous?.transform,
+      transform: pendingTransform ?? player.transform ?? previous?.transform ?? defaultTransform(),
     };
 
+    this.pendingTransforms.delete(player.player_id);
     this.knownPlayers.set(player.player_id, merged);
     return merged;
   }
@@ -606,6 +640,7 @@ export class MultiplayerClient {
       }
       case "player_left":
         this.knownPlayers.delete(message.payload.player_id);
+        this.pendingTransforms.delete(message.payload.player_id);
         setRemotePlayerMiningState(message.payload.player_id, false);
         this.handlers.onPlayerLeft?.(message.payload.player_id);
         return;
@@ -628,6 +663,7 @@ export class MultiplayerClient {
         const knownPlayer = this.knownPlayers.get(message.payload.player_id);
 
         if (!knownPlayer) {
+          this.pendingTransforms.set(message.payload.player_id, message.payload.transform);
           return;
         }
 
@@ -662,7 +698,11 @@ export class MultiplayerClient {
     try {
       const event = JSON.parse(message.slice(SYNC_CHAT_PREFIX.length)) as MultiplayerSyncEvent;
 
-      if (event.kind === "block_breaking") {
+      if (event.kind === "identity_request") {
+        this.broadcastIdentity();
+      } else if (event.kind === "player_identity") {
+        this.applyPeerIdentity(playerId, event);
+      } else if (event.kind === "block_breaking") {
         setRemotePlayerMiningState(playerId, event.action === "start" || event.action === "progress");
       } else if (event.kind === "drop_picked_up") {
         setRemotePlayerMiningState(playerId, false);
@@ -676,6 +716,29 @@ export class MultiplayerClient {
       }));
     } catch (error) {
       console.warn("[Voxicraft] Sync multijoueur invalide", error);
+    }
+  }
+
+  private applyPeerIdentity(
+    playerId: string,
+    event: Extract<MultiplayerSyncEvent, { kind: "player_identity" }>,
+  ): void {
+    if (playerId === this.localPlayerId) {
+      return;
+    }
+
+    const wasKnown = this.knownPlayers.has(playerId);
+    const hadPendingTransform = this.pendingTransforms.has(playerId);
+    const player = this.rememberPlayer({
+      player_id: playerId,
+      user_id: event.userId ?? null,
+      nickname: event.nickname,
+      transform: this.pendingTransforms.get(playerId) ?? defaultTransform(),
+    });
+
+    if (!wasKnown && hadPendingTransform) {
+      this.queueRemoteAppearance(player);
+      this.handlers.onPlayerJoined?.(player);
     }
   }
 }
