@@ -1,20 +1,29 @@
 import path from "path";
-import { defineConfig } from "vite";
+import {defineConfig, loadEnv} from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import mkcert from "vite-plugin-mkcert";
 
+const env = loadEnv('production', process.cwd(), '')
+
+const useHttps = ["1", "true", "yes", "on"]
+    .includes((env.USE_HTTPS ?? "")
+        .trim().toLowerCase());
+const serverPort = env.SERVER_PORT?.trim() || "3001";
+const devServerOrigin = env.VITE_DEV_SERVER_ORIGIN?.trim()
+  || `${useHttps ? "https" : "http"}://127.0.0.1:${serverPort}`;
+
 export default defineConfig({
   plugins: [
-    ...(process.env.CODESPACES ? [] : [mkcert()]),
+    ...(useHttps && (!env.CODESPACES || env.CODESPACES === "false") ? [mkcert()] : []),
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
       includeAssets: ["favicon.svg", "items/**/*.png"],
       manifest: {
-        id: "minecraft-webxr",
-        name: "Minecraft WebXR",
-        short_name: "Minecraft XR",
-        description: "Un clone de Minecraft concu pour être nativement cross-platforms.",
+        id: "voxicraft",
+        name: "Voxicraft",
+        short_name: "Voxicraft",
+        description: "Voxicraft, un jeu de construction voxel conçu pour être nativement cross-platforms.",
         start_url: "/",
         scope: "/",
         display: "fullscreen",
@@ -69,6 +78,21 @@ export default defineConfig({
   resolve: {
     alias: {
       "~": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    proxy: {
+      "/ws": {
+        target: devServerOrigin,
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+      },
+      "/api": {
+        target: devServerOrigin,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {

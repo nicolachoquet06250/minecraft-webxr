@@ -4,7 +4,8 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 
 use crate::protocol::{
-    CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, PlayerPublicState, PlayerTransform, ServerMessage,
+    CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z, ConnectedPlayerPublicState, PlayerPublicState,
+    PlayerTransform, ServerMessage,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,8 +23,12 @@ pub struct ChunkState {
 #[derive(Debug, Clone)]
 pub struct PlayerState {
     pub id: u64,
+    pub user_id: Option<String>,
     pub lobby_id: String,
     pub nickname: String,
+    pub gender: String,
+    pub connected_at: String,
+    pub stats_session_id: Option<i64>,
     pub transform: PlayerTransform,
 }
 
@@ -38,6 +43,8 @@ pub struct LobbySummary {
     pub lobby_id: String,
     pub players: usize,
 }
+
+pub type ConnectedPlayerSummary = ConnectedPlayerPublicState;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ServerSummary {
@@ -58,10 +65,12 @@ pub struct ServerState {
     pub seed: u32,
     pub world_version: u64,
     next_player_id: u64,
+    next_central_session_id: u64,
     chunks: HashMap<ChunkCoord, ChunkState>,
     players: HashMap<u64, PlayerState>,
     lobbies: HashMap<String, LobbyState>,
     sessions: HashMap<u64, mpsc::UnboundedSender<ServerMessage>>,
+    central_sessions: HashMap<u64, mpsc::UnboundedSender<ServerMessage>>,
 }
 
 impl ServerState {
@@ -70,10 +79,12 @@ impl ServerState {
             seed,
             world_version: 0,
             next_player_id: 1,
+            next_central_session_id: 1,
             chunks: HashMap::new(),
             players: HashMap::new(),
             lobbies: HashMap::new(),
             sessions: HashMap::new(),
+            central_sessions: HashMap::new(),
         }
     }
 
@@ -98,10 +109,58 @@ impl ServerState {
         }
     }
 
+    pub fn connected_players_summary(&self) -> Vec<ConnectedPlayerSummary> {
+        self.connected_players_public_state()
+    }
+
+    pub fn connected_players_public_state(&self) -> Vec<ConnectedPlayerPublicState> {
+        let mut players: Vec<ConnectedPlayerPublicState> = self
+            .players
+            .values()
+            .map(|player| self.connected_player_public_state(player))
+            .collect();
+
+        players.sort_by(|a, b| a.connected_at.cmp(&b.connected_at));
+        players
+    }
+
+    pub fn connected_player_public_state(&self, player: &PlayerState) -> ConnectedPlayerPublicState {
+        ConnectedPlayerPublicState {
+            player_id: player_id_to_wire(player.id),
+            user_id: player.user_id.clone(),
+            lobby_id: player.lobby_id.clone(),
+            nickname: player.nickname.clone(),
+            gender: player.gender.clone(),
+            connected_at: player.connected_at.clone(),
+            transform: player.transform.clone(),
+        }
+    }
+
+    pub fn register_central_session(&mut self, tx: mpsc::UnboundedSender<ServerMessage>) -> u64 {
+        let central_session_id = self.next_central_session_id;
+        self.next_central_session_id = self.next_central_session_id.saturating_add(1);
+        self.central_sessions.insert(central_session_id, tx);
+        central_session_id
+    }
+
+    pub fn remove_central_session(&mut self, central_session_id: u64) {
+        self.central_sessions.remove(&central_session_id);
+    }
+
+    pub fn broadcast_to_central(&self, message: &ServerMessage) {
+        for tx in self.central_sessions.values() {
+            let _ = tx.send(message.clone());
+        }
+    }
+
     pub fn register_player(
         &mut self,
         lobby_id: String,
         nickname: String,
+        user_id: Option<String>,
+        gender: String,
+        connected_at: String,
+        stats_session_id: Option<i64>,
         tx: mpsc::UnboundedSender<ServerMessage>,
     ) -> RegisterPlayerResult {
         let player_id = self.next_player_id;
@@ -109,8 +168,12 @@ impl ServerState {
 
         let player = PlayerState {
             id: player_id,
+            user_id,
             lobby_id: lobby_id.clone(),
             nickname,
+            gender,
+            connected_at,
+            stats_session_id,
             transform: PlayerTransform::default(),
         };
 
@@ -151,6 +214,12 @@ impl ServerState {
         self.players.get(&player_id)
     }
 
+    pub fn set_player_stats_session_id(&mut self, player_id: u64, stats_session_id: i64) {
+        if let Some(player) = self.players.get_mut(&player_id) {
+            player.stats_session_id = Some(stats_session_id);
+        }
+    }
+
     pub fn update_player_transform(&mut self, player_id: u64, transform: PlayerTransform) -> bool {
         if let Some(player) = self.players.get_mut(&player_id) {
             player.transform = transform;
@@ -161,7 +230,7 @@ impl ServerState {
         false
     }
 
-    pub fn remove_player(&mut self, player_id: u64) -> Option<(String, ServerMessage)> {
+    pub fn remove_player(&mut self, player_id: u64) -> Option<(PlayerState, String, ServerMessage)> {
         let player = self.players.remove(&player_id)?;
         self.sessions.remove(&player_id);
 
@@ -172,13 +241,13 @@ impl ServerState {
             }
         }
 
-        let lobby_id = player.lobby_id;
+        let lobby_id = player.lobby_id.clone();
         let message = ServerMessage::PlayerLeft {
             lobby_id: lobby_id.clone(),
             player_id: player_id_to_wire(player_id),
         };
 
-        Some((lobby_id, message))
+        Some((player, lobby_id, message))
     }
 
     pub fn lobby_state_message(&self, lobby_id: &str) -> ServerMessage {
@@ -196,6 +265,7 @@ impl ServerState {
                 if let Some(player) = self.players.get(player_id) {
                     players.push(PlayerPublicState {
                         player_id: player_id_to_wire(player.id),
+                        user_id: player.user_id.clone(),
                         nickname: player.nickname.clone(),
                         transform: player.transform.clone(),
                     });
@@ -207,24 +277,18 @@ impl ServerState {
     }
 
     pub fn get_or_create_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> ChunkState {
-        let coord = ChunkCoord {
-            x: chunk_x,
-            z: chunk_z,
-        };
+        let coord = ChunkCoord { x: chunk_x, z: chunk_z };
 
         if !self.chunks.contains_key(&coord) {
             let chunk = ChunkState {
-                blocks: generate_chunk(chunk_x, chunk_z, self.seed),
+                blocks: voxel_wasm::generate_chunk(chunk_x, chunk_z, self.seed),
                 chunk_version: 1,
             };
 
             self.chunks.insert(coord, chunk);
         }
 
-        self.chunks
-            .get(&coord)
-            .expect("chunk should exist")
-            .clone()
+        self.chunks.get(&coord).expect("chunk should exist").clone()
     }
 
     pub fn set_block(
@@ -240,20 +304,15 @@ impl ServerState {
 
         let chunk_x = div_floor(world_x, CHUNK_SIZE_X as i32);
         let chunk_z = div_floor(world_z, CHUNK_SIZE_Z as i32);
-
         let local_x = world_x - chunk_x * CHUNK_SIZE_X as i32;
         let local_z = world_z - chunk_z * CHUNK_SIZE_Z as i32;
-
         let index = block_index(local_x as usize, world_y as usize, local_z as usize);
 
         let chunk = self
             .chunks
-            .entry(ChunkCoord {
-                x: chunk_x,
-                z: chunk_z,
-            })
+            .entry(ChunkCoord { x: chunk_x, z: chunk_z })
             .or_insert_with(|| ChunkState {
-                blocks: generate_chunk(chunk_x, chunk_z, self.seed),
+                blocks: voxel_wasm::generate_chunk(chunk_x, chunk_z, self.seed),
                 chunk_version: 1,
             });
 
@@ -263,7 +322,6 @@ impl ServerState {
 
         chunk.blocks[index] = block_id;
         chunk.chunk_version = chunk.chunk_version.saturating_add(1);
-
         self.world_version = self.world_version.saturating_add(1);
 
         Ok(self.world_version)
@@ -310,60 +368,27 @@ fn div_floor(a: i32, b: i32) -> i32 {
     }
 }
 
-fn generate_chunk(chunk_x: i32, chunk_z: i32, seed: u32) -> Vec<u8> {
-    let mut blocks = vec![0_u8; CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let sea_level = 42_i32;
+    #[test]
+    fn generated_server_chunks_match_voxel_wasm_generator() {
+        let seed = 12345;
+        let mut state = ServerState::new(seed);
 
-    for local_x in 0..CHUNK_SIZE_X {
-        for local_z in 0..CHUNK_SIZE_Z {
-            let world_x = chunk_x * CHUNK_SIZE_X as i32 + local_x as i32;
-            let world_z = chunk_z * CHUNK_SIZE_Z as i32 + local_z as i32;
+        for (chunk_x, chunk_z) in [(0, 0), (1, 0), (0, 1), (-1, 2), (3, -4)] {
+            let server_chunk = state.get_or_create_chunk(chunk_x, chunk_z);
+            let wasm_chunk = voxel_wasm::generate_chunk(chunk_x, chunk_z, seed);
 
-            let noise_a = coord_noise(world_x, world_z, seed);
-            let noise_b = coord_noise(world_x / 2, world_z / 2, seed.wrapping_add(99));
-            let height = 24_i32 + (noise_a % 28) as i32 + (noise_b % 10) as i32;
-            let clamped_height = height.min(CHUNK_SIZE_Y as i32 - 1);
-
-            for y in 0..CHUNK_SIZE_Y {
-                let yi = y as i32;
-                let block = if yi > clamped_height {
-                    if yi <= sea_level {
-                        17_u8
-                    } else {
-                        0_u8
-                    }
-                } else if yi == clamped_height {
-                    if yi < sea_level {
-                        14_u8
-                    } else {
-                        1_u8
-                    }
-                } else if yi > clamped_height - 4 {
-                    2_u8
-                } else {
-                    6_u8
-                };
-
-                let idx = block_index(local_x, y, local_z);
-                blocks[idx] = block;
-            }
+            assert_eq!(server_chunk.blocks, wasm_chunk);
         }
     }
 
-    blocks
-}
-
-fn coord_noise(x: i32, z: i32, seed: u32) -> u32 {
-    let mut value = seed as u64;
-    value ^= (x as i64 as u64).wrapping_mul(0x9E37_79B1_85EB_CA87);
-    value ^= (z as i64 as u64).wrapping_mul(0xC2B2_AE3D_27D4_EB4F);
-
-    value ^= value >> 33;
-    value = value.wrapping_mul(0xFF51_AFD7_ED55_8CCD);
-    value ^= value >> 33;
-    value = value.wrapping_mul(0xC4CE_B9FE_1A85_EC53);
-    value ^= value >> 33;
-
-    (value & 0xFFFF_FFFF) as u32
+    #[test]
+    fn server_chunk_dimensions_match_voxel_wasm_module() {
+        assert_eq!(CHUNK_SIZE_X, voxel_wasm::chunk_size_x());
+        assert_eq!(CHUNK_SIZE_Y, voxel_wasm::chunk_size_y());
+        assert_eq!(CHUNK_SIZE_Z, voxel_wasm::chunk_size_z());
+    }
 }

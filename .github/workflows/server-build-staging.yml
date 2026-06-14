@@ -1,57 +1,92 @@
 name: "Server Build Staging (Linux + Windows)"
 
-"on":
+on:
   push:
     branches:
       - staging
     paths:
       - "server/**"
-      - ".github/workflows/server-build-staging.yml"
-  pull_request:
-    branches:
-      - staging
-    paths:
-      - "server/**"
+      - "src/**"
+      - "scripts/**"
+      - "public/**"
+      - "wasm/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "*.html"
+      - "*.ts"
+      - "*.json"
       - ".github/workflows/server-build-staging.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
-"jobs":
+jobs:
   build-server:
     name: Build server on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        include:
+          - os: ubuntu-latest
+            container:
+              image: debian:12
+
+          - os: windows-latest
+            container: null
 
     steps:
+      - name: Initialize Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          apt-get install -y \
+            build-essential \
+            curl \
+            git \
+            ca-certificates \
+            pkg-config \
+            libssl-dev
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Rust
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up Rust with WASM target
         uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+
+      - name: Build front
+        run: npm run build
 
       - name: Build server (release)
-        run: cargo build --manifest-path server/Cargo.toml --release
+        run: cargo build --manifest-path server/Cargo.toml --release --features embed_front
 
       - name: Package Linux binary
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
-          cp server/target/release/minecraft_server dist/minecraft_server
-          tar -czf dist/minecraft-server-linux-x86_64.tar.gz -C dist minecraft_server
+          cp target/release/voxicraft_server dist/voxicraft_server
+          tar -czf dist/voxicraft-server-linux-x86_64.tar.gz -C dist voxicraft_server
 
       - name: Upload Linux artifact
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: minecraft-server-linux-x86_64
-          path: dist/minecraft-server-linux-x86_64.tar.gz
+          name: voxicraft-server-linux-x86_64
+          path: dist/voxicraft-server-linux-x86_64.tar.gz
           if-no-files-found: error
 
       - name: Package Windows binary
@@ -59,15 +94,15 @@ permissions:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item server/target/release/minecraft_server.exe dist/minecraft_server.exe
-          Compress-Archive -Path dist/minecraft_server.exe -DestinationPath dist/minecraft-server-windows-x86_64.zip -Force
+          Copy-Item target\release\voxicraft_server.exe dist\voxicraft_server.exe
+          Compress-Archive -Path dist\voxicraft_server.exe -DestinationPath dist\voxicraft-server-windows-x86_64.zip -Force
 
       - name: Upload Windows artifact
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: minecraft-server-windows-x86_64
-          path: dist/minecraft-server-windows-x86_64.zip
+          name: voxicraft-server-windows-x86_64
+          path: dist/voxicraft-server-windows-x86_64.zip
           if-no-files-found: error
 
   publish-downloadable-packages:
@@ -80,24 +115,24 @@ permissions:
       - name: Download Linux build artifact
         uses: actions/download-artifact@v4
         with:
-          name: minecraft-server-linux-x86_64
+          name: voxicraft-server-linux-x86_64
           path: dist/linux
 
       - name: Download Windows build artifact
         uses: actions/download-artifact@v4
         with:
-          name: minecraft-server-windows-x86_64
+          name: voxicraft-server-windows-x86_64
           path: dist/windows
 
       - name: Publish/update staging release assets
         uses: ncipollo/release-action@v1
         with:
-          tag: staging
+          tag: server-staging
           name: staging
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
-          artifacts: dist/linux/minecraft-server-linux-x86_64.tar.gz,dist/windows/minecraft-server-windows-x86_64.zip
+          artifacts: dist/linux/voxicraft-server-linux-x86_64.tar.gz,dist/windows/voxicraft-server-windows-x86_64.zip
           body: |
             Downloadable server executables for the staging branch.
             Commit: ${{ github.sha }}

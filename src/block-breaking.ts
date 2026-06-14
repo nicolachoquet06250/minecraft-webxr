@@ -38,6 +38,7 @@ type BlockBreakingParams = {
   material: StandardMaterial;
   droppedItems: DroppedItem[];
   targetRay?: Ray | null;
+  onBlockMutated?: (worldX: number, worldY: number, worldZ: number, blockId: BlockId) => void;
 };
 
 type TargetBlock = {

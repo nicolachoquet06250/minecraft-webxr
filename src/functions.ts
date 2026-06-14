@@ -430,33 +430,48 @@ export function moveWithCollision(
   sizeY: number,
   sizeZ: number,
 ): void {
-  const nextX = player.position.add(new Vector3(deltaMove.x, 0, 0));
+  const maxAxisDelta = Math.max(
+    Math.abs(deltaMove.x),
+    Math.abs(deltaMove.y),
+    Math.abs(deltaMove.z),
+  );
+  const stepCount = Math.max(1, Math.ceil(maxAxisDelta / 0.25));
+  const step = deltaMove.scale(1 / stepCount);
+  let verticalBlocked = false;
 
-  if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextX)) {
-    player.position.x = nextX.x;
-  } else {
-    player.velocity.x = 0;
-  }
+  for (let index = 0; index < stepCount; index++) {
+    const nextX = player.position.add(new Vector3(step.x, 0, 0));
 
-  const nextZ = player.position.add(new Vector3(0, 0, deltaMove.z));
-
-  if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextZ)) {
-    player.position.z = nextZ.z;
-  } else {
-    player.velocity.z = 0;
-  }
-
-  const nextY = player.position.add(new Vector3(0, deltaMove.y, 0));
-
-  if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextY)) {
-    player.position.y = nextY.y;
-    player.grounded = false;
-  } else {
-    if (deltaMove.y < 0) {
-      player.grounded = true;
+    if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextX)) {
+      player.position.x = nextX.x;
+    } else {
+      player.velocity.x = 0;
     }
 
-    player.velocity.y = 0;
+    const nextZ = player.position.add(new Vector3(0, 0, step.z));
+
+    if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextZ)) {
+      player.position.z = nextZ.z;
+    } else {
+      player.velocity.z = 0;
+    }
+
+    if (verticalBlocked) {
+      continue;
+    }
+
+    const nextY = player.position.add(new Vector3(0, step.y, 0));
+    if (!hasCollisionAt(worldChunks, sizeX, sizeY, sizeZ, nextY)) {
+      player.position.y = nextY.y;
+      player.grounded = false;
+    } else {
+      if (step.y < 0) {
+        player.grounded = true;
+      }
+
+      player.velocity.y = 0;
+      verticalBlocked = true;
+    }
   }
 }
 
@@ -1389,7 +1404,7 @@ export function addToInventory(player: PlayerPhysics, blockId: BlockId): void {
     player.inventory.push({ blockId, count: 1 });
   } else {
     // Si l'inventaire est plein, on ne fait rien (l'objet est perdu ou reste au sol)
-    // Dans Minecraft l'objet reste au sol, mais ici on l'a déjà supprimé de droppedItems
+    // Dans Voxicraft l'objet reste au sol, mais ici on l'a déjà supprimé de droppedItems
     // Pour bien faire il faudrait vérifier avant de splice, mais restons simple pour l'instant.
   }
 }

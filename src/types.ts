@@ -220,6 +220,7 @@ export type WorldChunk = {
 export type WorldChunks = Map<string, WorldChunk>;
 
 export type DroppedItem = {
+  dropId?: string;
   mesh: Mesh | TransformNode;
   blockId: BlockId;
   createdAt: number;

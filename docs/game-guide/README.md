@@ -2,7 +2,7 @@
 
 ---
 
-# Guide du jeu - Minecraft WebXR
+# Guide du jeu - Voxicraft
 
 Ce dossier contient la documentation non technique du jeu.
 
