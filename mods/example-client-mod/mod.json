@@ -1,0 +1,20 @@
+{
+  "id": "example-client-mod",
+  "name": "Example Client Mod",
+  "version": "0.1.0",
+  "side": "client",
+  "client": {
+    "runtime": "javascript",
+    "entry": "client/mod.js",
+    "types": "client/mod.d.ts",
+    "assets": "client/assets"
+  },
+  "permissions": {
+    "client": [
+      "babylon.scene",
+      "game.player.read",
+      "game.events",
+      "ui.notify"
+    ]
+  }
+}
