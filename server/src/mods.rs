@@ -188,6 +188,7 @@ impl ModRegistry {
         }
     }
 
+    #[allow(dead_code)]
     pub fn server_wasm_entries(&self) -> Vec<(String, PathBuf)> {
         self.loaded_mods
             .iter()
