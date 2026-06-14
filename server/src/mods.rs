@@ -249,7 +249,7 @@ fn validate_manifest(mod_path: &Path, manifest: ModManifest) -> Result<ModManife
 
         if let Some(assets) = &client.assets {
             validate_safe_relative_path(assets, "client.assets")?;
-            validate_relative_existing_dir(mod_path, assets, "client.assets")?;
+            validate_optional_assets_dir(mod_path, assets, "client.assets")?;
         }
     }
 
@@ -322,11 +322,11 @@ fn validate_relative_existing_file(mod_path: &Path, relative_path: &str, field: 
     Ok(())
 }
 
-fn validate_relative_existing_dir(mod_path: &Path, relative_path: &str, field: &str) -> Result<(), String> {
-    let dir_path = mod_path.join(relative_path);
+fn validate_optional_assets_dir(mod_path: &Path, relative_path: &str, field: &str) -> Result<(), String> {
+    let assets_path = mod_path.join(relative_path);
 
-    if !dir_path.is_dir() {
-        return Err(format!("{field} pointe vers un dossier introuvable: {}", dir_path.display()));
+    if assets_path.exists() && !assets_path.is_dir() {
+        return Err(format!("{field} pointe vers un chemin qui existe mais n'est pas un dossier: {}", assets_path.display()));
     }
 
     Ok(())
