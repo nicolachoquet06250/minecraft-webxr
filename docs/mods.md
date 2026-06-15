@@ -19,13 +19,13 @@ Un mod peut être :
 
 ```mermaid
 flowchart LR
-  Server[Serveur Rust]
-  Registry[Registre de mods]
-  Manifest[mod.json]
-  ClientApi[API /api/mods/manifest]
-  ClientFiles[/mods/:id/client/...]
-  Browser[Navigateur]
-  ModJs[client/mod.js]
+  Server["Serveur Rust"]
+  Registry["Registre de mods"]
+  Manifest["mod.json"]
+  ClientApi["API /api/mods/manifest"]
+  ClientFiles["/mods/{id}/client/..."]
+  Browser["Navigateur"]
+  ModJs["client/mod.js"]
 
   Server --> Registry
   Registry --> Manifest
