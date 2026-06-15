@@ -64,7 +64,7 @@ export function logoutFromRelaySession(): void {
 }
 
 export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession> {
-  const response = await fetch(`${resolveCentralAuthApiBaseUrl()}/auth/login`, {
+  const response = await fetch(`${resolveRelayAuthApiBaseUrl()}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -112,6 +112,24 @@ export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<
 function saveAuthSession(session: AuthSession): void {
   window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, session.token);
   window.localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
+}
+
+function resolveRelayAuthApiBaseUrl(): string {
+  const customUrl = import.meta.env.VITE_AUTH_API_URL as string | undefined;
+
+  if (customUrl && customUrl.trim().length > 0) {
+    return customUrl.trim().replace(/\/$/, "");
+  }
+
+  if (import.meta.env.DEV) {
+    return `${window.location.origin}/api`;
+  }
+
+  const protocol = window.location.protocol;
+  const host = window.location.hostname;
+  const port = window.location.port ? `:${window.location.port}` : "";
+
+  return `${protocol}//${host}${port}/api`;
 }
 
 function resolveCentralAuthApiBaseUrl(): string {
