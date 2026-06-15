@@ -14,7 +14,124 @@ type CraftingSlot = InventoryItem | null;
 type DragSource = { type: "inventory"; index: number } | { type: "craft"; index: number } | { type: "result" };
 type DragState = { item: InventoryItem; source: DragSource };
 
-const SLOT_SIZE = 48;
+type CraftingLayout = {
+  panelWidth: number;
+  panelHeight: number;
+  panelThickness: number;
+  titleFontSize: number;
+  titleHeight: number;
+  titleTop: number;
+  zoneWidth: number;
+  topZoneHeight: number;
+  topZoneTop: number;
+  bottomZoneHeight: number;
+  bottomZoneTop: number;
+  slotSize: number;
+  resultSlotSize: number;
+  iconSize: number;
+  slotThickness: number;
+  countFontSize: number;
+  armorSlotsTop: number;
+  armorSlotsStep: number;
+  armorSlotLeft: number;
+  armorSlotSize: number;
+  steveContainerSize: number;
+  steveImageSize: number;
+  steveLeft: number;
+  offhandLeft: number;
+  craftGridLeft: number;
+  craftGridTop: number;
+  arrowLeft: number;
+  arrowTop: number;
+  arrowSize: number;
+  arrowFontSize: number;
+  resultLeft: number;
+  resultTop: number;
+  inventoryGridTop: number;
+  hotbarGridTop: number;
+};
+
+const DESKTOP_CRAFTING_LAYOUT: CraftingLayout = {
+  panelWidth: 640,
+  panelHeight: 580,
+  panelThickness: 4,
+  titleFontSize: 22,
+  titleHeight: 34,
+  titleTop: 10,
+  zoneWidth: 584,
+  topZoneHeight: 218,
+  topZoneTop: -118,
+  bottomZoneHeight: 286,
+  bottomZoneTop: 138,
+  slotSize: 48,
+  resultSlotSize: 58,
+  iconSize: 34,
+  slotThickness: 3,
+  countFontSize: 14,
+  armorSlotsTop: -74,
+  armorSlotsStep: 52,
+  armorSlotLeft: -246,
+  armorSlotSize: 46,
+  steveContainerSize: 120,
+  steveImageSize: 150,
+  steveLeft: -180,
+  offhandLeft: -110,
+  craftGridLeft: -6,
+  craftGridTop: -22,
+  arrowLeft: 88,
+  arrowTop: -22,
+  arrowSize: 42,
+  arrowFontSize: 34,
+  resultLeft: 160,
+  resultTop: -22,
+  inventoryGridTop: -34,
+  hotbarGridTop: 90,
+};
+
+const MOBILE_CRAFTING_LAYOUT: CraftingLayout = {
+  ...DESKTOP_CRAFTING_LAYOUT,
+  bottomZoneHeight: 236,
+  bottomZoneTop: 116,
+  hotbarGridTop: 82,
+};
+
+const MOBILE_LANDSCAPE_CRAFTING_LAYOUT: CraftingLayout = {
+  panelWidth: 560,
+  panelHeight: 420,
+  panelThickness: 3,
+  titleFontSize: 17,
+  titleHeight: 24,
+  titleTop: 5,
+  zoneWidth: 520,
+  topZoneHeight: 154,
+  topZoneTop: -88,
+  bottomZoneHeight: 174,
+  bottomZoneTop: 92,
+  slotSize: 38,
+  resultSlotSize: 44,
+  iconSize: 27,
+  slotThickness: 2,
+  countFontSize: 11,
+  armorSlotsTop: -52,
+  armorSlotsStep: 38,
+  armorSlotLeft: -224,
+  armorSlotSize: 34,
+  steveContainerSize: 82,
+  steveImageSize: 104,
+  steveLeft: -168,
+  offhandLeft: -112,
+  craftGridLeft: -8,
+  craftGridTop: -18,
+  arrowLeft: 72,
+  arrowTop: -18,
+  arrowSize: 34,
+  arrowFontSize: 27,
+  resultLeft: 130,
+  resultTop: -18,
+  inventoryGridTop: -26,
+  hotbarGridTop: 58,
+};
+
 const CRAFT_GRID_SIZE = 2;
 const EXTENDED_INVENTORY_SLOT_COUNT = 27;
 const HOTBAR_SLOT_COUNT = 9;
@@ -24,6 +141,7 @@ const RIGHT_MOUSE_BUTTON = 2;
 export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): AdvancedDynamicTexture {
   const ui = AdvancedDynamicTexture.CreateFullscreenUI("crafting-overlay-ui", true, scene);
   const isMobile = isMobileMode();
+  const layout = getCraftingLayout(isMobile);
   ui.rootContainer.isVisible = false;
   ui.rootContainer.zIndex = 10_000;
   setCraftingOverlayOpen(false);
@@ -32,12 +150,12 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   const craftSlotControls: Rectangle[] = [];
   const inventorySlotControls: Rectangle[] = [];
   const inventorySlotIndices: number[] = [];
-  const resultSlot = createSlot("craft-result-slot", 58);
-  const resultIcon = createItemIcon("craft-result-icon", 34);
-  const resultCount = createCountText("craft-result-count");
-  const dragPreview = createDragPreview();
-  const dragPreviewIcon = createItemIcon("craft-drag-preview-icon", 34);
-  const dragPreviewCount = createCountText("craft-drag-preview-count");
+  const resultSlot = createSlot("craft-result-slot", layout.resultSlotSize, layout.slotThickness);
+  const resultIcon = createItemIcon("craft-result-icon", layout.iconSize);
+  const resultCount = createCountText("craft-result-count", layout.countFontSize);
+  const dragPreview = createDragPreview(layout);
+  const dragPreviewIcon = createItemIcon("craft-drag-preview-icon", layout.iconSize);
+  const dragPreviewCount = createCountText("craft-drag-preview-count", layout.countFontSize);
   let currentResult: InventoryItem | null = null;
   let dragState: DragState | null = null;
 
@@ -54,10 +172,10 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   ui.addControl(backdrop);
 
   const panel = new Rectangle("crafting-panel");
-  panel.width = "640px";
-  panel.height = "580px";
+  panel.width = `${layout.panelWidth}px`;
+  panel.height = `${layout.panelHeight}px`;
   panel.cornerRadius = 2;
-  panel.thickness = 4;
+  panel.thickness = layout.panelThickness;
   panel.color = "#373737";
   panel.background = "#c6c6c6";
   panel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
@@ -68,48 +186,43 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   const title = new TextBlock("crafting-title", "Crafting");
   title.color = "#404040";
-  title.fontSize = 22;
+  title.fontSize = layout.titleFontSize;
   title.fontWeight = "bold";
-  title.height = "34px";
-  title.top = "10px";
+  title.height = `${layout.titleHeight}px`;
+  title.top = `${layout.titleTop}px`;
   title.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
   panel.addControl(title);
 
   const topZone = new Rectangle("crafting-top-zone");
-  topZone.width = "584px";
-  topZone.height = "218px";
-  topZone.top = "-118px";
+  topZone.width = `${layout.zoneWidth}px`;
+  topZone.height = `${layout.topZoneHeight}px`;
+  topZone.top = `${layout.topZoneTop}px`;
   topZone.thickness = 2;
   topZone.color = "#5a5a5a";
   topZone.background = "#bcbcbc";
   panel.addControl(topZone);
 
   const bottomZone = new Rectangle("crafting-bottom-zone");
-  bottomZone.width = "584px";
-  bottomZone.height = isMobile ? "236px" : "286px";
-  bottomZone.top = isMobile ? "116px" : "138px";
+  bottomZone.width = `${layout.zoneWidth}px`;
+  bottomZone.height = `${layout.bottomZoneHeight}px`;
+  bottomZone.top = `${layout.bottomZoneTop}px`;
   bottomZone.thickness = 2;
   bottomZone.color = "#5a5a5a";
   bottomZone.background = "#bcbcbc";
   panel.addControl(bottomZone);
 
-  const armorSlotsTop = -74;
-  const armorSlotsStep = 52;
-  const armorSlotLeft = "-246px";
-  const armorSlotSize = 46;
-
   for (let index = 0; index < 4; index++) {
-    const armorSlot = createSlot(`craft-armor-slot-${index}`, armorSlotSize);
-    armorSlot.left = armorSlotLeft;
-    armorSlot.top = `${armorSlotsTop + armorSlotsStep * index}px`;
+    const armorSlot = createSlot(`craft-armor-slot-${index}`, layout.armorSlotSize, layout.slotThickness);
+    armorSlot.left = `${layout.armorSlotLeft}px`;
+    armorSlot.top = `${layout.armorSlotsTop + layout.armorSlotsStep * index}px`;
     topZone.addControl(armorSlot);
   }
 
   // Créer et afficher le SVG de Steve à droite des armor slots
   const stevePreviewContainer = new Rectangle("steve-preview-container");
-  stevePreviewContainer.width = "120px";
-  stevePreviewContainer.height = "120px";
-  stevePreviewContainer.left = "-180px";
+  stevePreviewContainer.width = `${layout.steveContainerSize}px`;
+  stevePreviewContainer.height = `${layout.steveContainerSize}px`;
+  stevePreviewContainer.left = `${layout.steveLeft}px`;
   stevePreviewContainer.top = "0px";
   stevePreviewContainer.thickness = 0;
   stevePreviewContainer.background = "transparent";
@@ -124,8 +237,8 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
       new Vector3(0, 0, 0),
       { physics: false },
       {
-        width: 120,
-        height: 120,
+        width: layout.steveContainerSize,
+        height: layout.steveContainerSize,
         background: null,
         stroke: "none",
       }
@@ -137,25 +250,25 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
     // Créer l'image GUI et l'ajouter
     const stevePreview = new GuiImage("steve-preview", stevePreviewUrl);
-    stevePreview.width = "150px";
-    stevePreview.height = "150px";
+    stevePreview.width = `${layout.steveImageSize}px`;
+    stevePreview.height = `${layout.steveImageSize}px`;
     stevePreviewContainer.addControl(stevePreview);
   } catch (error) {
     console.warn("Impossible de générer le SVG Steve pour l'aperçu:", error);
   }
 
-  const offhandSlot = createSlot("craft-offhand-slot", armorSlotSize);
-  offhandSlot.left = "-110px";
-  offhandSlot.top = `${armorSlotsTop + armorSlotsStep}px`;
+  const offhandSlot = createSlot("craft-offhand-slot", layout.armorSlotSize, layout.slotThickness);
+  offhandSlot.left = `${layout.offhandLeft}px`;
+  offhandSlot.top = `${layout.armorSlotsTop + layout.armorSlotsStep}px`;
   topZone.addControl(offhandSlot);
 
-  const craftGrid = createGrid("crafting-grid", CRAFT_GRID_SIZE, CRAFT_GRID_SIZE, SLOT_SIZE);
-  craftGrid.left = "-6px";
-  craftGrid.top = "-22px";
+  const craftGrid = createGrid("crafting-grid", CRAFT_GRID_SIZE, CRAFT_GRID_SIZE, layout.slotSize);
+  craftGrid.left = `${layout.craftGridLeft}px`;
+  craftGrid.top = `${layout.craftGridTop}px`;
   topZone.addControl(craftGrid);
 
   for (let index = 0; index < CRAFT_GRID_SIZE * CRAFT_GRID_SIZE; index++) {
-    const slot = createSlot(`craft-slot-${index}`, SLOT_SIZE);
+    const slot = createSlot(`craft-slot-${index}`, layout.slotSize, layout.slotThickness);
     slot.onPointerDownObservable.add((eventData) => startDragFromCraftSlot(index, getPointerButton(eventData)));
     craftSlotControls.push(slot);
     craftGrid.addControl(slot, Math.floor(index / CRAFT_GRID_SIZE), index % CRAFT_GRID_SIZE);
@@ -163,39 +276,39 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   const arrow = new TextBlock("crafting-arrow", "➜");
   arrow.color = "#505050";
-  arrow.fontSize = 34;
-  arrow.left = "88px";
-  arrow.top = "-22px";
-  arrow.width = "42px";
-  arrow.height = "42px";
+  arrow.fontSize = layout.arrowFontSize;
+  arrow.left = `${layout.arrowLeft}px`;
+  arrow.top = `${layout.arrowTop}px`;
+  arrow.width = `${layout.arrowSize}px`;
+  arrow.height = `${layout.arrowSize}px`;
   topZone.addControl(arrow);
 
-  resultSlot.left = "160px";
-  resultSlot.top = "-22px";
+  resultSlot.left = `${layout.resultLeft}px`;
+  resultSlot.top = `${layout.resultTop}px`;
   resultSlot.onPointerDownObservable.add(() => startDragFromResultSlot());
   resultSlot.addControl(resultIcon);
   resultSlot.addControl(resultCount);
   topZone.addControl(resultSlot);
 
-  const inventoryGrid = createGrid("crafting-inventory-grid", 3, HOTBAR_SLOT_COUNT, SLOT_SIZE);
-  inventoryGrid.top = isMobile ? "-34px" : "-34px";
+  const inventoryGrid = createGrid("crafting-inventory-grid", 3, HOTBAR_SLOT_COUNT, layout.slotSize);
+  inventoryGrid.top = `${layout.inventoryGridTop}px`;
   bottomZone.addControl(inventoryGrid);
 
   for (let index = 0; index < EXTENDED_INVENTORY_SLOT_COUNT; index++) {
     const inventoryIndex = HOTBAR_SLOT_COUNT + index;
-    const slot = createSlot(`craft-inventory-slot-${index}`, SLOT_SIZE);
+    const slot = createSlot(`craft-inventory-slot-${index}`, layout.slotSize, layout.slotThickness);
     slot.onPointerDownObservable.add((eventData) => startDragFromInventorySlot(inventoryIndex, getPointerButton(eventData)));
     inventorySlotControls.push(slot);
     inventorySlotIndices.push(inventoryIndex);
     inventoryGrid.addControl(slot, Math.floor(index / HOTBAR_SLOT_COUNT), index % HOTBAR_SLOT_COUNT);
   }
 
-  const hotbarGrid = createGrid("crafting-hotbar-grid", 1, HOTBAR_SLOT_COUNT, SLOT_SIZE);
-  hotbarGrid.top = isMobile ? "82px" : "90px";
+  const hotbarGrid = createGrid("crafting-hotbar-grid", 1, HOTBAR_SLOT_COUNT, layout.slotSize);
+  hotbarGrid.top = `${layout.hotbarGridTop}px`;
   bottomZone.addControl(hotbarGrid);
 
   for (let index = 0; index < HOTBAR_SLOT_COUNT; index++) {
-    const slot = createSlot(`craft-hotbar-slot-${index}`, SLOT_SIZE);
+    const slot = createSlot(`craft-hotbar-slot-${index}`, layout.slotSize, layout.slotThickness);
     const inventoryIndex = index;
     slot.onPointerDownObservable.add((eventData) => startDragFromInventorySlot(inventoryIndex, getPointerButton(eventData)));
     inventorySlotControls.push(slot);
@@ -380,13 +493,13 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
   }
 
   function updateCraftSlots(): void {
-    for (let index = 0; index < craftSlotControls.length; index++) renderSlotContent(craftSlotControls[index], craftSlots[index]);
+    for (let index = 0; index < craftSlotControls.length; index++) renderSlotContent(craftSlotControls[index], craftSlots[index], layout);
   }
 
   function updateInventorySlots(): void {
     for (let index = 0; index < inventorySlotControls.length; index++) {
       const inventoryIndex = inventorySlotIndices[index];
-      renderSlotContent(inventorySlotControls[index], player.inventory[inventoryIndex] ?? null);
+      renderSlotContent(inventorySlotControls[index], player.inventory[inventoryIndex] ?? null, layout);
     }
   }
 
@@ -410,6 +523,14 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     dragPreview.left = `${pointerX - window.innerWidth / 2}px`;
     dragPreview.top = `${pointerY - window.innerHeight / 2}px`;
   }
+}
+
+function getCraftingLayout(isMobile: boolean): CraftingLayout {
+  if (isMobile && window.innerWidth > window.innerHeight) {
+    return MOBILE_LANDSCAPE_CRAFTING_LAYOUT;
+  }
+
+  return isMobile ? MOBILE_CRAFTING_LAYOUT : DESKTOP_CRAFTING_LAYOUT;
 }
 
 function getPointerButton(eventData: unknown): number {
@@ -491,19 +612,19 @@ function createGrid(name: string, rows: number, columns: number, slotSize: numbe
   return grid;
 }
 
-function createSlot(name: string, size: number): Rectangle {
+function createSlot(name: string, size: number, thickness = 3): Rectangle {
   const slot = new Rectangle(name);
   slot.width = `${size}px`;
   slot.height = `${size}px`;
-  slot.thickness = 3;
+  slot.thickness = thickness;
   slot.color = "#373737";
   slot.background = "#8f8f8f";
   slot.isPointerBlocker = true;
   return slot;
 }
 
-function createDragPreview(): Rectangle {
-  const preview = createSlot("craft-drag-preview", SLOT_SIZE);
+function createDragPreview(layout: CraftingLayout): Rectangle {
+  const preview = createSlot("craft-drag-preview", layout.slotSize, layout.slotThickness);
   preview.isVisible = false;
   preview.isPointerBlocker = false;
   preview.zIndex = 10_010;
@@ -511,10 +632,10 @@ function createDragPreview(): Rectangle {
   return preview;
 }
 
-function renderSlotContent(slot: Rectangle, item: InventoryItem | null): void {
+function renderSlotContent(slot: Rectangle, item: InventoryItem | null, layout: CraftingLayout): void {
   slot.children.slice().forEach((child) => slot.removeControl(child));
-  const icon = createItemIcon(`${slot.name}-icon`, Math.floor(SLOT_SIZE * 0.62));
-  const count = createCountText(`${slot.name}-count`);
+  const icon = createItemIcon(`${slot.name}-icon`, Math.floor(layout.slotSize * 0.62));
+  const count = createCountText(`${slot.name}-count`, layout.countFontSize);
   slot.addControl(icon);
   slot.addControl(count);
   renderItemIcon(icon, count, item);
@@ -533,15 +654,15 @@ function createItemIcon(name: string, size: number): Rectangle {
   return icon;
 }
 
-function createCountText(name: string): TextBlock {
+function createCountText(name: string, fontSize: number): TextBlock {
   const text = new TextBlock(name);
   text.color = "white";
-  text.fontSize = 14;
+  text.fontSize = fontSize;
   text.fontWeight = "bold";
   text.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
   text.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
-  text.paddingRight = "4px";
-  text.paddingBottom = "2px";
+  text.paddingRight = "3px";
+  text.paddingBottom = "1px";
   text.shadowBlur = 3;
   text.shadowColor = "black";
   text.isPointerBlocker = false;
