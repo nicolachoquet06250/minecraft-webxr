@@ -23,7 +23,7 @@ flowchart LR
   Registry[Registre de mods]
   Manifest[mod.json]
   ClientApi[API /api/mods/manifest]
-  ClientFiles[/mods/{id}/client/...]
+  ClientFiles[/mods/:id/client/...]
   Browser[Navigateur]
   ModJs[client/mod.js]
 
