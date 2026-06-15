@@ -29,8 +29,6 @@ type MenuPanelController = {
     refresh: () => void;
 };
 
-const menuButtonClickHandlers = new WeakMap<HTMLButtonElement, () => void>();
-
 export async function showMainMenu({ canvas, onPlay }: MainMenuOptions): Promise<void> {
     const device = await detectMenuDevice();
 
@@ -155,20 +153,17 @@ function createDesktopButtonPanel(
         });
     }
 
-    const playMultiplayer = () => onPlay("multiplayer");
     const multiplayerButton = createMenuButton(
         "Multijoueur",
         "play",
         !authState.authenticated,
-        authState.authenticated ? playMultiplayer : undefined,
+        () => onPlay("multiplayer"),
     );
     multiplayerButton.title = "Connecte-toi pour accéder au multijoueur";
 
     const refresh = () => {
-        const multiplayerEnabled = authState.authenticated;
-        multiplayerButton.disabled = !multiplayerEnabled;
-        multiplayerButton.title = multiplayerEnabled ? "" : "Connecte-toi pour accéder au multijoueur";
-        setMenuButtonClickHandler(multiplayerButton, playMultiplayer, multiplayerEnabled);
+        multiplayerButton.disabled = !authState.authenticated;
+        multiplayerButton.title = authState.authenticated ? "" : "Connecte-toi pour accéder au multijoueur";
     };
 
     panel.append(
@@ -229,12 +224,11 @@ function createMobileButtonPanel(
     const actions = document.createElement("div");
     actions.className = "voxicraft-menu__mobile-actions";
 
-    const playMultiplayer = () => onPlay("multiplayer");
     const multiplayerButton = createMenuButton(
         "Multijoueurs",
         "play",
         !authState.authenticated,
-        authState.authenticated ? playMultiplayer : undefined,
+        () => onPlay("multiplayer"),
     );
     multiplayerButton.title = "Connecte-toi pour accéder au multijoueur";
 
@@ -248,10 +242,8 @@ function createMobileButtonPanel(
     authSlot.className = "voxicraft-menu__mobile-signin voxicraft-menu__auth-slot";
 
     const refresh = () => {
-        const multiplayerEnabled = authState.authenticated;
-        multiplayerButton.disabled = !multiplayerEnabled;
-        multiplayerButton.title = multiplayerEnabled ? "" : "Connecte-toi pour accéder au multijoueur";
-        setMenuButtonClickHandler(multiplayerButton, playMultiplayer, multiplayerEnabled);
+        multiplayerButton.disabled = !authState.authenticated;
+        multiplayerButton.title = authState.authenticated ? "" : "Connecte-toi pour accéder au multijoueur";
         renderAuthSlot(authSlot, authState, onLogin, onLogout);
     };
     refresh();
@@ -438,29 +430,9 @@ function createMenuButton(
         button.dataset.menuAction = action;
     }
 
-    if (onClick && !disabled) {
-        setMenuButtonClickHandler(button, onClick, true);
+    if (onClick) {
+        button.addEventListener("click", onClick);
     }
 
     return button;
-}
-
-function setMenuButtonClickHandler(
-    button: HTMLButtonElement,
-    onClick: () => void,
-    enabled: boolean,
-): void {
-    const currentHandler = menuButtonClickHandlers.get(button);
-
-    if (currentHandler) {
-        button.removeEventListener("click", currentHandler);
-        menuButtonClickHandlers.delete(button);
-    }
-
-    if (!enabled) {
-        return;
-    }
-
-    button.addEventListener("click", onClick);
-    menuButtonClickHandlers.set(button, onClick);
 }
