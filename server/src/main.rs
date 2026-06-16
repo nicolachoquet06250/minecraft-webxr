@@ -36,6 +36,8 @@ const DEFAULT_ALLOWED_CORS_ORIGIN: &str = "https://central.voxicraft.fr";
 const DEFAULT_STATS_DATABASE_PATH: &str = "voxicraft-stats.sqlite3";
 const DEFAULT_SSL_CERT_PATH: &str = "certs/localhost.pem";
 const DEFAULT_SSL_KEY_PATH: &str = "certs/localhost-key.pem";
+const SERVER_PUBLIC_ORIGIN_ENV: &str = "VOXICRAFT_SERVER_PUBLIC_ORIGIN";
+const VOXICRAFT_SERVER_ORIGIN_HEADER: &str = "x-voxicraft-server-origin";
 
 #[cfg(feature = "embed_front")]
 static FRONT_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../dist");
@@ -46,6 +48,7 @@ struct AppState {
     stats_db: Arc<Mutex<Connection>>,
     auth_http_client: reqwest::Client,
     auth_central_base_url: String,
+    auth_proxy_server_origin: String,
     mods_registry: Arc<std::sync::RwLock<mods::ModRegistry>>,
 }
 
@@ -94,7 +97,13 @@ async fn main() {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "https://central.voxicraft.fr".to_string());
+    let auth_proxy_server_origin = env::var(SERVER_PUBLIC_ORIGIN_ENV)
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| cors_client_domain.trim().trim_end_matches('/').to_string());
     let startup_auth_central_base_url = auth_central_base_url.clone();
+    let startup_auth_proxy_server_origin = auth_proxy_server_origin.clone();
     let stats_database_path = default_stats_database_path();
 
     let mut stats_connection = Connection::open(&stats_database_path).expect("failed to open stats SQLite database");
@@ -114,13 +123,14 @@ async fn main() {
         stats_db: Arc::new(Mutex::new(stats_connection)),
         auth_http_client: reqwest::Client::new(),
         auth_central_base_url,
+        auth_proxy_server_origin,
         mods_registry,
     };
 
     let app = build_router(&cors_client_domain, app_state);
 
     info!(log_file = %log_file_path, "file logging enabled");
-    info!(%addr, seed, use_https, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, stats_database_path = %stats_database_path, embedded_front = cfg!(feature = "embed_front"), "voxicraft server started");
+    info!(%addr, seed, use_https, cors_client_domain = %cors_client_domain, auth_central_base_url = %startup_auth_central_base_url, auth_proxy_server_origin = %startup_auth_proxy_server_origin, stats_database_path = %stats_database_path, embedded_front = cfg!(feature = "embed_front"), "voxicraft server started");
 
     if use_https {
         install_rustls_crypto_provider();
@@ -478,7 +488,10 @@ async fn forward_auth_request(
     content_type: Option<&HeaderValue>,
 ) -> Response {
     let url = build_proxy_url(&app_state.auth_central_base_url, remote_path, raw_query.as_deref());
-    let mut request = app_state.auth_http_client.request(method, &url);
+    let mut request = app_state
+        .auth_http_client
+        .request(method, &url)
+        .header(VOXICRAFT_SERVER_ORIGIN_HEADER, app_state.auth_proxy_server_origin.as_str());
 
     if let Some(content_type_value) = content_type.and_then(|value| value.to_str().ok()).filter(|value| !value.is_empty()) {
         request = request.header(reqwest::header::CONTENT_TYPE, content_type_value);
