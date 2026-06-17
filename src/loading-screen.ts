@@ -1,17 +1,28 @@
-import { Engine } from "@babylonjs/core";
+import { Scene } from "@babylonjs/core";
 
-type LoadingScreenController = {
+type LoadingController = {
   markWorldReady: () => void;
   dispose: () => void;
 };
 
+declare global {
+  interface Window {
+    __voxicraftLoadingScreen?: LoadingController;
+  }
+}
+
 const DURATION_MS = 18_000;
-const CELL_SIZE = 8;
+const MAX_LOADING_RUNS = 2;
 const MAP_SIZE = 360;
+const CELL_SIZE = 8;
 const GRID_SIZE = MAP_SIZE / CELL_SIZE;
 const INITIAL_SEED = 1337;
 const STYLE_ID = "voxicraft-loading-screen-style";
 const OVERLAY_CLASS = "voxicraft-loading-screen";
+const SEA_LEVEL = 0.02;
+const BEACH_LEVEL = 0.11;
+const HILL_LEVEL = 0.48;
+const ROCK_LEVEL = 0.72;
 
 const COLORS = {
   deepOcean: "#15306f",
@@ -28,11 +39,6 @@ const COLORS = {
   rockLight: "#b9b9b9",
 } as const;
 
-const SEA_LEVEL = 0.02;
-const BEACH_LEVEL = 0.11;
-const HILL_LEVEL = 0.48;
-const ROCK_LEVEL = 0.72;
-
 type CellType = keyof typeof COLORS;
 
 type MapCell = {
@@ -42,18 +48,16 @@ type MapCell = {
   priority: number;
 };
 
-declare global {
-  interface Window {
-    __voxicraftLoadingScreen?: LoadingScreenController;
-  }
-}
+const LAND_TYPES: ReadonlySet<CellType> = new Set(["grass", "forest", "hill", "rock", "rockLight"]);
+const SHORE_TYPES: ReadonlySet<CellType> = new Set(["river", "lake", "sand", "sandLight"]);
+const WATER_TYPES: ReadonlySet<CellType> = new Set(["ocean", "deepOcean", "shallowOcean"]);
 
 let currentSeed = INITIAL_SEED;
-let activeController: LoadingScreenController | null = null;
+let activeController: LoadingController | null = null;
 let menuWasVisible = false;
-let babylonRunLoopPatched = false;
+let sceneRenderPatched = false;
 
-function injectLoadingScreenStyles(): void {
+function injectStyles(): void {
   if (document.getElementById(STYLE_ID)) {
     return;
   }
@@ -107,9 +111,7 @@ function injectLoadingScreenStyles(): void {
       font-size: 28px;
       font-weight: bold;
       text-align: center;
-      text-shadow:
-        3px 3px 0 #555,
-        -2px -2px 0 #777;
+      text-shadow: 3px 3px 0 #555, -2px -2px 0 #777;
     }
 
     .voxicraft-loading-screen__map {
@@ -193,9 +195,6 @@ function injectLoadingScreenStyles(): void {
       .voxicraft-loading-screen__percent {
         top: calc(45 / 538 * 100%);
         font-size: clamp(16px, 5.2vw, 28px);
-        text-shadow:
-          clamp(1px, 0.6vw, 3px) clamp(1px, 0.6vw, 3px) 0 #555,
-          clamp(-2px, -0.4vw, -1px) clamp(-2px, -0.4vw, -1px) 0 #777;
       }
 
       .voxicraft-loading-screen__map {
@@ -224,11 +223,10 @@ function injectLoadingScreenStyles(): void {
       }
     }
   `;
-
   document.head.append(style);
 }
 
-function generateRandomSeed(): number {
+function randomSeed(): number {
   return Math.floor(Math.random() * 1_000_000_000);
 }
 
@@ -236,7 +234,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function mulberry32(seed: number): () => number {
+function seededRandom(seed: number): () => number {
   return function random(): number {
     let t = seed += 0x6D2B79F5;
     t = Math.imul(t ^ (t >>> 15), t | 1);
@@ -272,43 +270,13 @@ function distToEllipse(x: number, y: number, cx: number, cy: number, rx: number,
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-function distanceToRiverA(x: number, y: number): number {
-  if (y < 5 || y > 36) {
-    return Infinity;
-  }
-
-  const rx = 24 + Math.sin(y * 0.28 + currentSeed * 0.01) * 5 + Math.sin(y * 0.10 + 1.5) * 2;
-  return Math.abs(x - rx);
-}
-
-function distanceToRiverB(x: number, y: number): number {
-  if (x < 8 || x > 32) {
-    return Infinity;
-  }
-
-  const ry = 14 + (x - 8) * 0.55 + Math.sin(x * 0.40 + 1.7) * 2.3;
-  return Math.abs(y - ry);
-}
-
-function isLakeCell(x: number, y: number, elevation: number): boolean {
-  if (elevation < BEACH_LEVEL + 0.05) {
-    return false;
-  }
-
-  return distToEllipse(x, y, 16, 16, 3.2, 2.4) < 1
-    || distToEllipse(x, y, 29, 18, 2.5, 1.8) < 1
-    || distToEllipse(x, y, 20, 28, 2.8, 2.0) < 1;
-}
-
-function isRiverCell(x: number, y: number, elevation: number): boolean {
-  if (elevation < BEACH_LEVEL + 0.03) {
-    return false;
-  }
-
-  return distanceToRiverA(x, y) <= 0.65 || distanceToRiverB(x, y) <= 0.65;
-}
-
-function hasOceanNeighbor(x: number, y: number, elevationGrid: number[][], radius = 1): boolean {
+function hasNeighbor(
+  x: number,
+  y: number,
+  elevationGrid: number[][],
+  radius: number,
+  predicate: (elevation: number) => boolean,
+): boolean {
   for (let oy = -radius; oy <= radius; oy += 1) {
     for (let ox = -radius; ox <= radius; ox += 1) {
       if (ox === 0 && oy === 0) {
@@ -318,34 +286,7 @@ function hasOceanNeighbor(x: number, y: number, elevationGrid: number[][], radiu
       const nx = x + ox;
       const ny = y + oy;
 
-      if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) {
-        continue;
-      }
-
-      if (elevationGrid[ny][nx] < SEA_LEVEL) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-function hasLandNeighbor(x: number, y: number, elevationGrid: number[][], radius = 1): boolean {
-  for (let oy = -radius; oy <= radius; oy += 1) {
-    for (let ox = -radius; ox <= radius; ox += 1) {
-      if (ox === 0 && oy === 0) {
-        continue;
-      }
-
-      const nx = x + ox;
-      const ny = y + oy;
-
-      if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) {
-        continue;
-      }
-
-      if (elevationGrid[ny][nx] >= SEA_LEVEL) {
+      if (nx >= 0 && ny >= 0 && nx < GRID_SIZE && ny < GRID_SIZE && predicate(elevationGrid[ny][nx])) {
         return true;
       }
     }
@@ -367,7 +308,6 @@ function buildElevationGrid(): number[][] {
       const macro = fbm(x * 0.055, y * 0.055) * 2 - 1;
       const detail = fbm(x * 0.12 + 50, y * 0.12 - 30) * 2 - 1;
       const ridge = fbm(x * 0.22 + 80, y * 0.22 + 10) * 2 - 1;
-
       elevationGrid[y][x] = 1 - radial + macro * 0.33 + detail * 0.12 + ridge * 0.05;
     }
   }
@@ -375,71 +315,101 @@ function buildElevationGrid(): number[][] {
   return elevationGrid;
 }
 
+function getRiverDistanceA(x: number, y: number): number {
+  if (y < 5 || y > 36) {
+    return Infinity;
+  }
+
+  const rx = 24 + Math.sin(y * 0.28 + currentSeed * 0.01) * 5 + Math.sin(y * 0.10 + 1.5) * 2;
+  return Math.abs(x - rx);
+}
+
+function getRiverDistanceB(x: number, y: number): number {
+  if (x < 8 || x > 32) {
+    return Infinity;
+  }
+
+  const ry = 14 + (x - 8) * 0.55 + Math.sin(x * 0.40 + 1.7) * 2.3;
+  return Math.abs(y - ry);
+}
+
+function getCellType(x: number, y: number, elevation: number, moisture: number, elevationGrid: number[][]): CellType {
+  const nearOcean = hasNeighbor(x, y, elevationGrid, 1, (neighborElevation) => neighborElevation < SEA_LEVEL);
+  const nearLand = hasNeighbor(x, y, elevationGrid, 2, (neighborElevation) => neighborElevation >= SEA_LEVEL);
+
+  if (elevation < SEA_LEVEL) {
+    return nearLand ? "shallowOcean" : elevation < SEA_LEVEL - 0.22 ? "deepOcean" : "ocean";
+  }
+
+  if (nearOcean || elevation < BEACH_LEVEL) {
+    return moisture > 0.55 ? "sandLight" : "sand";
+  }
+
+  if (
+    elevation >= BEACH_LEVEL + 0.05
+    && (
+      distToEllipse(x, y, 16, 16, 3.2, 2.4) < 1
+      || distToEllipse(x, y, 29, 18, 2.5, 1.8) < 1
+      || distToEllipse(x, y, 20, 28, 2.8, 2.0) < 1
+    )
+  ) {
+    return "lake";
+  }
+
+  if (elevation >= BEACH_LEVEL + 0.03 && (getRiverDistanceA(x, y) <= 0.65 || getRiverDistanceB(x, y) <= 0.65)) {
+    return "river";
+  }
+
+  if (elevation < HILL_LEVEL) {
+    return moisture > 0.60 ? "forest" : "grass";
+  }
+
+  if (elevation < ROCK_LEVEL) {
+    return moisture > 0.45 ? "hill" : "rock";
+  }
+
+  return moisture > 0.45 ? "rock" : "rockLight";
+}
+
 function generateMapCells(): MapCell[] {
-  const random = mulberry32(currentSeed);
+  const random = seededRandom(currentSeed);
   const elevationGrid = buildElevationGrid();
-  const generatedCells: MapCell[] = [];
+  const cells: MapCell[] = [];
+  const centerX = (GRID_SIZE - 1) / 2;
+  const centerY = (GRID_SIZE - 1) / 2;
 
   for (let y = 0; y < GRID_SIZE; y += 1) {
     for (let x = 0; x < GRID_SIZE; x += 1) {
       const elevation = elevationGrid[y][x];
       const moisture = fbm(x * 0.09 + 120, y * 0.09 + 70);
-      const nearOcean = hasOceanNeighbor(x, y, elevationGrid, 1);
-      const nearLand = hasLandNeighbor(x, y, elevationGrid, 2);
-      let type: CellType;
-
-      if (elevation < SEA_LEVEL) {
-        if (nearLand) {
-          type = "shallowOcean";
-        } else if (elevation < SEA_LEVEL - 0.22) {
-          type = "deepOcean";
-        } else {
-          type = "ocean";
-        }
-      } else if (nearOcean || elevation < BEACH_LEVEL) {
-        type = moisture > 0.55 ? "sandLight" : "sand";
-      } else if (isLakeCell(x, y, elevation)) {
-        type = "lake";
-      } else if (isRiverCell(x, y, elevation)) {
-        type = "river";
-      } else if (elevation < HILL_LEVEL) {
-        type = moisture > 0.60 ? "forest" : "grass";
-      } else if (elevation < ROCK_LEVEL) {
-        type = moisture > 0.45 ? "hill" : "rock";
-      } else {
-        type = moisture > 0.45 ? "rock" : "rockLight";
-      }
-
-      const centerX = (GRID_SIZE - 1) / 2;
-      const centerY = (GRID_SIZE - 1) / 2;
+      const type = getCellType(x, y, elevation, moisture, elevationGrid);
       const dx = x - centerX;
       const dy = y - centerY;
       const radialDistance = Math.sqrt(dx * dx + dy * dy) / GRID_SIZE;
-
       let priority = radialDistance * 0.55 + noise2D(x * 1.7, y * 1.7) * 0.20 + random() * 0.08;
 
-      if (["grass", "forest", "hill", "rock", "rockLight"].includes(type)) {
+      if (LAND_TYPES.has(type)) {
         priority -= 0.10;
       }
 
-      if (["river", "lake", "sand", "sandLight"].includes(type)) {
+      if (SHORE_TYPES.has(type)) {
         priority -= 0.04;
       }
 
-      if (["ocean", "deepOcean", "shallowOcean"].includes(type)) {
+      if (WATER_TYPES.has(type)) {
         priority += 0.03;
       }
 
-      generatedCells.push({ x, y, type, priority });
+      cells.push({ x, y, type, priority });
     }
   }
 
-  generatedCells.sort((a, b) => a.priority - b.priority);
-  return generatedCells;
+  cells.sort((a, b) => a.priority - b.priority);
+  return cells;
 }
 
 function drawBackground(context: CanvasRenderingContext2D): void {
-  context.fillStyle = "#000000";
+  context.fillStyle = "#000";
   context.fillRect(0, 0, MAP_SIZE, MAP_SIZE);
 }
 
@@ -452,8 +422,8 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2;
 }
 
-function createLoadingScreen(): LoadingScreenController {
-  injectLoadingScreenStyles();
+function createLoadingScreen(): LoadingController {
+  injectStyles();
 
   const overlay = document.createElement("div");
   overlay.className = OVERLAY_CLASS;
@@ -473,34 +443,34 @@ function createLoadingScreen(): LoadingScreenController {
   const map = document.createElement("div");
   map.className = "voxicraft-loading-screen__map";
 
-  const mapCanvas = document.createElement("canvas");
-  mapCanvas.className = "voxicraft-loading-screen__canvas";
-  mapCanvas.width = MAP_SIZE;
-  mapCanvas.height = MAP_SIZE;
+  const canvas = document.createElement("canvas");
+  canvas.className = "voxicraft-loading-screen__canvas";
+  canvas.width = MAP_SIZE;
+  canvas.height = MAP_SIZE;
 
-  const context = mapCanvas.getContext("2d");
-
+  const context = canvas.getContext("2d");
   if (!context) {
     throw new Error("Canvas 2D du loader introuvable");
   }
 
-  map.append(mapCanvas);
+  map.append(canvas);
   loader.append(percent, map);
   wrapper.append(loader);
   overlay.append(wrapper);
   document.body.append(overlay);
 
-  let animationFrameId: number | null = null;
+  let frameId: number | null = null;
   let cells: MapCell[] = [];
   let worldReady = false;
   let disposed = false;
+  let runCount = 0;
 
   const dispose = (): void => {
     disposed = true;
 
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId);
+      frameId = null;
     }
 
     overlay.remove();
@@ -514,73 +484,72 @@ function createLoadingScreen(): LoadingScreenController {
     }
   };
 
-  const animate = (startTime: number): void => {
+  const start = (regenerateSeed = false): void => {
     if (disposed) {
       return;
     }
 
-    const elapsed = performance.now() - startTime;
-    const rawProgress = clamp(elapsed / DURATION_MS, 0, 1);
-    const easedProgress = easeInOutCubic(rawProgress);
-    const visibleCount = Math.floor(cells.length * easedProgress);
+    runCount += 1;
 
-    drawBackground(context);
-
-    for (let i = 0; i < visibleCount; i += 1) {
-      drawCell(context, cells[i]);
-    }
-
-    percent.textContent = `${Math.floor(rawProgress * 100)}%`;
-
-    if (rawProgress < 1) {
-      animationFrameId = requestAnimationFrame(() => animate(startTime));
-      return;
-    }
-
-    for (const cell of cells) {
-      drawCell(context, cell);
-    }
-
-    percent.textContent = "100%";
-    animationFrameId = null;
-
-    if (worldReady) {
-      dispose();
-      return;
-    }
-
-    startLoadingAnimation(true);
-  };
-
-  const startLoadingAnimation = (regenerateSeed = false): void => {
-    if (disposed) {
-      return;
-    }
-
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId);
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId);
     }
 
     if (regenerateSeed) {
-      currentSeed = generateRandomSeed();
+      currentSeed = randomSeed();
     }
 
     cells = generateMapCells();
     percent.textContent = "0%";
     drawBackground(context);
 
-    const startTime = performance.now();
-    animationFrameId = requestAnimationFrame(() => animate(startTime));
+    const startedAt = performance.now();
+
+    const animate = (): void => {
+      if (disposed) {
+        return;
+      }
+
+      const rawProgress = clamp((performance.now() - startedAt) / DURATION_MS, 0, 1);
+      const visibleCount = Math.floor(cells.length * easeInOutCubic(rawProgress));
+
+      drawBackground(context);
+      for (let i = 0; i < visibleCount; i += 1) {
+        drawCell(context, cells[i]);
+      }
+
+      percent.textContent = `${Math.floor(rawProgress * 100)}%`;
+
+      if (rawProgress < 1) {
+        frameId = requestAnimationFrame(animate);
+        return;
+      }
+
+      for (const cell of cells) {
+        drawCell(context, cell);
+      }
+
+      percent.textContent = "100%";
+      frameId = null;
+
+      if (worldReady || runCount >= MAX_LOADING_RUNS) {
+        dispose();
+      } else {
+        start(true);
+      }
+    };
+
+    frameId = requestAnimationFrame(animate);
   };
 
-  const controller: LoadingScreenController = {
+  const controller: LoadingController = {
     markWorldReady: () => {
       worldReady = true;
     },
     dispose,
   };
 
-  startLoadingAnimation(false);
+  start(false);
   return controller;
 }
 
@@ -599,17 +568,17 @@ function startLoadingScreenIfGameLaunchDetected(): void {
   window.__voxicraftLoadingScreen = activeController;
 }
 
-function patchBabylonRunRenderLoop(): void {
-  if (babylonRunLoopPatched) {
+function patchSceneRender(): void {
+  if (sceneRenderPatched) {
     return;
   }
 
-  babylonRunLoopPatched = true;
-  const originalRunRenderLoop = Engine.prototype.runRenderLoop;
+  sceneRenderPatched = true;
+  const originalRender = Scene.prototype.render;
 
-  Engine.prototype.runRenderLoop = function patchedRunRenderLoop(this: Engine, renderFunction?: () => void): void {
+  Scene.prototype.render = function patchedSceneRender(this: Scene, updateCameras?: boolean, ignoreAnimations?: boolean): void {
+    originalRender.call(this, updateCameras, ignoreAnimations);
     window.__voxicraftLoadingScreen?.markWorldReady();
-    return originalRunRenderLoop.call(this, renderFunction);
   };
 }
 
@@ -635,5 +604,5 @@ function watchMainMenuLifecycle(): void {
   updateMenuState();
 }
 
-patchBabylonRunRenderLoop();
+patchSceneRender();
 watchMainMenuLifecycle();
