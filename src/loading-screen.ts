@@ -55,6 +55,7 @@ const WATER_TYPES: ReadonlySet<CellType> = new Set(["ocean", "deepOcean", "shall
 let currentSeed = INITIAL_SEED;
 let activeController: LoadingController | null = null;
 let menuWasVisible = false;
+let loadingScreenAlreadyStarted = false;
 let sceneRenderPatched = false;
 
 function injectStyles(): void {
@@ -556,7 +557,13 @@ function createLoadingScreen(): LoadingController {
 function startLoadingScreenIfGameLaunchDetected(): void {
   const canvas = document.querySelector<HTMLCanvasElement>("#voxicraft");
 
-  if (!menuWasVisible || activeController || !canvas || canvas.classList.contains("is-menu-visible")) {
+  if (
+    loadingScreenAlreadyStarted
+    || !menuWasVisible
+    || activeController
+    || !canvas
+    || canvas.classList.contains("is-menu-visible")
+  ) {
     return;
   }
 
@@ -564,6 +571,7 @@ function startLoadingScreenIfGameLaunchDetected(): void {
     return;
   }
 
+  loadingScreenAlreadyStarted = true;
   activeController = createLoadingScreen();
   window.__voxicraftLoadingScreen = activeController;
 }
