@@ -15,11 +15,26 @@ type LoginPayload = {
   password: string;
 };
 
+type CentralPresenceSession = {
+  nickname: string;
+  playerId: string | null;
+  joined: boolean;
+  socket: WebSocket | null;
+};
+
 const AUTH_TOKEN_STORAGE_KEY = "auth_token";
 const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
 const PROFILE_PIC_ENDPOINT_PATH = "/users/me/profile-pic.svg";
+const MULTIPLAYER_HELLO_TYPE = "hello";
+const MULTIPLAYER_WELCOME_TYPE = "welcome";
+const CENTRAL_JOIN_TYPE = "multiplayer_join";
+const CENTRAL_LEAVE_TYPE = "multiplayer_leave";
+const centralPresenceSessions = new WeakMap<WebSocket, CentralPresenceSession>();
+let websocketBridgeInstalled = false;
+
+installCentralPresenceBridge();
 
 export function getAuthSession(): AuthSession | null {
   try {
@@ -107,6 +122,163 @@ export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<
   const typedBlob = blob.type ? blob : new Blob([blob], { type: contentType });
 
   return URL.createObjectURL(typedBlob);
+}
+
+function installCentralPresenceBridge(): void {
+  if (websocketBridgeInstalled || typeof window === "undefined") {
+    return;
+  }
+
+  websocketBridgeInstalled = true;
+  const originalSend = window.WebSocket.prototype.send;
+  const originalClose = window.WebSocket.prototype.close;
+  const originalAddEventListener = window.WebSocket.prototype.addEventListener;
+
+  window.WebSocket.prototype.send = function patchedSend(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+    rememberMultiplayerHello(this, data);
+    originalSend.call(this, data);
+  };
+
+  window.WebSocket.prototype.close = function patchedClose(this: WebSocket, code?: number, reason?: string): void {
+    notifyCentralPresenceLeave(this);
+    originalClose.call(this, code, reason);
+  };
+
+  window.WebSocket.prototype.addEventListener = function patchedAddEventListener(
+    this: WebSocket,
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    if (type !== "message") {
+      originalAddEventListener.call(this, type, listener, options);
+      return;
+    }
+
+    const wrappedListener: EventListener = (event) => {
+      inspectMultiplayerWelcome(this, event);
+      if (typeof listener === "function") {
+        listener.call(this, event);
+      } else {
+        listener.handleEvent(event);
+      }
+    };
+
+    originalAddEventListener.call(this, type, wrappedListener, options);
+  };
+}
+
+function rememberMultiplayerHello(socket: WebSocket, data: unknown): void {
+  if (typeof data !== "string") {
+    return;
+  }
+
+  try {
+    const message = JSON.parse(data) as { type?: string; payload?: { nickname?: string } };
+    if (message.type !== MULTIPLAYER_HELLO_TYPE || !message.payload?.nickname) {
+      return;
+    }
+
+    centralPresenceSessions.set(socket, {
+      nickname: message.payload.nickname,
+      playerId: null,
+      joined: false,
+      socket: null,
+    });
+  } catch {
+    // Ignore non JSON websocket frames.
+  }
+}
+
+function inspectMultiplayerWelcome(socket: WebSocket, event: Event): void {
+  const messageEvent = event as MessageEvent;
+  if (typeof messageEvent.data !== "string") {
+    return;
+  }
+
+  const presenceSession = centralPresenceSessions.get(socket);
+  if (!presenceSession) {
+    return;
+  }
+
+  try {
+    const message = JSON.parse(messageEvent.data) as { type?: string; payload?: { player_id?: string } };
+    if (message.type !== MULTIPLAYER_WELCOME_TYPE || !message.payload?.player_id) {
+      return;
+    }
+
+    presenceSession.playerId = message.payload.player_id;
+    notifyCentralPresenceJoin(presenceSession);
+  } catch {
+    // Ignore non protocol frames.
+  }
+}
+
+function notifyCentralPresenceJoin(presenceSession: CentralPresenceSession): void {
+  if (presenceSession.joined || !presenceSession.playerId) {
+    return;
+  }
+
+  const authSession = getAuthSession();
+  if (!authSession?.token || !authSession.user.id) {
+    return;
+  }
+
+  const centralSocket = new WebSocket(resolveCentralPresenceSocketUrl(authSession.token));
+  presenceSession.socket = centralSocket;
+  centralSocket.addEventListener("open", () => {
+    centralSocket.send(JSON.stringify({
+      type: CENTRAL_JOIN_TYPE,
+      payload: {
+        player_id: presenceSession.playerId,
+        nickname: presenceSession.nickname,
+        game_domain: window.location.origin,
+      },
+    }));
+    presenceSession.joined = true;
+  });
+  centralSocket.addEventListener("error", () => centralSocket.close());
+}
+
+function notifyCentralPresenceLeave(multiplayerSocket: WebSocket): void {
+  const presenceSession = centralPresenceSessions.get(multiplayerSocket);
+  if (!presenceSession?.joined || !presenceSession.playerId || !presenceSession.socket) {
+    return;
+  }
+
+  const centralSocket = presenceSession.socket;
+  const payload = JSON.stringify({
+    type: CENTRAL_LEAVE_TYPE,
+    payload: {
+      player_id: presenceSession.playerId,
+      nickname: presenceSession.nickname,
+      game_domain: window.location.origin,
+    },
+  });
+
+  if (centralSocket.readyState === WebSocket.OPEN) {
+    centralSocket.send(payload);
+    centralSocket.close(1000, "multiplayer_left");
+  }
+
+  presenceSession.joined = false;
+  presenceSession.socket = null;
+  centralPresenceSessions.delete(multiplayerSocket);
+}
+
+function resolveCentralPresenceSocketUrl(token: string): string {
+  const customUrl = import.meta.env.VITE_CENTRAL_PRESENCE_WS_URL as string | undefined;
+  if (customUrl && customUrl.trim().length > 0) {
+    const url = new URL(customUrl.trim());
+    url.searchParams.set("auth", token);
+    return url.toString();
+  }
+
+  const baseUrl = new URL(resolveCentralAuthApiBaseUrl());
+  baseUrl.protocol = baseUrl.protocol === "https:" ? "wss:" : "ws:";
+  baseUrl.pathname = `${baseUrl.pathname.replace(/\/+$/, "")}/friends/presence/realtime`;
+  baseUrl.searchParams.set("auth", token);
+  return baseUrl.toString();
 }
 
 function saveAuthSession(session: AuthSession): void {
