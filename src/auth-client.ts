@@ -1,4 +1,5 @@
 import { consumeCentralJoinTicketFromUrl } from './central-join-ticket';
+import { issueAuthRefresh, revokeAuthRefresh } from './auth-refresh-client';
 
 export type AuthUser = {
     id: string;
@@ -64,6 +65,7 @@ export function isAuthenticated(): boolean {
 }
 
 export function logoutFromRelaySession(): void {
+    void revokeAuthRefresh();
     window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
     window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: null }));
@@ -87,6 +89,7 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
 
     const session = parseAuthSession(body);
     saveAuthSession(session);
+    await issueAuthRefresh(session.token);
     window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: session }));
     return session;
 }
