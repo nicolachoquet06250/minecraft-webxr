@@ -1,3 +1,5 @@
+import { consumeCentralJoinTicketFromUrl } from './central-join-ticket';
+
 export type AuthUser = {
     id: string;
     username: string;
@@ -20,6 +22,10 @@ const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
 const PROFILE_PIC_ENDPOINT_PATH = "/users/me/profile-pic.svg";
+
+void consumeCentralJoinTicketFromUrl().catch((error) => {
+    console.warn("Impossible de consommer le ticket central", error);
+});
 
 export function getAuthSession(): AuthSession | null {
     try {
