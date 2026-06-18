@@ -68,6 +68,11 @@ jobs:
         with:
           target: wasm32-unknown-unknown
 
+      - name: Generate .env
+        run: |
+          echo "CENTRAL_API_URL=https://central.voxicraft.fr/api" >> .env
+          echo "VITE_CENTRAL_PRESENCE_WS_URL=wss://central.voxicraft.fr/api/friends/presence/realtime" >> .env
+
       - name: Build front
         run: npm run build
 

@@ -1,5 +1,6 @@
 import { getAuthSession } from "./auth-client";
 import { queueRemotePlayerAppearanceState, setRemotePlayerMiningState } from "./remote-player-appearance";
+import { CentralPresenceClient } from "./central-presence-client";
 
 export type PlayerTransformPayload = {
   position: [number, number, number];
@@ -243,6 +244,7 @@ export class MultiplayerClient {
   private lastPongAt = 0;
   private lifecycleListenersInstalled = false;
   private manualDisconnect = false;
+  private readonly centralPresenceClient = new CentralPresenceClient();
 
   static disconnectActiveSession(): void {
     activeMultiplayerClient?.disconnect();
@@ -286,6 +288,7 @@ export class MultiplayerClient {
     this.stopHeartbeat();
     this.clearReconnectTimer();
     this.connected = false;
+    this.centralPresenceClient.leave();
     this.localPlayerId = null;
     this.knownPlayers.clear();
     this.pendingTransforms.clear();
@@ -385,6 +388,13 @@ export class MultiplayerClient {
           const wasReconnecting = this.reconnectAttempts > 0;
           this.connected = true;
           this.localPlayerId = welcome.playerId;
+          if (this.userId) {
+              this.centralPresenceClient.join({
+                  player_id: welcome.playerId,
+                  nickname: this.nickname,
+                  game_domain: window.location.origin,
+              });
+          }
           this.reconnectAttempts = 0;
           this.lastPongAt = Date.now();
           activeMultiplayerClient = this;
@@ -436,6 +446,7 @@ export class MultiplayerClient {
         }
 
         if (wasConnected) {
+          this.centralPresenceClient.leave();
           this.handlers.onClose?.();
         }
 
