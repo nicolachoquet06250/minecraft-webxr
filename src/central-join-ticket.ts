@@ -15,24 +15,30 @@ type JoinTicketSession = {
   };
 };
 
-export async function consumeCentralJoinTicketFromUrl(): Promise<boolean> {
+export type CentralJoinTicketResult =
+  | { status: 'none' }
+  | { status: 'authenticated' }
+  | { status: 'invalid'; message: string };
+
+export async function consumeCentralJoinTicketFromUrl(): Promise<CentralJoinTicketResult> {
   const ticket = readCentralJoinTicketFromHash();
-  if (!ticket) return false;
+  if (!ticket) return { status: 'none' };
 
-  const existingToken = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-  if (existingToken) {
+  try {
+    const session = await exchangeCentralJoinTicket(ticket);
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, session.token);
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
+    await issueAuthRefresh(session.token);
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: session }));
     clearCentralJoinTicketFromHash();
-    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: null }));
-    return true;
+    return { status: 'authenticated' };
+  } catch (error) {
+    clearCentralJoinTicketFromHash();
+    const message = error instanceof Error
+      ? error.message
+      : 'Ticket de connexion central invalide ou expiré';
+    return { status: 'invalid', message };
   }
-
-  const session = await exchangeCentralJoinTicket(ticket);
-  localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, session.token);
-  localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
-  await issueAuthRefresh(session.token);
-  window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: session }));
-  clearCentralJoinTicketFromHash();
-  return true;
 }
 
 async function exchangeCentralJoinTicket(ticket: string): Promise<JoinTicketSession> {
@@ -47,7 +53,7 @@ async function exchangeCentralJoinTicket(ticket: string): Promise<JoinTicketSess
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(body?.message || body?.error || `HTTP error! status: ${response.status}`);
+    throw new Error(body?.message || body?.error || `Ticket de connexion central invalide ou expiré (${response.status})`);
   }
 
   if (!body || typeof body.token !== 'string' || !body.user || typeof body.user.id !== 'string') {
