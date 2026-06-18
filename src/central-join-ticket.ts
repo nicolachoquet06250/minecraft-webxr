@@ -26,13 +26,13 @@ export async function consumeCentralJoinTicketFromUrl(): Promise<boolean> {
 }
 
 async function exchangeCentralJoinTicket(ticket: string): Promise<JoinTicketSession> {
-  const response = await fetch('/api/auth/central-login', {
+  const response = await fetch('/api/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({ ticket }),
+    body: JSON.stringify({ central_join_ticket: ticket }),
   });
 
   const body = await response.json().catch(() => null);
