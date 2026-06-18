@@ -22,6 +22,8 @@ type CentralPresenceSession = {
   socket: WebSocket | null;
 };
 
+type WebSocketSendPayload = Parameters<WebSocket["send"]>[0];
+
 const AUTH_TOKEN_STORAGE_KEY = "auth_token";
 const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
@@ -134,7 +136,7 @@ function installCentralPresenceBridge(): void {
   const originalClose = window.WebSocket.prototype.close;
   const originalAddEventListener = window.WebSocket.prototype.addEventListener;
 
-  window.WebSocket.prototype.send = function patchedSend(this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+  window.WebSocket.prototype.send = function patchedSend(this: WebSocket, data: WebSocketSendPayload): void {
     rememberMultiplayerHello(this, data);
     originalSend.call(this, data);
   };
