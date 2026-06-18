@@ -1,3 +1,5 @@
+import { issueAuthRefresh } from './auth-refresh-client';
+
 const CENTRAL_JOIN_TICKET_HASH_KEY = 'central_join_ticket';
 const AUTH_TOKEN_STORAGE_KEY = 'auth_token';
 const AUTH_USER_STORAGE_KEY = 'voxicraft:auth:user';
@@ -20,6 +22,7 @@ export async function consumeCentralJoinTicketFromUrl(): Promise<boolean> {
   const session = await exchangeCentralJoinTicket(ticket);
   localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, session.token);
   localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(session.user));
+  await issueAuthRefresh(session.token);
   window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: session }));
   clearCentralJoinTicketFromHash();
   return true;
