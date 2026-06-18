@@ -1,6 +1,7 @@
 import { isMobileMode, isVRMode } from "./mobile-controls";
 import { showOptionsMenu } from "./options-menu";
 import { getAuthSession, isAuthenticated, loadProfilePicSvgObjectUrl, loginWithRelay, logoutFromRelaySession, type AuthSession } from "./auth-client";
+import { consumeCentralJoinTicketFromUrl } from "./central-join-ticket";
 
 export const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 
@@ -31,6 +32,17 @@ type MenuPanelController = {
 
 export async function showMainMenu({ canvas, onPlay }: MainMenuOptions): Promise<void> {
     const device = await detectMenuDevice();
+    const didAutoLogin = await consumeCentralJoinTicketFromUrl().catch((error) => {
+        console.warn("Impossible de consommer le ticket central", error);
+        return false;
+    });
+
+    if (didAutoLogin) {
+        window.localStorage.setItem(GAME_MODE_STORAGE_KEY, "multiplayer");
+        canvas.classList.remove("is-menu-visible");
+        onPlay({ enterVR: device === "vr", gameMode: "multiplayer" });
+        return;
+    }
 
     showDomMenu(canvas, device, onPlay);
 }
