@@ -1,4 +1,3 @@
-import { consumeCentralJoinTicketFromUrl } from './central-join-ticket';
 import { issueAuthRefresh, revokeAuthRefresh, rotateAuthSession } from './auth-refresh-client';
 
 export type AuthUser = {
@@ -7,7 +6,6 @@ export type AuthUser = {
     email: string;
     avatar?: string;
 };
-
 
 export type AuthSession = {
     token: string;
@@ -25,10 +23,6 @@ const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
 const PROFILE_PIC_ENDPOINT_PATH = "/users/me/profile-pic.svg";
-
-void consumeCentralJoinTicketFromUrl().catch((error) => {
-    console.warn("Impossible de consommer le ticket central", error);
-});
 
 export function getAuthSession(): AuthSession | null {
     try {

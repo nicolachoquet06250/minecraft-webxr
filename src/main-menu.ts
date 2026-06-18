@@ -1,6 +1,7 @@
 import { isMobileMode, isVRMode } from "./mobile-controls";
 import { showOptionsMenu } from "./options-menu";
 import { getAuthSession, isAuthenticated, loadProfilePicSvgObjectUrl, loginWithRelay, logoutFromRelaySession, type AuthSession } from "./auth-client";
+import { consumeCentralJoinTicketFromUrl } from "./central-join-ticket";
 
 export const GAME_MODE_STORAGE_KEY = "voxicraft:game-mode";
 
@@ -31,9 +32,32 @@ type MenuPanelController = {
 
 export async function showMainMenu({ canvas, onPlay }: MainMenuOptions): Promise<void> {
     const device = await detectMenuDevice();
+    const joinTicketResult = await consumeCentralJoinTicketFromUrl().catch((error) => {
+        console.warn("Impossible de consommer le ticket central", error);
+        return {
+            status: "invalid" as const,
+            message: error instanceof Error ? error.message : "Ticket de connexion central invalide ou expiré",
+        };
+    });
 
-    showDomMenu(canvas, device, onPlay);
+    if (joinTicketResult.status === "authenticated") {
+        window.localStorage.setItem(GAME_MODE_STORAGE_KEY, "multiplayer");
+        await triggerLoadingScreenFromCanvas(canvas);
+        onPlay({ enterVR: device === "vr", gameMode: "multiplayer" });
+        return;
+    }
+
+    showDomMenu(canvas, device, onPlay, joinTicketResult.status === "invalid" ? joinTicketResult.message : undefined);
 }
+
+async function triggerLoadingScreenFromCanvas(canvas: HTMLCanvasElement): Promise<void> {
+    canvas.classList.add("is-menu-visible");
+    await nextAnimationFrame();
+    canvas.classList.remove("is-menu-visible");
+    await nextAnimationFrame();
+}
+
+const nextAnimationFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 async function detectMenuDevice(): Promise<MenuDevice> {
     if (isVRMode()) {
@@ -51,6 +75,7 @@ function showDomMenu(
     canvas: HTMLCanvasElement,
     device: MenuDevice,
     onPlay: (options?: MainMenuLaunchOptions) => void,
+    joinTicketError?: string,
 ): void {
     canvas.classList.add("is-menu-visible");
 
@@ -66,8 +91,10 @@ function showDomMenu(
         content.classList.add("voxicraft-menu__content--desktop");
     }
 
+    const lockedByJoinTicketError = Boolean(joinTicketError);
+
     function startGame(gameMode: GameMode = "singleplayer"): void {
-        if (gameMode === "multiplayer" && !authState.authenticated) {
+        if (lockedByJoinTicketError || (gameMode === "multiplayer" && !authState.authenticated)) {
             return;
         }
 
@@ -88,6 +115,10 @@ function showDomMenu(
         }
     };
     const openLogin = () => {
+        if (lockedByJoinTicketError) {
+            return;
+        }
+
         showLoginDialog(root, (session) => {
             authState.authenticated = true;
             authState.session = session;
@@ -95,19 +126,27 @@ function showDomMenu(
         });
     };
     const logout = () => {
+        if (lockedByJoinTicketError) {
+            return;
+        }
+
         logoutFromRelaySession();
         authState.authenticated = false;
         authState.session = null;
         refreshAuthControls();
     };
 
+    if (joinTicketError) {
+        content.append(createJoinTicketError(joinTicketError));
+    }
+
     if (device === "mobile") {
-        const mobilePanel = createMobileButtonPanel(startGame, authState, openLogin, logout);
+        const mobilePanel = createMobileButtonPanel(startGame, authState, openLogin, logout, lockedByJoinTicketError);
         refreshCallbacks.add(mobilePanel.refresh);
         content.append(createMobileMenuHeader(), mobilePanel.element);
     } else {
-        const desktopPanel = createDesktopButtonPanel(startGame, authState);
-        const authCorner = createAuthCornerButton(authState, openLogin, logout);
+        const desktopPanel = createDesktopButtonPanel(startGame, authState, lockedByJoinTicketError);
+        const authCorner = createAuthCornerButton(authState, openLogin, logout, lockedByJoinTicketError);
         refreshCallbacks.add(desktopPanel.refresh);
         refreshCallbacks.add(authCorner.refresh);
         root.append(createDesktopMenuTitle(device));
@@ -117,6 +156,14 @@ function showDomMenu(
 
     root.append(content);
     document.body.append(root);
+}
+
+function createJoinTicketError(message: string): HTMLElement {
+    const error = document.createElement("div");
+    error.className = "voxicraft-menu__join-ticket-error";
+    error.setAttribute("role", "alert");
+    error.textContent = `Connexion impossible : ${message}`;
+    return error;
 }
 
 function createDesktopMenuTitle(device: "desktop" | "vr"): HTMLElement {
@@ -138,11 +185,16 @@ function createDesktopMenuTitle(device: "desktop" | "vr"): HTMLElement {
 function createDesktopButtonPanel(
     onPlay: (gameMode?: GameMode) => void,
     authState: AuthMenuState,
+    locked = false,
 ): MenuPanelController {
     const panel = document.createElement("section");
     panel.className = "voxicraft-menu__desktop-panel";
 
     function openOptions(): void {
+        if (locked) {
+            return;
+        }
+
         showOptionsMenu({
             onBack: () => {
                 const canvas = document.querySelector<HTMLCanvasElement>("#voxicraft");
@@ -153,26 +205,32 @@ function createDesktopButtonPanel(
         });
     }
 
+    const singleplayerButton = createMenuButton("Un joueur", "play", locked, () => onPlay("singleplayer"));
     const multiplayerButton = createMenuButton(
         "Multijoueur",
         "play",
-        !authState.authenticated,
+        locked || !authState.authenticated,
         () => onPlay("multiplayer"),
     );
-    multiplayerButton.title = "Connecte-toi pour accéder au multijoueur";
+    multiplayerButton.title = locked
+        ? "Ticket de connexion central invalide ou expiré"
+        : "Connecte-toi pour accéder au multijoueur";
+    const optionsButton = createMenuButton("Options...", undefined, locked, openOptions);
+    const quitButton = createMenuButton("Quitter le jeu", undefined, false);
 
     const refresh = () => {
-        multiplayerButton.disabled = !authState.authenticated;
-        multiplayerButton.title = authState.authenticated ? "" : "Connecte-toi pour accéder au multijoueur";
+        singleplayerButton.disabled = locked;
+        optionsButton.disabled = locked;
+        multiplayerButton.disabled = locked || !authState.authenticated;
+        multiplayerButton.title = locked
+            ? "Ticket de connexion central invalide ou expiré"
+            : authState.authenticated ? "" : "Connecte-toi pour accéder au multijoueur";
     };
 
     panel.append(
-        createMenuButton("Un joueur", "play", false, () => onPlay("singleplayer")),
+        singleplayerButton,
         multiplayerButton,
-        createDesktopButtonRow(
-            createMenuButton("Options...", undefined, false, openOptions),
-            createMenuButton("Quitter le jeu", undefined, false),
-        ),
+        createDesktopButtonRow(optionsButton, quitButton),
     );
 
     return { element: panel, refresh };
@@ -206,11 +264,16 @@ function createMobileButtonPanel(
     authState: AuthMenuState,
     onLogin: () => void,
     onLogout: () => void,
+    locked = false,
 ): MenuPanelController {
     const panel = document.createElement("section");
     panel.className = "voxicraft-menu__mobile-panel";
 
     function openOptions(): void {
+        if (locked) {
+            return;
+        }
+
         showOptionsMenu({
             onBack: () => {
                 const canvas = document.querySelector<HTMLCanvasElement>("#voxicraft");
@@ -224,27 +287,32 @@ function createMobileButtonPanel(
     const actions = document.createElement("div");
     actions.className = "voxicraft-menu__mobile-actions";
 
+    const playButton = createMenuButton("Jouer", "play", locked, () => onPlay("singleplayer"));
     const multiplayerButton = createMenuButton(
         "Multijoueurs",
         "play",
-        !authState.authenticated,
+        locked || !authState.authenticated,
         () => onPlay("multiplayer"),
     );
-    multiplayerButton.title = "Connecte-toi pour accéder au multijoueur";
+    multiplayerButton.title = locked
+        ? "Ticket de connexion central invalide ou expiré"
+        : "Connecte-toi pour accéder au multijoueur";
+    const optionsButton = createMenuButton("Paramètres", undefined, locked, openOptions);
+    const quitButton = createMenuButton("Quitter", undefined, false);
 
-    actions.append(
-        createMenuButton("Jouer", "play", false, () => onPlay("singleplayer")),
-        multiplayerButton,
-        createMenuButton("Paramètres", undefined, false, openOptions),
-    );
+    actions.append(playButton, multiplayerButton, optionsButton, quitButton);
 
     const authSlot = document.createElement("div");
     authSlot.className = "voxicraft-menu__mobile-signin voxicraft-menu__auth-slot";
 
     const refresh = () => {
-        multiplayerButton.disabled = !authState.authenticated;
-        multiplayerButton.title = authState.authenticated ? "" : "Connecte-toi pour accéder au multijoueur";
-        renderAuthSlot(authSlot, authState, onLogin, onLogout);
+        playButton.disabled = locked;
+        optionsButton.disabled = locked;
+        multiplayerButton.disabled = locked || !authState.authenticated;
+        multiplayerButton.title = locked
+            ? "Ticket de connexion central invalide ou expiré"
+            : authState.authenticated ? "" : "Connecte-toi pour accéder au multijoueur";
+        renderAuthSlot(authSlot, authState, onLogin, onLogout, locked);
     };
     refresh();
 
@@ -256,12 +324,13 @@ function createAuthCornerButton(
     authState: AuthMenuState,
     onLogin: () => void,
     onLogout: () => void,
+    locked = false,
 ): MenuPanelController {
     const container = document.createElement("div");
     container.className = "voxicraft-menu__auth-corner voxicraft-menu__auth-slot";
 
     const refresh = () => {
-        renderAuthSlot(container, authState, onLogin, onLogout);
+        renderAuthSlot(container, authState, onLogin, onLogout, locked);
     };
     refresh();
 
@@ -273,11 +342,12 @@ function renderAuthSlot(
     authState: AuthMenuState,
     onLogin: () => void,
     onLogout: () => void,
+    locked = false,
 ): void {
     container.replaceChildren();
 
     if (!authState.authenticated || !authState.session) {
-        const button = createMenuButton("Se connecter", undefined, false, onLogin);
+        const button = createMenuButton("Se connecter", undefined, locked, onLogin);
         button.classList.add("voxicraft-menu__auth-button");
         container.append(button);
         return;
@@ -295,7 +365,8 @@ function renderAuthSlot(
     const logout = document.createElement("button");
     logout.className = "voxicraft-menu__logout-button";
     logout.type = "button";
-    logout.title = "Se déconnecter";
+    logout.title = locked ? "Action indisponible avec un ticket invalide" : "Se déconnecter";
+    logout.disabled = locked;
     logout.setAttribute("aria-label", "Se déconnecter");
     logout.addEventListener("click", onLogout);
 
