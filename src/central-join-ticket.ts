@@ -17,7 +17,14 @@ type JoinTicketSession = {
 
 export async function consumeCentralJoinTicketFromUrl(): Promise<boolean> {
   const ticket = readCentralJoinTicketFromHash();
-  if (!ticket || localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)) return false;
+  if (!ticket) return false;
+
+  const existingToken = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  if (existingToken) {
+    clearCentralJoinTicketFromHash();
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: null }));
+    return true;
+  }
 
   const session = await exchangeCentralJoinTicket(ticket);
   localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, session.token);
