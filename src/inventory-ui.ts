@@ -1,7 +1,7 @@
 import { Color3, Matrix, Mesh, MeshBuilder, Ray, Scene, StandardMaterial, Vector3 } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Control, Rectangle, StackPanel, TextBlock } from "@babylonjs/gui";
 import { renderItemIconControl } from "./items/rendering";
-import { isMobileMode } from "./mobile-controls";
+import { isMobileMode, isVRMode } from "./mobile-controls";
 import { isCraftingOverlayOpen } from "./ui-state";
 import { type PlayerPhysics } from "./types";
 import type { WebXRGameControls, XRHandedness } from "./vr-mode";
@@ -22,7 +22,7 @@ type InventoryBarControls = {
 };
 
 export type VRInventoryBarControls = {
-  readonly panel: Mesh;
+  readonly panel: Mesh | null;
   readonly isRayPointingAtInventory: (ray: Ray | null) => boolean;
 };
 
@@ -72,6 +72,13 @@ export function initializeVRInventoryBar(
   player: PlayerPhysics,
   webXRControls: WebXRGameControls,
 ): VRInventoryBarControls {
+  if (!isVRMode()) {
+    return {
+      panel: null,
+      isRayPointingAtInventory: () => false,
+    };
+  }
+
   const panel = MeshBuilder.CreatePlane(
     "vr-inventory-hotbar-panel",
     { width: VR_HOTBAR_WIDTH, height: VR_HOTBAR_HEIGHT },
