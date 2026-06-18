@@ -7,6 +7,7 @@ export type AuthUser = {
     avatar?: string;
 };
 
+
 export type AuthSession = {
     token: string;
     user: AuthUser;
