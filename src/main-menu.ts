@@ -39,13 +39,29 @@ export async function showMainMenu({ canvas, onPlay }: MainMenuOptions): Promise
 
     if (didAutoLogin) {
         window.localStorage.setItem(GAME_MODE_STORAGE_KEY, "multiplayer");
-        canvas.classList.remove("is-menu-visible");
+        await triggerLoadingScreenWithoutVisibleMenu(canvas);
         onPlay({ enterVR: device === "vr", gameMode: "multiplayer" });
         return;
     }
 
     showDomMenu(canvas, device, onPlay);
 }
+
+async function triggerLoadingScreenWithoutVisibleMenu(canvas: HTMLCanvasElement): Promise<void> {
+    const transientMenu = document.createElement("div");
+    transientMenu.className = "voxicraft-menu";
+    transientMenu.style.display = "none";
+
+    canvas.classList.add("is-menu-visible");
+    document.body.append(transientMenu);
+    await nextAnimationFrame();
+
+    transientMenu.remove();
+    canvas.classList.remove("is-menu-visible");
+    await nextAnimationFrame();
+}
+
+const nextAnimationFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 async function detectMenuDevice(): Promise<MenuDevice> {
     if (isVRMode()) {
