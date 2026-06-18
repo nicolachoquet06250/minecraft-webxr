@@ -1,5 +1,5 @@
 import { consumeCentralJoinTicketFromUrl } from './central-join-ticket';
-import { issueAuthRefresh, revokeAuthRefresh } from './auth-refresh-client';
+import { issueAuthRefresh, revokeAuthRefresh, rotateAuthSession } from './auth-refresh-client';
 
 export type AuthUser = {
     id: string;
@@ -19,6 +19,7 @@ type LoginPayload = {
 };
 
 const AUTH_TOKEN_STORAGE_KEY = "auth_token";
+const AUTH_REFRESH_STORAGE_KEY = "auth_refresh";
 const AUTH_USER_STORAGE_KEY = "voxicraft:auth:user";
 const AUTH_CHANGED_EVENT = "voxicraft-auth-changed";
 const DEFAULT_CENTRAL_AUTH_API_BASE_URL = "https://central.voxicraft.fr/api";
@@ -67,6 +68,7 @@ export function isAuthenticated(): boolean {
 export function logoutFromRelaySession(): void {
     void revokeAuthRefresh();
     window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(AUTH_REFRESH_STORAGE_KEY);
     window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
     window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: null }));
 }
@@ -95,27 +97,40 @@ export async function loginWithRelay(payload: LoginPayload): Promise<AuthSession
 }
 
 export async function loadProfilePicSvgObjectUrl(session: AuthSession): Promise<string> {
-    const url = `${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}?t=${Date.now()}`;
-    console.debug("[Voxicraft] Chargement de la photo de profil", url);
+    const response = await fetchProfilePic(session.token);
+    const finalResponse = response.status === 401
+        ? await retryProfilePicWithRefresh(response)
+        : response;
 
-    const response = await fetch(url, {
-        method: "GET",
-        headers: {
-            Accept: "image/svg+xml",
-            Authorization: `Bearer ${session.token}`,
-        },
-        cache: "no-store",
-    });
-
-    if (!response.ok) {
-        throw new Error(`Impossible de récupérer l'image de profil (${response.status})`);
+    if (!finalResponse.ok) {
+        throw new Error(`Impossible de récupérer l'image de profil (${finalResponse.status})`);
     }
 
-    const contentType = response.headers.get("Content-Type") || "image/svg+xml";
-    const blob = await response.blob();
+    const contentType = finalResponse.headers.get("Content-Type") || "image/svg+xml";
+    const blob = await finalResponse.blob();
     const typedBlob = blob.type ? blob : new Blob([blob], { type: contentType });
 
     return URL.createObjectURL(typedBlob);
+}
+
+async function fetchProfilePic(token: string): Promise<Response> {
+    const url = `${resolveCentralAuthApiBaseUrl()}${PROFILE_PIC_ENDPOINT_PATH}?t=${Date.now()}`;
+    console.debug("[Voxicraft] Chargement de la photo de profil", url);
+
+    return fetch(url, {
+        method: "GET",
+        headers: {
+            Accept: "image/svg+xml",
+            Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+    });
+}
+
+async function retryProfilePicWithRefresh(previousResponse: Response): Promise<Response> {
+    const refreshedSession = await rotateAuthSession();
+    if (!refreshedSession) return previousResponse;
+    return fetchProfilePic(refreshedSession.token);
 }
 
 function saveAuthSession(session: AuthSession): void {
