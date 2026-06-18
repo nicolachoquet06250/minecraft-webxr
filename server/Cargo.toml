@@ -1,6 +1,6 @@
 [package]
 name = "voxicraft_server"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 description = "Serveur multijoueur autoritaire pour Voxicraft"
 repository = "https://github.com/nicolachoquet06250/minecraft-webxr.git"
