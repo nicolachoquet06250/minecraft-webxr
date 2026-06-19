@@ -289,7 +289,7 @@ function ensureMenuStyle(): void {
     .voxicraft-ingame-menu__burger {
       position: fixed;
       top: max(12px, env(safe-area-inset-top));
-      right: max(12px, env(safe-area-inset-right));
+      left: max(12px, env(safe-area-inset-left));
       z-index: 12000;
       display: none;
       place-items: center;
