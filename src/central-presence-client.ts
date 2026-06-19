@@ -8,6 +8,8 @@ type PresencePayload = {
     player_id: string;
     nickname: string;
     game_domain: string;
+    user_id?: string | null;
+    central_user_id?: string | null;
 };
 
 export class CentralPresenceClient {
@@ -37,7 +39,7 @@ export class CentralPresenceClient {
             this.opened = true;
 
             if (this.lastJoinPayload) {
-                this.send("multiplayer_join", this.lastJoinPayload);
+                this.send("multiplayer_join", this.withCurrentUser(this.lastJoinPayload));
             }
         });
 
@@ -54,11 +56,11 @@ export class CentralPresenceClient {
     }
 
     join(payload: PresencePayload): void {
-        this.lastJoinPayload = payload;
+        this.lastJoinPayload = this.withCurrentUser(payload);
         this.connect();
 
         if (this.opened) {
-            this.send("multiplayer_join", payload);
+            this.send("multiplayer_join", this.lastJoinPayload);
         }
     }
 
@@ -67,7 +69,7 @@ export class CentralPresenceClient {
             return;
         }
 
-        const payload = this.lastJoinPayload;
+        const payload = this.withCurrentUser(this.lastJoinPayload);
         this.lastJoinPayload = null;
 
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
@@ -85,7 +87,16 @@ export class CentralPresenceClient {
             return;
         }
 
-        this.socket.send(JSON.stringify({ type, payload }));
+        this.socket.send(JSON.stringify({ type, payload: this.withCurrentUser(payload) }));
+    }
+
+    private withCurrentUser(payload: PresencePayload): PresencePayload {
+        const userId = payload.user_id || payload.central_user_id || getAuthSession()?.user.id || null;
+        return {
+            ...payload,
+            user_id: userId,
+            central_user_id: userId,
+        };
     }
 }
 
