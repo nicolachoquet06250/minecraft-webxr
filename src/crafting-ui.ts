@@ -88,11 +88,41 @@ const DESKTOP_CRAFTING_LAYOUT: CraftingLayout = {
   hotbarGridTop: 90,
 };
 
-const MOBILE_CRAFTING_LAYOUT: CraftingLayout = {
-  ...DESKTOP_CRAFTING_LAYOUT,
-  bottomZoneHeight: 236,
-  bottomZoneTop: 116,
-  hotbarGridTop: 82,
+const MOBILE_PORTRAIT_CRAFTING_LAYOUT: CraftingLayout = {
+  panelWidth: 356,
+  panelHeight: 548,
+  panelThickness: 3,
+  titleFontSize: 16,
+  titleHeight: 22,
+  titleTop: 5,
+  zoneWidth: 328,
+  topZoneHeight: 176,
+  topZoneTop: -92,
+  bottomZoneHeight: 202,
+  bottomZoneTop: 122,
+  slotSize: 34,
+  resultSlotSize: 38,
+  iconSize: 24,
+  slotThickness: 2,
+  countFontSize: 10,
+  armorSlotsTop: -57,
+  armorSlotsStep: 36,
+  armorSlotLeft: -135,
+  armorSlotSize: 31,
+  steveContainerSize: 72,
+  steveImageSize: 92,
+  steveLeft: -82,
+  offhandLeft: -135,
+  craftGridLeft: 44,
+  craftGridTop: -17,
+  arrowLeft: 94,
+  arrowTop: -17,
+  arrowSize: 24,
+  arrowFontSize: 20,
+  resultLeft: 131,
+  resultTop: -17,
+  inventoryGridTop: -34,
+  hotbarGridTop: 74,
 };
 
 const MOBILE_LANDSCAPE_CRAFTING_LAYOUT: CraftingLayout = {
@@ -132,6 +162,7 @@ const MOBILE_LANDSCAPE_CRAFTING_LAYOUT: CraftingLayout = {
   hotbarGridTop: 58,
 };
 
+const MOBILE_VIEWPORT_PADDING = 12;
 const CRAFT_GRID_SIZE = 2;
 const EXTENDED_INVENTORY_SLOT_COUNT = 27;
 const HOTBAR_SLOT_COUNT = 9;
@@ -218,7 +249,6 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
     topZone.addControl(armorSlot);
   }
 
-  // Créer et afficher le SVG de Steve à droite des armor slots
   const stevePreviewContainer = new Rectangle("steve-preview-container");
   stevePreviewContainer.width = `${layout.steveContainerSize}px`;
   stevePreviewContainer.height = `${layout.steveContainerSize}px`;
@@ -230,7 +260,6 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 
   let stevePreviewUrl: string | null = null;
 
-  // Générer le SVG Steve en position neutre et le convertir en data URL
   try {
     const steveSvg = createSteveSvg(
       scene,
@@ -243,12 +272,8 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
         stroke: "none",
       }
     );
-
-    // Convertir SVG en data URL
     const svgBlob = new Blob([steveSvg], { type: "image/svg+xml" });
     stevePreviewUrl = URL.createObjectURL(svgBlob);
-
-    // Créer l'image GUI et l'ajouter
     const stevePreview = new GuiImage("steve-preview", stevePreviewUrl);
     stevePreview.width = `${layout.steveImageSize}px`;
     stevePreview.height = `${layout.steveImageSize}px`;
@@ -526,11 +551,37 @@ export function initializeCraftingOverlay(scene: Scene, player: PlayerPhysics): 
 }
 
 function getCraftingLayout(isMobile: boolean): CraftingLayout {
-  if (isMobile && window.innerWidth > window.innerHeight) {
-    return MOBILE_LANDSCAPE_CRAFTING_LAYOUT;
+  if (!isMobile) return DESKTOP_CRAFTING_LAYOUT;
+
+  const baseLayout = window.innerWidth > window.innerHeight
+    ? MOBILE_LANDSCAPE_CRAFTING_LAYOUT
+    : MOBILE_PORTRAIT_CRAFTING_LAYOUT;
+
+  return fitMobileLayoutToViewport(baseLayout);
+}
+
+function fitMobileLayoutToViewport(layout: CraftingLayout): CraftingLayout {
+  const maxWidth = Math.max(240, window.innerWidth - MOBILE_VIEWPORT_PADDING * 2);
+  const maxHeight = Math.max(320, window.innerHeight - MOBILE_VIEWPORT_PADDING * 2);
+  const scale = Math.min(1, maxWidth / layout.panelWidth, maxHeight / layout.panelHeight);
+
+  if (scale >= 0.995) return layout;
+
+  return scaleCraftingLayout(layout, scale);
+}
+
+function scaleCraftingLayout(layout: CraftingLayout, scale: number): CraftingLayout {
+  return Object.fromEntries(
+    Object.entries(layout).map(([key, value]) => [key, scaleCraftingLayoutValue(key as keyof CraftingLayout, value, scale)])
+  ) as CraftingLayout;
+}
+
+function scaleCraftingLayoutValue(key: keyof CraftingLayout, value: number, scale: number): number {
+  if (key === "panelThickness" || key === "slotThickness") {
+    return Math.max(1, Math.round(value * scale));
   }
 
-  return isMobile ? MOBILE_CRAFTING_LAYOUT : DESKTOP_CRAFTING_LAYOUT;
+  return Math.round(value * scale);
 }
 
 function getPointerButton(eventData: unknown): number {
