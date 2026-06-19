@@ -181,11 +181,8 @@ function updateMobileBurgerVisibility(): void {
 }
 
 function ensureMenuStyle(): void {
-  if (document.getElementById(STYLE_ID)) {
-    return;
-  }
-
-  const style = document.createElement("style");
+  const existingStyle = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+  const style = existingStyle ?? document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
     .voxicraft-ingame-menu {
@@ -290,6 +287,7 @@ function ensureMenuStyle(): void {
       position: fixed;
       top: max(12px, env(safe-area-inset-top));
       left: max(12px, env(safe-area-inset-left));
+      right: auto;
       z-index: 12000;
       display: none;
       place-items: center;
@@ -327,5 +325,8 @@ function ensureMenuStyle(): void {
       }
     }
   `;
-  document.head.append(style);
+
+  if (!existingStyle) {
+    document.head.append(style);
+  }
 }
